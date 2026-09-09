@@ -66,6 +66,9 @@ def parse_results_html(html: str) -> pd.DataFrame:
                 division = dm.group(1).upper()
             fam_name = event + (f" {division}-Division" if division else "")
             family, tier, in_scope = classify_event(fam_name)
+            if re.search(r"mixed ?doubles|mixed", low) and family not in ("MixedDoubles", "Mixed"):
+                # a team event row whose book is the mixed-doubles or mixed-team companion
+                family, tier, in_scope = ("MixedDoubles" if "double" in low else "Mixed"), None, False
             if year is None:
                 ym = re.search(r"(19|20)\d{2}", file_name)
                 year = int(ym.group(0)) if ym else None
