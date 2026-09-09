@@ -17,6 +17,15 @@ from ..ingest.pdf_pages import page_kind
 log = logging.getLogger(__name__)
 
 
+def read_inventory(path: str) -> pd.DataFrame:
+    """Read the inventory with text columns as object dtype (an all-empty column reads back as float)."""
+    inv = pd.read_csv(path)
+    for c in ("notes", "status", "style_family", "has_shot_by_shot", "gender", "division", "location"):
+        if c in inv:
+            inv[c] = inv[c].astype(object).where(inv[c].notna(), None)
+    return inv
+
+
 def survey_book(pdf_path: str, max_pages: int = 400) -> dict:
     """Detect shot-by-shot pages and characterise the template of one book."""
     info = {"has_shot_by_shot": False, "n_pages": 0, "template": None, "grade_style": None,
@@ -52,7 +61,7 @@ def survey_book(pdf_path: str, max_pages: int = 400) -> dict:
 
 def run_batch(inventory_csv: str, raw_dir: str, out_dir: str, reports_dir: str,
               limit: int | None = None, force: bool = False) -> pd.DataFrame:
-    inv = pd.read_csv(inventory_csv)
+    inv = read_inventory(inventory_csv)
     os.makedirs(out_dir, exist_ok=True); os.makedirs(reports_dir, exist_ok=True)
     n = 0
     for i, r in inv.iterrows():

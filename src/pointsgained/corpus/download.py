@@ -11,10 +11,19 @@ import pandas as pd
 log = logging.getLogger(__name__)
 
 
+def read_inventory(path: str) -> pd.DataFrame:
+    """Read the inventory with text columns as object dtype (an all-empty column reads back as float)."""
+    inv = pd.read_csv(path)
+    for c in ("notes", "status", "style_family", "has_shot_by_shot", "gender", "division", "location"):
+        if c in inv:
+            inv[c] = inv[c].astype(object).where(inv[c].notna(), None)
+    return inv
+
+
 def download_books(inventory_csv: str, raw_dir: str, delay: float = 3.0, limit: int | None = None,
                    tiers: list[int] | None = None) -> pd.DataFrame:
     import requests
-    inv = pd.read_csv(inventory_csv)
+    inv = read_inventory(inventory_csv)
     todo = inv[inv["in_scope"] == True]
     if tiers:
         todo = todo[todo["tier"].isin(tiers)]
