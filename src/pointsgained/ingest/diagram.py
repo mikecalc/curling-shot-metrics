@@ -26,8 +26,8 @@ REFERENCE = {
     "yellow": [(255, 200, 50), (255, 230, 0), (255, 255, 0)],
     "white": [(255, 255, 255)],
     "black": [(0, 0, 0)],
-    "ring12": [(200, 200, 255)],
-    "ring4": [(255, 255, 160), (160, 255, 192), (255, 200, 200)],
+    "ring12": [(200, 200, 255), (137, 230, 137)],
+    "ring4": [(255, 255, 160), (160, 255, 192), (255, 200, 200), (211, 240, 170)],
     "grey": [(80, 80, 80)],
     "mark": [(0, 25, 255)],          # blue cross drawn on yellow stones in some templates
 }
@@ -122,10 +122,18 @@ _REF_CLASS = np.array([CLASS_INDEX[k] for k, refs in REFERENCE.items() for _ in 
 
 
 def classify_colours(colours: np.ndarray) -> np.ndarray:
-    """Class index for each RGB row of `colours` (n, 3) by nearest reference colour."""
+    """Class index for each RGB row of `colours` (n, 3) by nearest reference colour.
+
+    A colour far from every reference (an unseen ring paint) that is neither dark nor near
+    white is treated as house paint, so orientation and calibration survive new palettes."""
     c = colours.astype(float)
     d = ((c[:, None, :] - _REF_ARRAY[None, :, :]) ** 2).sum(axis=2)
-    return _REF_CLASS[np.argmin(d, axis=1)]
+    cls = _REF_CLASS[np.argmin(d, axis=1)].copy()
+    far = d.min(axis=1) > 60 ** 2
+    light = c.max(axis=1) > 120
+    not_white = (c.max(axis=1) - c.min(axis=1)) > 40
+    cls[far & light & not_white] = CLASS_INDEX["ring4"]
+    return cls
 
 
 def classify_pixels(rgb: np.ndarray) -> np.ndarray:
@@ -184,9 +192,14 @@ class Diagram:
     flipped: bool = False        # the source image had the house at the top (rotated before reading)
 
 
+def house_mask(cls: np.ndarray) -> np.ndarray:
+    """Pixels of the coloured rings (any template palette: blue/yellow, blue/green, blue/pink...)."""
+    return (cls == CLASS_INDEX["ring12"]) | (cls == CLASS_INDEX["ring4"])
+
+
 def is_house_at_top(cls: np.ndarray) -> bool:
-    """True if the 12-foot ring sits in the upper half of the image (alternate-end drawing)."""
-    ring = cls == CLASS_INDEX["ring12"]
+    """True if the house sits in the upper half of the image (alternate-end drawing)."""
+    ring = house_mask(cls)
     rows = np.nonzero(ring.any(axis=1))[0]
     if len(rows) == 0:
         return False
@@ -213,7 +226,7 @@ def measure_calibration(cls: np.ndarray) -> Calibration:
     cal.pin_row = float(np.argmax(rb))
     cb = col_black.copy(); cb[:2] = 0; cb[-2:] = 0
     cal.pin_col = float(np.argmax(cb))
-    ring = cls[play] == CLASS_INDEX["ring12"]
+    ring = house_mask(cls[play])
     cols = np.nonzero(ring.any(axis=0))[0]
     if len(cols) > 50:
         cal.r12_px = float(cols.max() - cols.min()) / 2.0

@@ -335,8 +335,14 @@ def parse_header(words, has_images_at_row=None) -> PageHeader:
 
 
 def _parse_end_header(ws, hdr: PageHeader) -> None:
-    toks = [w["text"] for w in ws]
-    xs = [w["x0"] for w in ws]
+    toks, xs = [], []
+    for w in ws:
+        t = w["text"]
+        m = re.fullmatch(r"(\d+|X)\+", t)      # '11+' glued when the running score has two digits
+        if m:
+            toks += [m.group(1), "+"]; xs += [w["x0"], w["x0"]]
+        else:
+            toks.append(t); xs.append(w["x0"])
     # End number
     for i, tok in enumerate(toks):
         if tok == "End" and i + 1 < len(toks) and toks[i + 1].isdigit():

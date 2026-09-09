@@ -48,3 +48,11 @@ def test_end_header_2014_layout():
     ws = [{"text": t, "x0": 10.0 * i, "top": 151.0} for i, t in enumerate(toks)]
     h = PageHeader(); _parse_end_header(ws, h)
     assert h.end_number == 2 and h.teams[1].code == "NOR" and h.teams[1].score_this_end == 1 and h.teams[1].score_after == 2
+
+
+def test_end_header_glued_plus():
+    from pointsgained.ingest.panel_text import PageHeader, _parse_end_header
+    toks = "End 7 NOR - Norway 3 + 1 (this end) = 4 CAN - Canada 11+ 0 (this end) = 11".split()
+    ws = [{"text": t, "x0": 10.0 * i, "top": 150.0} for i, t in enumerate(toks)]
+    h = PageHeader(); _parse_end_header(ws, h)
+    assert (h.teams[1].score_before, h.teams[1].score_this_end, h.teams[1].score_after) == (11, 0, 11)

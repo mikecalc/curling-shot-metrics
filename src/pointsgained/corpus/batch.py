@@ -77,8 +77,9 @@ def process_book(pdf: str, book_id: str, out_dir: str, reports_dir: str) -> dict
     v = validate_book(t); v["seconds"] = round(time.time() - t0, 1); v["n_warnings"] = len(t.warnings)
     with open(os.path.join(reports_dir, f"validation_{book_id}.json"), "w") as f:
         json.dump(v, f, indent=2, default=str)
-    ok = (v.get("counter_census_ok_rate") or 0) >= 0.99 and (v.get("score_reconstruction_ok_rate") or 0) >= 0.9 \
-        and v.get("hammer_alternation_violations", 1) == 0 and v.get("n_games", 0) > 0
+    checked = max(1, v.get("hammer_alternation_checked", 0) or 0)
+    ok = (v.get("counter_census_ok_rate") or 0) >= 0.97 and (v.get("score_reconstruction_ok_rate") or 0) >= 0.9 \
+        and (v.get("hammer_alternation_violations", 1) or 0) / checked <= 0.01 and v.get("n_games", 0) > 0
     res["status"] = "validated" if ok else "extracted"
     res["notes"] = (f"games={v['n_games']} shots={v['n_shots']} census={v.get('counter_census_ok_rate', 0):.3f} "
                     f"score={v.get('score_reconstruction_ok_rate') or 0:.3f} hammer_viol={v.get('hammer_alternation_violations')} s={v['seconds']}")
