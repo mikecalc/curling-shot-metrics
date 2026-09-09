@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pointsgained"
+version = "0.1.0"
+description = "Points Gained: a shot-value metric for curling built from World Curling shot-by-shot results books"
+requires-python = ">=3.12"
+dependencies = [
+  "pdfplumber>=0.11",
+  "numpy>=2.0",
+  "pandas>=2.2",
+  "pyarrow>=16",
+  "duckdb>=1.0",
+  "scipy>=1.13",
+  "scikit-learn>=1.5",
+  "matplotlib>=3.9",
+  "pillow>=10",
+  "requests>=2.32",
+  "tabulate>=0.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+lgbm = ["lightgbm>=4.3"]  # needs libomp (brew install libomp)
+
+[project.scripts]
+pointsgained = "pointsgained.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

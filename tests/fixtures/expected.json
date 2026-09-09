@@ -1,0 +1,67 @@
+{
+ "wcf_odd_end_two_touching": {
+  "flipped": false,
+  "n_red": 2,
+  "n_yellow": 1,
+  "counters": {
+   "red_remaining": 5,
+   "red_removed": 1,
+   "yellow_remaining": 4,
+   "yellow_removed": 3
+  },
+  "delivered": "yellow",
+  "n_priors": 2
+ },
+ "wcf_even_end_flipped": {
+  "flipped": true,
+  "n_red": 2,
+  "n_yellow": 4,
+  "counters": {
+   "red_remaining": 0,
+   "red_removed": 6,
+   "yellow_remaining": 0,
+   "yellow_removed": 4
+  },
+  "delivered": "yellow",
+  "n_priors": 2
+ },
+ "olympic_blue_cross": {
+  "flipped": false,
+  "n_red": 2,
+  "n_yellow": 2,
+  "counters": {
+   "red_remaining": 6,
+   "red_removed": 0,
+   "yellow_remaining": 6,
+   "yellow_removed": 0
+  },
+  "delivered": "red",
+  "n_priors": 0
+ },
+ "2014_black_x_priors": {
+  "flipped": true,
+  "n_red": 1,
+  "n_yellow": 1,
+  "counters": {
+   "red_remaining": 3,
+   "red_removed": 4,
+   "yellow_remaining": 4,
+   "yellow_removed": 3
+  },
+  "delivered": "red",
+  "n_priors": 3
+ },
+ "2014_thick_outline": {
+  "flipped": true,
+  "n_red": 1,
+  "n_yellow": 1,
+  "counters": {
+   "red_remaining": 7,
+   "red_removed": 0,
+   "yellow_remaining": 7,
+   "yellow_removed": 0
+  },
+  "delivered": "yellow",
+  "n_priors": 0
+ }
+}
