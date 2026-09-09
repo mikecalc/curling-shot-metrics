@@ -173,6 +173,12 @@ def cmd_model(args):
           "shot_types": agg.by_shot_type(pg), "shot_numbers": agg.by_shot_number(pg)}
     for k, df in lb.items():
         df.to_csv(os.path.join(args.reports, f"leaderboard_{k}.csv"), index=False)
+    # stratified tables (discipline, tier, hammer, game state), both currencies
+    from .model.pg import situation_lookup
+    pgs = agg.attach_strata(pg, situation_lookup(tabs), args.inventory)
+    strata = agg.strata_tables(pgs, min_shots_player=args.min_shots)
+    for k, df in strata.items():
+        df.to_csv(os.path.join(args.reports, f"strata_{k}.csv"), index=False)
     with open(os.path.join(args.reports, "model_report.json"), "w") as f:
         json.dump(rep, f, indent=2, default=str)
     with open(os.path.join(args.reports, "model_report.md"), "w") as f:
@@ -202,6 +208,14 @@ def cmd_model(args):
         f.write("## Leaderboards\n\n### Shot types\n\n" + lb["shot_types"].round(3).to_markdown(index=False) + "\n\n")
         f.write("### Players (PG: Throw per shot, min %d shots)\n\n" % args.min_shots + lb["players"].head(25).round(3).to_markdown(index=False) + "\n\n")
         f.write("### Teams\n\n" + lb["teams"].round(3).to_markdown(index=False) + "\n")
+        f.write("\n## Stratified (pg in hammer-adjusted points; _wp columns in win probability)\n\n")
+        for k, title in [("discipline_tier", "By discipline and tier"), ("discipline_hammer", "By discipline and hammer"),
+                         ("game_state_hammer", "By game state (thrower's view) and hammer"),
+                         ("shot_type_hammer", "By shot type and hammer")]:
+            f.write(f"### {title}\n\n" + strata[k].round(4).to_markdown(index=False) + "\n\n")
+        f.write("### Players: execution relative to the field for the same shot type and hammer state (min %d shots)\n\n" % args.min_shots)
+        f.write(strata["players"].head(30).round(4).to_markdown(index=False) + "\n\n")
+        f.write("### Teams by hammer\n\n" + strata["teams_hammer"].round(4).to_markdown(index=False) + "\n")
     print(json.dumps({k: v for k, v in rep.items() if k not in ("cv",)}, indent=2, default=str))
     print(json.dumps({k: v for k, v in rep["cv"].items() if k not in ("calibration_f", "logloss_by_rocks_remaining")}, indent=2))
     print(f"wrote {args.reports}/model_report.md in {time.time() - t0:.0f}s")
@@ -252,6 +266,7 @@ def main(argv=None):
     d.add_argument("--seed", type=int, default=0)
     d.add_argument("--min-shots", type=int, default=40)
     d.add_argument("--no-mirror", action="store_true")
+    d.add_argument("--inventory", default="data/inventory.csv", help="for tier and event family strata")
     d.set_defaults(func=cmd_model)
     e = sub.add_parser("inventory", help="build the inventory of the curlit results directory")
     e.add_argument("--out", default="data/inventory.csv")
