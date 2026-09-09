@@ -56,3 +56,13 @@ def test_end_header_glued_plus():
     ws = [{"text": t, "x0": 10.0 * i, "top": 150.0} for i, t in enumerate(toks)]
     h = PageHeader(); _parse_end_header(ws, h)
     assert (h.teams[1].score_before, h.teams[1].score_this_end, h.teams[1].score_after) == (11, 0, 11)
+
+
+def test_end_header_2017_glued():
+    from pointsgained.ingest.panel_text import PageHeader, _parse_end_header
+    toks = ["End1", "CAN-Canada", "0+0(this", "end)=0", "SWE-Sweden", "1+2(this", "end)=3"]
+    ws = [{"text": t, "x0": 10.0 * i, "top": 150.0} for i, t in enumerate(toks)]
+    h = PageHeader(); _parse_end_header(ws, h)
+    assert h.end_number == 1 and [t.code for t in h.teams] == ["CAN", "SWE"]
+    assert (h.teams[1].score_before, h.teams[1].score_this_end, h.teams[1].score_after) == (1, 2, 3)
+    assert h.teams[0].name == "Canada"

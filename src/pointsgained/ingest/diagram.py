@@ -129,10 +129,12 @@ def classify_colours(colours: np.ndarray) -> np.ndarray:
     c = colours.astype(float)
     d = ((c[:, None, :] - _REF_ARRAY[None, :, :]) ** 2).sum(axis=2)
     cls = _REF_CLASS[np.argmin(d, axis=1)].copy()
-    far = d.min(axis=1) > 60 ** 2
+    stone_refs = np.isin(_REF_CLASS, [CLASS_INDEX["red"], CLASS_INDEX["yellow"]])
+    far = d.min(axis=1) > 90 ** 2
+    far_from_stones = d[:, stone_refs].min(axis=1) > 110 ** 2     # noisy stone tones stay stones
     light = c.max(axis=1) > 120
     not_white = (c.max(axis=1) - c.min(axis=1)) > 40
-    cls[far & light & not_white] = CLASS_INDEX["ring4"]
+    cls[far & far_from_stones & light & not_white] = CLASS_INDEX["ring4"]
     return cls
 
 

@@ -334,15 +334,16 @@ def parse_header(words, has_images_at_row=None) -> PageHeader:
     return hdr
 
 
+HEADER_TOKEN = re.compile(r"\(this|end\)|[A-Za-z][A-Za-z'.]*|\d+|X|[+=\-]")
+
+
 def _parse_end_header(ws, hdr: PageHeader) -> None:
+    # Some templates glue pieces together ('End1', 'CAN-Canada', '0+0(this', 'end)=0', '11+'):
+    # re-tokenise every word into names, numbers and punctuation.
     toks, xs = [], []
     for w in ws:
-        t = w["text"]
-        m = re.fullmatch(r"(\d+|X)\+", t)      # '11+' glued when the running score has two digits
-        if m:
-            toks += [m.group(1), "+"]; xs += [w["x0"], w["x0"]]
-        else:
-            toks.append(t); xs.append(w["x0"])
+        for piece in HEADER_TOKEN.findall(w["text"]):
+            toks.append(piece); xs.append(w["x0"])
     # End number
     for i, tok in enumerate(toks):
         if tok == "End" and i + 1 < len(toks) and toks[i + 1].isdigit():

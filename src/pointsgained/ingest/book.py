@@ -60,10 +60,12 @@ def _team_colours_from_images(page, hdr: PageHeader) -> dict[str, str]:
     return colours
 
 
-def _game_key(hdr: PageHeader, codes: list[str]) -> str:
+def _game_key(hdr: PageHeader, codes: list[str], book_id: str = "") -> str:
+    """Unique per game across the corpus: book and discipline are included because men's and
+    women's events share dates, sessions and team codes."""
     d = hdr.date.isoformat() if hdr.date else "nodate"
     sess = re.sub(r"[^A-Za-z0-9]+", "_", hdr.session).strip("_")
-    return f"{d}|{hdr.start_time or ''}|{sess}|{'-'.join(sorted(codes))}"
+    return f"{book_id}|{hdr.discipline or ''}|{d}|{hdr.start_time or ''}|{sess}|{'-'.join(sorted(codes))}"
 
 
 def extract_book(pdf_path: str, book_id: str | None = None, max_pages: int | None = None,
@@ -87,7 +89,7 @@ def extract_book(pdf_path: str, book_id: str | None = None, max_pages: int | Non
                         gr = parse_game_results(words)
                         if gr is not None:
                             codes = [ls.code for ls in gr.line_scores]
-                            key = _game_key(gr.header, codes)
+                            key = _game_key(gr.header, codes, book_id)
                             prow["discipline"] = gr.header.discipline
                             prow["game_key"] = key
                             for ls in gr.line_scores:
@@ -143,10 +145,15 @@ def _extract_sbs_page(page, words, page_no, book_id, prow, game_rows, end_rows, 
         warnings.append(f"page {page_no}: could not parse end header")
         return
     codes = [t.code for t in hdr.teams]
-    key = _game_key(hdr, codes)
+    key = _game_key(hdr, codes, book_id)
     prow["game_key"] = key
     if hdr.discipline not in IN_SCOPE_DISCIPLINES:
         prow["kind"] = "shot_by_shot_out_of_scope"
+        return
+    if any(e["game_key"] == key and e["end"] == hdr.end_number for e in end_rows):
+        # some books carry a game's shot-by-shot report twice (re-issued); keep the first copy
+        prow["kind"] = "shot_by_shot_duplicate"
+        warnings.append(f"page {page_no}: duplicate report for {key} end {hdr.end_number}; skipped")
         return
     colours = _team_colours_from_images(page, hdr)
     big = [im for im in page.images if is_diagram_image(im)]
@@ -260,6 +267,7 @@ def _cluster_rows(tops: list[float], gap: float = 50) -> list[float]:
 def _infer_hammer(ends: pd.DataFrame, shots: pd.DataFrame, games: pd.DataFrame) -> None:
     """Hammer = the team that did not throw shot 1 (teams alternate)."""
     first = shots[shots["shot"] == 1][["game_key", "end", "team"]].rename(columns={"team": "first_team"})
+    first = first.drop_duplicates(["game_key", "end"])
     m = ends.merge(first, on=["game_key", "end"], how="left")
     ends["first_team"] = m["first_team"].values
     ends["hammer"] = np.where(m["first_team"] == m["team_a"], m["team_b"],

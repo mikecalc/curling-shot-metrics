@@ -69,7 +69,7 @@ def build_positions(shots: pd.DataFrame, stones: pd.DataFrame, ends: pd.DataFram
     for _, g in games.iterrows():
         colour_of[(g["game_key"], g["team_a"])] = g["color_a"]
         colour_of[(g["game_key"], g["team_b"])] = g["color_b"]
-    end_info = ends.set_index(["game_key", "end"])
+    end_info = ends.drop_duplicates(["game_key", "end"]).set_index(["game_key", "end"])
     grouped = {k: v for k, v in st.groupby(["game_key", "end", "shot"])}
     rows = []
     for (gk, e), grp in shots.sort_values(["game_key", "end", "shot"]).groupby(["game_key", "end"]):
