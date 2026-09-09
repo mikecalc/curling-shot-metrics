@@ -26,6 +26,13 @@ def load_books(parquet_root: str) -> dict[str, pd.DataFrame]:
             if os.path.exists(f):
                 df = pd.read_parquet(f)
                 if len(df):
+                    if "game_key" in df and "book" in df:
+                        # corpus-unique keys: books extracted before keys carried the book id
+                        has = df["game_key"].notna().to_numpy()
+                        keys = df["game_key"].where(has, "").astype(str)
+                        books = df["book"].astype(str)
+                        old = has & ~np.array([str(k).startswith(str(b) + "|") for k, b in zip(keys, books)])
+                        df.loc[old, "game_key"] = books[old] + "|" + keys[old]
                     out[t].append(df)
     return {t: (pd.concat(v, ignore_index=True) if v else pd.DataFrame()) for t, v in out.items()}
 
