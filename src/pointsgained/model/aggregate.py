@@ -76,11 +76,17 @@ def strata_tables(pg: pd.DataFrame, min_shots_player: int = 40) -> dict[str, pd.
     t["shot_number"] = _agg(pg, ["shot"])
     t["teams"] = _agg(pg, ["discipline", "team"], min_shots=200).sort_values("pg", ascending=False)
     t["teams_hammer"] = _agg(pg, ["discipline", "team", "hammer"], min_shots=100)
-    players = _agg(pg, ["discipline", "team", "player"], min_shots=min_shots_player)
+    # players are keyed by normalised name within a discipline: the same person appears under
+    # different team codes (SCO at Worlds, GBR at the Olympics) and with case variants
+    pg = pg.assign(player_key=pg["player"].fillna("").str.upper().str.replace(r"\s+", " ", regex=True).str.strip())
+    pg = pg[pg["player_key"] != ""]
+    players = _agg(pg, ["discipline", "player_key"], min_shots=min_shots_player)
+    teams_of = pg.groupby(["discipline", "player_key"])["team"].agg(lambda s: "/".join(sorted(set(s)))).rename("teams").reset_index()
     # field-relative execution: subtract the field mean throw value for the same shot type and hammer state
     base = pg.groupby(["shot_type", "hammer"], observed=True)["pg_throw"].transform("mean")
-    rel = pg.assign(pg_throw_rel=pg["pg_throw"] - base).groupby(["discipline", "team", "player"]).agg(
+    rel = pg.assign(pg_throw_rel=pg["pg_throw"] - base).groupby(["discipline", "player_key"]).agg(
         pg_throw_rel=("pg_throw_rel", "mean"), grade=("grade_pct", "mean")).reset_index()
-    t["players"] = players.merge(rel, on=["discipline", "team", "player"]).sort_values("pg_throw_rel", ascending=False)
-    t["players_hammer"] = _agg(pg, ["discipline", "team", "player", "hammer"], min_shots=max(20, min_shots_player // 2))
+    t["players"] = (players.merge(teams_of, on=["discipline", "player_key"]).merge(rel, on=["discipline", "player_key"])
+                    .rename(columns={"player_key": "player"}).sort_values("pg_throw_rel", ascending=False))
+    t["players_hammer"] = _agg(pg, ["discipline", "player_key", "hammer"], min_shots=max(20, min_shots_player // 2)).rename(columns={"player_key": "player"})
     return t

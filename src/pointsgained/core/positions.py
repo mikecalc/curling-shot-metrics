@@ -87,6 +87,7 @@ def build_positions(shots: pd.DataFrame, stones: pd.DataFrame, ends: pd.DataFram
         fgz = fgz_rocks_for(date)
         prev = Position.empty(fgz)
         n_shots = len(grp)
+        last_shot_no = int(grp["shot"].max())
         # final score of the end from the recorded header (hammer perspective), fallback to reconstruction
         sa, sb = er.get("score_end_a"), er.get("score_end_b")
         conceded = bool(er.get("conceded", False)) if "conceded" in er else False
@@ -112,7 +113,7 @@ def build_positions(shots: pd.DataFrame, stones: pd.DataFrame, ends: pd.DataFram
                 "thrower_has_hammer": srow["team"] == hammer,
                 "rocks_remaining_before": 16 - (k - 1), "rocks_remaining_after": 16 - k,
                 "fgz_rocks": fgz, "pre": prev, "post": post, "end_score_hammer": end_score,
-                "is_last_shot": k == n_shots,
+                "is_last_shot": k == last_shot_no,
             })
             if post is not None:
                 prev = post
