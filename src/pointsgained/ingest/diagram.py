@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 from scipy import ndimage
-from scipy.cluster.vq import kmeans2
+from scipy.signal import fftconvolve
 
 from ..core import geometry as G
 
@@ -37,7 +37,14 @@ CLASS_INDEX = {c: i for i, c in enumerate(CLASSES)}
 STONE_FILL_AREA = 200        # px, nominal filled-disk area of one stone (r ~ 8 px inside outline)
 MIN_STONE_AREA = 60
 MIN_COUNTER_AREA = 6
-THICK_OUTLINE_MIN = 78       # own black px in the 6-12 px annulus; a 1 px outline gives ~55-65, a 2 px one >= 80
+STONE_RADIUS_PX = 9
+STONE_COVER_MIN = 0.5        # disk-template coverage needed for a stone peak (rings ~0.25, crossed disks > 0.6)
+NMS_RADIUS = 12              # peaks closer than this are the same stone (touching stones are 18 px apart)
+TEMPLATE_RADIUS = 7
+_yy, _xx = np.mgrid[-TEMPLATE_RADIUS:TEMPLATE_RADIUS + 1, -TEMPLATE_RADIUS:TEMPLATE_RADIUS + 1]
+_DISK = (np.hypot(_yy, _xx) <= TEMPLATE_RADIUS).astype(np.float32)
+_DISK_AREA = float(_DISK.sum())
+THICK_OUTLINE_MIN = 85       # own black px in the 6-12 px annulus; a 1 px outline gives ~55-65, a 2 px one >= 95
 
 
 class DecodeError(ValueError):
@@ -139,6 +146,7 @@ class Stone:
     row: float
     area: int
     inner_black: int = 0
+    mid_black: int = 0          # dark px between the centre zone and the outline: an X or cross, not a dot
     outline_black: int = 0
     delivered: bool = False
     split_from: int = 1     # >1 if this stone came from splitting a merged component
@@ -266,16 +274,20 @@ def read_diagram(rgb: np.ndarray, calibration: Calibration | None = None) -> Dia
         mask = cls == CLASS_INDEX[color]
         if color == "yellow":
             mask = mask | (cls == CLASS_INDEX["mark"])
-        mask = fill_thin_lines(mask, black)
+        mask = fill_thin_lines(mask, np.ones_like(mask))   # any enclosed pixel: lines inside a disk take any tone in lossy books
         filled_any |= mask
         _, raw = _components(mask)
         n_top = 0
         n_bottom = 0
         in_play_raw = []
+        top_comps = [c for c in raw if c["row"] < top + 4 and c["area"] >= MIN_COUNTER_AREA]
+        if top_comps:
+            # glyphs may merge under image noise: count by area relative to the smallest glyph
+            unit = max(MIN_COUNTER_AREA, min(c["area"] for c in top_comps))
+            n_top = sum(max(1, int(round(c["area"] / unit))) for c in top_comps)
         for c in raw:
             if c["row"] < top + 4:
-                if c["area"] >= MIN_COUNTER_AREA:
-                    n_top += 1
+                continue
             elif c["row"] > back + 6:
                 if c["area"] >= MIN_COUNTER_AREA:
                     n_bottom += max(1, int(round((c["w"] + 2) / 18.0)))   # glyphs may overlap
@@ -287,30 +299,31 @@ def read_diagram(rgb: np.ndarray, calibration: Calibration | None = None) -> Dia
         play_mask = np.zeros_like(mask)
         for c in in_play_raw:
             play_mask[c["pixels"]] = True
-        # Stones: erode by one pixel so that 1-px hollow rings vanish and
-        # touching outlines separate; disks keep their centroid.
-        eroded = ndimage.binary_erosion(play_mask, structure=np.ones((3, 3), dtype=bool))
-        _, solid = _components(eroded)
-        eroded_area_one = STONE_FILL_AREA * 0.72   # erosion removes the outer ring of the disk
-        for c in solid:
-            if c["area"] < MIN_STONE_AREA * 0.5:
+        # Stones by disk template: fraction of stone colour inside a stone-sized disk around each
+        # pixel. A filled disk scores ~1 (with an X or cross drawn on it still > 0.6), a hollow
+        # 1 px ring < 0.3, and two touching stones give two separate peaks 18 px apart.
+        cover = fftconvolve(play_mask.astype(np.float32), _DISK, mode="same") / _DISK_AREA
+        peaks = (cover >= STONE_COVER_MIN) & (cover == ndimage.maximum_filter(cover, size=2 * NMS_RADIUS + 1))
+        prow, pcol = np.nonzero(peaks)
+        taken = []
+        for r_, c_ in sorted(zip(prow, pcol), key=lambda rc: -cover[rc[0], rc[1]]):
+            if any(abs(r_ - tr) <= NMS_RADIUS and abs(c_ - tc) <= NMS_RADIUS for tr, tc in taken):
+                continue     # plateau of the same peak
+            taken.append((r_, c_))
+            r0, r1 = max(0, r_ - 10), min(h, r_ + 11)
+            c0, c1 = max(0, c_ - 10), min(w, c_ + 11)
+            rr, cc = np.mgrid[r0:r1, c0:c1]
+            local = play_mask[r0:r1, c0:c1] & (np.hypot(rr - r_, cc - c_) <= STONE_RADIUS_PX + 1)
+            area = int(local.sum())
+            if area < MIN_STONE_AREA:
                 continue
-            k = max(1, int(round(c["area"] / eroded_area_one)))
-            if k == 1 or (c["fill"] > 0.7 and c["area"] < 1.6 * eroded_area_one):
-                d.stones.append(Stone(color, c["col"], c["row"], c["area"]))
-            else:
-                pts = np.stack([c["pixels"][0], c["pixels"][1]], axis=1).astype(float)
-                try:
-                    cent, _ = kmeans2(pts, k, minit="++", seed=0)
-                    for r_, c_ in cent:
-                        d.stones.append(Stone(color, float(c_), float(r_), int(c["area"] / k), split_from=k))
-                except Exception:
-                    d.stones.append(Stone(color, c["col"], c["row"], c["area"]))
-                d.warnings.append(f"split {color} component of area {c['area']} into {k}")
-        # Priors: in-play components that vanish under erosion (thin rings)
+            d.stones.append(Stone(color, float(cc[local].mean()), float(rr[local].mean()), area))
+        # Priors: in-play components that are thin rings (vanish under erosion) and not a detected stone
+        eroded = ndimage.binary_erosion(play_mask, structure=np.ones((3, 3), dtype=bool))
         for c in in_play_raw:
             if c["area"] >= 20 and c["w"] >= 10 and c["h"] >= 10 and not eroded[c["pixels"]].any():
-                d.priors.append(Prior(color, c["col"], c["row"]))
+                if not any(abs(c["row"] - s.row) < 6 and abs(c["col"] - s.col) < 6 for s in d.stones if s.color == color):
+                    d.priors.append(Prior(color, c["col"], c["row"]))
     # grey rings
     grey = cls == CLASS_INDEX["grey"]
     grey[: top + 1, :] = False
@@ -334,17 +347,20 @@ def read_diagram(rgb: np.ndarray, calibration: Calibration | None = None) -> Dia
         for oj, (orow, ocol) in enumerate(centres):
             if oj != si:
                 own &= dist < np.hypot(rr - orow, cc - ocol)
-        s.inner_black = int((black_solid[r0:r1, c0:c1] & (dist <= 4.5)).sum())
+        s.inner_black = int((black_solid[r0:r1, c0:c1] & (dist <= 3.5)).sum())
+        s.mid_black = int((black_solid[r0:r1, c0:c1] & (dist > 3.5) & (dist < 6.5)).sum())
         s.outline_black = int((black[r0:r1, c0:c1] & own & (dist >= 6) & (dist <= 12)).sum())
     if d.stones:
-        by_inner = max(d.stones, key=lambda s: s.inner_black)
-        if by_inner.inner_black >= 3:
-            by_inner.delivered = True
+        # centre dot: dark pixels at the centre but not in the zone an X or cross would cross
+        dots = [s for s in d.stones if s.inner_black >= 3 and s.mid_black <= 2]
+        if dots:
+            max(dots, key=lambda s: s.inner_black).delivered = True
         else:
-            # thick (2 px) outline: about twice the ~57 px of a normal 1 px outline
-            by_out = max(d.stones, key=lambda s: s.outline_black)
-            if by_out.outline_black >= THICK_OUTLINE_MIN:
-                by_out.delivered = True
+            # thick (2 px) outline: about twice the ~57 px of a normal 1 px outline, and clearly the thickest
+            ranked = sorted(d.stones, key=lambda s: -s.outline_black)
+            second = ranked[1].outline_black if len(ranked) > 1 else 0
+            if ranked[0].outline_black >= THICK_OUTLINE_MIN and ranked[0].outline_black >= 1.2 * second:
+                ranked[0].delivered = True
     return d
 
 
