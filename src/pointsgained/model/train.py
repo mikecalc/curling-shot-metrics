@@ -29,9 +29,10 @@ def _brier(P, y):
 
 
 def make_model(seed: int = 0, categorical=None):
-    # Strongly regularised: with ~3k ends per book, anything richer overfits and loses to the
-    # trivial model on held-out books (checked on WWCC 2025 and WJCC 2025).
-    return HistGradientBoostingClassifier(max_iter=80, learning_rate=0.05, max_leaf_nodes=8,
+    # Regularised. On four books anything richer than 8 leaves / 80 rounds overfit; on the full
+    # archive (1.2M rows) 15 leaves / 200 rounds is the plateau: 31 leaves / 300 rounds scores the
+    # same at 25x the cost and 63 leaves is worse (15 held-out books, 2026-09-09).
+    return HistGradientBoostingClassifier(max_iter=200, learning_rate=0.05, max_leaf_nodes=15,
                                           min_samples_leaf=300, l2_regularization=10.0,
                                           early_stopping=False,
                                           categorical_features=categorical, random_state=seed)
