@@ -237,7 +237,7 @@ def cmd_download(args):
 
 def cmd_batch(args):
     from .corpus.batch import run_batch
-    inv = run_batch(args.inventory, args.raw, args.out, args.reports, limit=args.limit, force=args.force)
+    inv = run_batch(args.inventory, args.raw, args.out, args.reports, limit=args.limit, force=args.force, workers=args.workers)
     print(inv[inv["in_scope"] == True]["status"].value_counts().to_string())
 
 
@@ -287,6 +287,7 @@ def main(argv=None):
     g.add_argument("--reports", default="reports")
     g.add_argument("--limit", type=int, default=None)
     g.add_argument("--force", action="store_true")
+    g.add_argument("--workers", type=int, default=1)
     g.set_defaults(func=cmd_batch)
     args = p.parse_args(argv)
     args.func(args)

@@ -59,50 +59,78 @@ def survey_book(pdf_path: str, max_pages: int = 400) -> dict:
     return info
 
 
+def process_book(pdf: str, book_id: str, out_dir: str, reports_dir: str) -> dict:
+    """Worker: survey, extract, validate one book; write its tables and report. Returns a summary."""
+    t0 = time.time()
+    sv = survey_book(pdf)
+    res = {"book_id": book_id, "has_shot_by_shot": sv["has_shot_by_shot"], "style_family": sv["style_family"]}
+    if not sv["has_shot_by_shot"]:
+        res["status"] = "excluded"; res["notes"] = "no shot-by-shot pages"
+        return res
+    log.info("extracting %s (%s)", book_id, sv["style_family"])
+    t = extract_book(pdf, book_id, progress=True)
+    bd = os.path.join(out_dir, book_id); os.makedirs(bd, exist_ok=True)
+    for name, df in t.tables().items():
+        df.to_parquet(os.path.join(bd, f"{name}.parquet"), index=False)
+    with open(os.path.join(bd, "warnings.txt"), "w") as f:
+        f.write("\n".join(t.warnings))
+    v = validate_book(t); v["seconds"] = round(time.time() - t0, 1); v["n_warnings"] = len(t.warnings)
+    with open(os.path.join(reports_dir, f"validation_{book_id}.json"), "w") as f:
+        json.dump(v, f, indent=2, default=str)
+    ok = (v.get("counter_census_ok_rate") or 0) >= 0.99 and (v.get("score_reconstruction_ok_rate") or 0) >= 0.9 \
+        and v.get("hammer_alternation_violations", 1) == 0 and v.get("n_games", 0) > 0
+    res["status"] = "validated" if ok else "extracted"
+    res["notes"] = (f"games={v['n_games']} shots={v['n_shots']} census={v.get('counter_census_ok_rate', 0):.3f} "
+                    f"score={v.get('score_reconstruction_ok_rate') or 0:.3f} hammer_viol={v.get('hammer_alternation_violations')} s={v['seconds']}")
+    return res
+
+
+def _worker(args):
+    pdf, book_id, out_dir, reports_dir = args
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    try:
+        return process_book(pdf, book_id, out_dir, reports_dir)
+    except Exception as e:
+        log.exception("failed %s", book_id)
+        return {"book_id": book_id, "status": "error", "notes": f"{type(e).__name__}: {str(e)[:100]}"}
+
+
 def run_batch(inventory_csv: str, raw_dir: str, out_dir: str, reports_dir: str,
-              limit: int | None = None, force: bool = False) -> pd.DataFrame:
+              limit: int | None = None, force: bool = False, workers: int = 1) -> pd.DataFrame:
+    """Survey, extract and validate every downloaded in-scope book. Only this process writes the inventory."""
+    from concurrent.futures import ProcessPoolExecutor, as_completed
     inv = read_inventory(inventory_csv)
     os.makedirs(out_dir, exist_ok=True); os.makedirs(reports_dir, exist_ok=True)
-    n = 0
+    jobs = []
     for i, r in inv.iterrows():
-        if not r["in_scope"] or r["status"] not in ("downloaded", "surveyed", "extracted", "validated", "error"):
-            continue
-        if r["status"] in ("validated", "excluded") and not force:
+        if not r["in_scope"] or r["status"] in ("validated", "excluded") and not force:
             continue
         year = int(r["year"]) if pd.notna(r["year"]) else 0
         pdf = os.path.join(raw_dir, str(year), r["file_name"])
-        if not os.path.exists(pdf):
+        if not os.path.exists(pdf) or os.path.getsize(pdf) == 0:
             continue
-        if limit is not None and n >= limit:
-            break
-        n += 1
+        # skip books already validated on disk (report present and newer than the pdf) unless forced
         book_id = os.path.splitext(r["file_name"])[0]
-        t0 = time.time()
-        try:
-            sv = survey_book(pdf)
-            inv.at[i, "has_shot_by_shot"] = sv["has_shot_by_shot"]
-            inv.at[i, "style_family"] = sv["style_family"]
-            if not sv["has_shot_by_shot"]:
-                inv.at[i, "status"] = "excluded"; inv.at[i, "notes"] = "no shot-by-shot pages"
-                inv.to_csv(inventory_csv, index=False)
-                continue
-            log.info("extracting %s (%s)", book_id, sv["style_family"])
-            t = extract_book(pdf, book_id, progress=True)
-            bd = os.path.join(out_dir, book_id); os.makedirs(bd, exist_ok=True)
-            for name, df in t.tables().items():
-                df.to_parquet(os.path.join(bd, f"{name}.parquet"), index=False)
-            with open(os.path.join(bd, "warnings.txt"), "w") as f:
-                f.write("\n".join(t.warnings))
-            v = validate_book(t); v["seconds"] = round(time.time() - t0, 1); v["n_warnings"] = len(t.warnings)
-            with open(os.path.join(reports_dir, f"validation_{book_id}.json"), "w") as f:
-                json.dump(v, f, indent=2, default=str)
-            ok = (v.get("counter_census_ok_rate") or 0) >= 0.99 and (v.get("score_reconstruction_ok_rate") or 0) >= 0.9 \
-                and v.get("hammer_alternation_violations", 1) == 0 and v.get("n_games", 0) > 0
-            inv.at[i, "status"] = "validated" if ok else "extracted"
-            inv.at[i, "notes"] = (f"games={v['n_games']} shots={v['n_shots']} census={v.get('counter_census_ok_rate', 0):.3f} "
-                                  f"score={v.get('score_reconstruction_ok_rate') or 0:.3f} hammer_viol={v.get('hammer_alternation_violations')}")
-        except Exception as e:
-            inv.at[i, "status"] = "error"; inv.at[i, "notes"] = f"{type(e).__name__}: {str(e)[:100]}"
-            log.exception("failed %s", book_id)
+        jobs.append((i, (pdf, book_id, out_dir, reports_dir)))
+        if limit is not None and len(jobs) >= limit:
+            break
+    log.info("batch: %d books, %d workers", len(jobs), workers)
+    index_of = {a[1]: i for i, a in jobs}
+
+    def apply(res):
+        i = index_of[res["book_id"]]
+        for k in ("status", "notes", "has_shot_by_shot", "style_family"):
+            if k in res:
+                inv.at[i, k] = res[k]
         inv.to_csv(inventory_csv, index=False)
+        log.info("%s -> %s %s", res["book_id"], res.get("status"), res.get("notes", ""))
+
+    if workers <= 1:
+        for _, a in jobs:
+            apply(_worker(a))
+    else:
+        with ProcessPoolExecutor(max_workers=workers) as ex:
+            futs = [ex.submit(_worker, a) for _, a in jobs]
+            for fut in as_completed(futs):
+                apply(fut.result())
     return inv
