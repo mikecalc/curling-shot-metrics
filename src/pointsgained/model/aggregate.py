@@ -130,10 +130,14 @@ def by_player_event(pg: pd.DataFrame, books: list[str] | None = None, min_shots:
         shots=("pg", "size"), games=("game_key", "nunique"),
         pg=("pg", "mean"), pg_call=("pg_call", "mean"), pg_throw=("pg_throw", "mean"),
         pg_throw_rel=("pg_throw_rel", "mean"), pg_throw_rel_event=("pg_throw_rel_event", "mean"),
+        pg_throw_rel_event_median=("pg_throw_rel_event", "median"),
+        big_misses=("pg_throw_rel_event", lambda x: int((x < -0.5).sum())),
+        big_makes=("pg_throw_rel_event", lambda x: int((x > 0.5).sum())),
+        worst5=("pg_throw_rel_event", lambda x: x.nsmallest(5).sum()),
         pg_throw_rel_slot=("pg_throw_rel_slot", "mean"),
         pg_total=("pg", "sum"), pg_throw_total=("pg_throw", "sum"),
         pg_wp=("pg_wp", "mean"), pg_call_wp=("pg_call_wp", "mean"), pg_throw_wp=("pg_throw_wp", "mean"),
         grade=("grade_pct", "mean"),
     ).reset_index()
     agg = agg[agg["shots"] >= min_shots].rename(columns={"book": "event"})
-    return agg.sort_values(["event", "discipline", "pg_throw_rel_event"], ascending=[True, True, False])
+    return agg.sort_values(["event", "discipline", "pg_throw_rel_event_median"], ascending=[True, True, False])

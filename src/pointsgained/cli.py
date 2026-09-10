@@ -251,13 +251,14 @@ def cmd_events(args):
     lb = agg.by_player_event(pg, books, min_shots=args.min_shots)
     os.makedirs(args.reports, exist_ok=True)
     lb.to_csv(os.path.join(args.reports, "leaderboard_events.csv"), index=False)
-    cols = ["player", "team", "position", "shots", "games", "pg_throw_rel_event", "pg_throw_rel_slot", "pg_throw", "pg_call", "pg",
-            "pg_throw_wp", "pg_call_wp", "grade"]
+    cols = ["player", "team", "position", "shots", "games", "pg_throw_rel_event_median", "pg_throw_rel_event", "big_misses", "big_makes",
+            "worst5", "pg_throw_rel_slot", "pg_call", "pg_throw_wp", "grade"]
     with open(os.path.join(args.reports, "leaderboard_events.md"), "w") as f:
-        f.write("# Per-event player leaderboards\n\nSorted by `pg_throw_rel_event`: execution relative to that event's field for the same shot "
-                "type and hammer state (hammer-adjusted points per shot). Fourths carry the most leverage, so read it position against position. "
-                "`pg_throw_rel_slot` is relative to the event's field for the same shot number and hammer state, which puts positions on one footing; "
-                "`_wp` columns are win probability.\n\n")
+        f.write("# Per-event player leaderboards\n\nExecution is measured relative to that event's field for the same shot type and hammer state "
+                "(hammer-adjusted points per shot). Sorted by the median of that value: what the player's typical shot was worth. "
+                "The mean (`pg_throw_rel_event`) also carries the tail: `big_misses` and `big_makes` count shots beyond half a point either way, "
+                "and `worst5` is the sum of the five most costly shots. Fourths carry the most leverage, so read position against position; "
+                "`pg_throw_rel_slot` compares with the same shot number instead. `_wp` is win probability.\n\n")
         for (ev, d), grp in lb.groupby(["event", "discipline"], sort=True):
             f.write(f"## {ev} ({'Men' if d == 'M' else 'Women'})\n\n" + grp[cols].round(3).to_markdown(index=False) + "\n\n")
     print(f"{len(lb)} player-event rows over {lb['event'].nunique()} events -> {args.reports}/leaderboard_events.{{csv,md}}")
