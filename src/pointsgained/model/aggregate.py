@@ -136,4 +136,4 @@ def by_player_event(pg: pd.DataFrame, books: list[str] | None = None, min_shots:
         grade=("grade_pct", "mean"),
     ).reset_index()
     agg = agg[agg["shots"] >= min_shots].rename(columns={"book": "event"})
-    return agg.sort_values(["event", "discipline", "pg_throw_rel_slot"], ascending=[True, True, False])
+    return agg.sort_values(["event", "discipline", "pg_throw_rel_event"], ascending=[True, True, False])
