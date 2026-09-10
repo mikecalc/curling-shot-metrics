@@ -29,14 +29,28 @@ pointsgained audit data/raw/*.pdf --out reports/audit.png
 #    (data/parquet/features.parquet; rebuilt automatically when the corpus or feature set changes)
 pointsgained features
 
-# 4. Phase 1 models and Points Gained (reports/model_report.md, data/parquet/points_gained.parquet)
-pointsgained model --features base,situation
+# 4. level of play: skill per player and effect per event from the grades (data/parquet/skill.parquet,
+#    event_effects.parquet, shot_difficulty.parquet; reports/difficulty_report.md)
+pointsgained difficulty
 
-# 5. per-event player leaderboards (reports/leaderboard_events.md)
+# 5. intent: the struck stone for hits, the modal target for draws (data/parquet/intent.parquet;
+#    reports/execution_error.md seeds the Phase 2 error model)
+pointsgained intent
+
+# 6. models and Points Gained (reports/model_report.md, data/parquet/points_gained.parquet)
+pointsgained model --features base,situation,level,intent
+
+# the six pinned 2026 Olympic shots, both currencies, call at the reference and at the thrower's own skill
+pointsgained testset
+
+# 7. per-event player leaderboards (reports/leaderboard_events.md)
 pointsgained events --match OWG2026 WMCC2026
 
 # one modelling experiment: fit once on a split, score held out (reports/experiments/log.md)
-pointsgained experiment --split time --features base,situation
+pointsgained experiment --split time --features base,situation,level,intent
+
+# raw-geometry model (needs torch): time-split log-loss against the trees, subtlety probe, monotonicity
+pointsgained raster --features base,situation,level,intent --epochs 6
 
 # Archive: inventory of curlit.com/results, polite download, batch survey/extract/validate
 pointsgained inventory --check
