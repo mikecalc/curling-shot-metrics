@@ -48,3 +48,39 @@ def test_attach_intent_mirrors_x():
     u = rows[(rows["mirror"] == 0) & (rows["end"] == 1) & (rows["shot"] == 4)].iloc[0]
     m = rows[(rows["mirror"] == 1) & (rows["end"] == 1) & (rows["shot"] == 4)].iloc[0]
     assert u["target_x"] == 4.0 and m["target_x"] == -4.0 and u["target_y"] == m["target_y"]
+
+
+def test_draw_cells_and_hit_classes():
+    from pointsgained.model.intent import draw_cell, hit_class, DRAW_DEPTH_CENTRES
+    x = np.array([0.0, -40.0, 40.0, 0.0, 0.0])
+    y = np.array([0.0, 0.0, 110.0, -100.0, 170.0])
+    c = draw_cell(x, y)
+    n = len(DRAW_DEPTH_CENTRES)
+    assert c.tolist() == [1 * n + 2, 0 * n + 2, 2 * n + 4, 1 * n + 0, 1 * n + 5]
+    h = hit_class(np.array([1.0, -1.0]), np.array([0.0, 4.0]), np.array([0.0, 1.0]))
+    assert h.tolist() == [(1 * 5 + 0) * 2 + 0, (0 * 5 + 4) * 2 + 1]
+
+
+def test_target_model_fills_every_draw_and_ringless_hit():
+    from pointsgained.model.intent import apply_target_model
+    from pointsgained.model.dataset import build_dataset
+    rng = np.random.default_rng(0)
+    tabs = tabs_with_intent()
+    # grow the corpus: replicate the game under many keys and books so the target model has rows to fit
+    reps = []
+    for i in range(60):
+        t = {k: v.copy() for k, v in tabs.items()}
+        for name in ("games", "ends", "shots", "stones", "line_scores"):
+            t[name]["game_key"] = t[name]["game_key"] + f"#{i}"
+        t["games"]["book"] = f"BOOK{i % 3}"
+        reps.append(t)
+    big = {k: pd.concat([t[k] for t in reps], ignore_index=True) for k in tabs}
+    big["stones"]["x_in"] = big["stones"]["x_in"] + rng.normal(0, 3, len(big["stones"]))
+    ds = build_dataset(big)
+    it = realised_intent(big)
+    out = apply_target_model(it, ds.rows, ds.X)
+    draws = out[out["family"] == "draw"]
+    assert (draws["target_x"].isin([-40.0, 0.0, 40.0])).all()            # modal cell centres, made or missed alike
+    assert out[INTENT_COLS].notna().all().all()
+    made = draws[draws["target_known"] == 1]
+    assert (made["realised_y"] != made["target_y"]).any()                 # the realised rest is not what g sees

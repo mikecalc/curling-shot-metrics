@@ -33,8 +33,7 @@ FEATURE_SETS = {
     "call": ["shot_type_code", "turn_code"],
     "level": ["expected_grade"],                         # the difficulty model's expected grade at the thrower's skill
     "level_id": ["skill_thrower", "event_effect"],       # raw per-player / per-book effects (identity proxies; see experiments)
-    "intent": ["target_x", "target_y", "target_owner", "target_ring", "target_is_shot_rock", "target_is_guard",
-               "shooter_stays", "target_known"],
+    "intent": ["target_x", "target_y", "target_owner", "target_ring", "target_is_shot_rock", "target_is_guard"],
 }
 F_SETS = ("base", "situation")                  # sets that enter f (and g)
 G_ONLY_SETS = ("call", "level", "level_id", "intent")       # sets that enter g only

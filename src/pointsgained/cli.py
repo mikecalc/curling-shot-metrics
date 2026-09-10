@@ -126,10 +126,13 @@ def _with_level(ds, sets, parquet_root, aliases_csv):
 def cmd_intent(args):
     """Realised intent per shot from the delivered stone and prior rings (design Section 6) -> intent.parquet."""
     from .model.dataset import load_books
-    from .model.intent import realised_intent
+    from .model.cache import load_or_build
+    from .model.intent import realised_intent, apply_target_model
     t0 = time.time()
     tabs = load_books(args.parquet)
     it = realised_intent(tabs)
+    ds = load_or_build(args.parquet)
+    it = apply_target_model(it, ds.rows, ds.X, seed=args.seed)
     it.to_parquet(os.path.join(args.parquet, "intent.parquet"), index=False)
     books = tabs["games"].drop_duplicates("game_key").set_index("game_key")["book"]
     it["year"] = it["game_key"].map(books).str.extract(r"(20\d\d)")[0]
@@ -458,6 +461,7 @@ def main(argv=None):
     h.set_defaults(func=cmd_events)
     n = sub.add_parser("intent", help="realised intent per shot from the delivered stone and prior rings")
     n.add_argument("--parquet", default="data/parquet")
+    n.add_argument("--seed", type=int, default=0)
     n.set_defaults(func=cmd_intent)
     m = sub.add_parser("difficulty", help="fit the shot-difficulty model: skill per player, effect per event")
     m.add_argument("--parquet", default="data/parquet")

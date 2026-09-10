@@ -7,9 +7,15 @@ Per shot, the realised target in the canonical (hammer) frame:
   line), with its owner, ring, whether it was the shot rock or a guard in the pre-position, and
   whether the shooter stayed in play.
 
-When the marker or the rings are missing the target is unknown (`target_known` = 0) and the
-columns are zero; the target model fills those with the modal target for (type, position).
-Columns are mirrored with the position (x -> -x) for mirrored rows.
+Leakage rule. A draw's rest is the intent only when the shot was made (grade >= MADE_GRADE); a
+missed draw's rest is the miss, and at the last rock it is the outcome. Using it, or a flag that
+says whether it was used, would put execution into the call. So the columns g sees are:
+  draws:  the modal target from a **target model** P(target cell | position, call) fitted on made
+          draws (out of fold by book) and applied to every draw whatever its grade;
+  hits:   the struck stone from the rings at any grade (which stone was hit is intent, not
+          outcome), and the target model's modal struck-stone class when there are no rings.
+`target_known` and `shooter_stays` are kept in the table for diagnostics and the Phase 2 error
+model but are not design columns. Columns are mirrored with the position (x -> -x).
 """
 from __future__ import annotations
 
@@ -26,8 +32,13 @@ log = logging.getLogger(__name__)
 DRAW_TYPES = {"Draw", "Guard", "Front", "Freeze", "Through"}
 HIT_TYPES = {"Take-out", "Hit and Roll", "Double Take-out", "Clearing", "Raise", "Promotion Take-out", "Wick / Soft Peeling"}
 RING_CODE = {"button": 0, "4ft": 1, "8ft": 2, "12ft": 3, "out": 4}
-INTENT_COLS = ["target_x", "target_y", "target_owner", "target_ring", "target_is_shot_rock", "target_is_guard",
-               "shooter_stays", "target_known"]
+MADE_GRADE = 75.0
+INTENT_COLS = ["target_x", "target_y", "target_owner", "target_ring", "target_is_shot_rock", "target_is_guard"]
+DIAG_COLS = ["shooter_stays", "target_known", "family", "realised_x", "realised_y"]
+# draw target cells: lateral (left / centre / right, centre is |x| <= 24 in) x depth band
+DRAW_DEPTH_EDGES = [-1e9, -78.0, -24.0, 24.0, 78.0, 140.0, 1e9]     # through, back, button band, top, near guard, far guard
+DRAW_DEPTH_CENTRES = [-100.0, -50.0, 0.0, 50.0, 110.0, 170.0]
+DRAW_LATERAL_CENTRES = [-40.0, 0.0, 40.0]
 
 
 def _hammer_colour(tabs: dict) -> pd.DataFrame:
@@ -51,7 +62,7 @@ def realised_intent(tabs: dict) -> pd.DataFrame:
     """One row per shot with INTENT_COLS in the canonical frame (unmirrored)."""
     t0 = time.time()
     st = canonical_stones_full(tabs)
-    shots = tabs["shots"].drop_duplicates(["game_key", "end", "shot"])[["game_key", "end", "shot", "shot_type", "team", "color"]]
+    shots = tabs["shots"].drop_duplicates(["game_key", "end", "shot"])[["game_key", "end", "shot", "shot_type", "team", "color", "grade_pct"]]
     shots = shots.merge(_hammer_colour(tabs), on=["game_key", "end"], how="inner")
     shots["thrower_owner"] = (shots["color"] == shots["hammer_colour"]).astype(int)
     stones = st[st["kind"] == "stone"]
@@ -72,7 +83,8 @@ def realised_intent(tabs: dict) -> pd.DataFrame:
     out = pd.DataFrame({"game_key": df["game_key"], "end": df["end"], "shot": df["shot"]})
     tx = np.where(is_hit, df["px"], df["dx"]).astype(float)
     ty = np.where(is_hit, df["py"], df["dy"]).astype(float)
-    known = np.where(is_hit, df["px"].notna() & (df["n_priors"] > 0), is_draw & df["dx"].notna())
+    made = (df["grade_pct"].fillna(0).to_numpy(dtype=float) >= MADE_GRADE)
+    known = np.where(is_hit, df["px"].notna() & (df["n_priors"] > 0), is_draw & df["dx"].notna() & made)
     tx, ty = np.where(known, tx, 0.0), np.where(known, ty, 0.0)
     owner = np.where(is_hit & known, np.where(df["powner"] == 1, 1.0, -1.0), 0.0)
     ring = np.array([RING_CODE[ring_of(x, y)] if k else RING_CODE["out"] for x, y, k in zip(tx, ty, known)], dtype=float)
@@ -88,6 +100,7 @@ def realised_intent(tabs: dict) -> pd.DataFrame:
     out["target_is_shot_rock"], out["target_is_guard"] = is_shot_rock, is_guard
     out["shooter_stays"], out["target_known"] = shooter_stays, known.astype(float)
     out["family"] = np.where(is_hit, "hit", np.where(is_draw, "draw", "other"))
+    out["realised_x"], out["realised_y"] = tx, ty
     log.info("intent: %d shots, target known %.3f (hits %.3f, draws %.3f) in %.0fs", len(out), known.mean(),
              known[is_hit].mean() if is_hit.any() else 0, known[is_draw].mean() if is_draw.any() else 0, time.time() - t0)
     return out
@@ -102,3 +115,93 @@ def attach_intent(rows: pd.DataFrame, intent: pd.DataFrame) -> pd.DataFrame:
         rows[c] = it[c].fillna(0.0).to_numpy(dtype=float)
     rows.loc[rows["mirror"] == 1, "target_x"] *= -1.0
     return rows
+
+
+def draw_cell(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    lat = np.where(x < -24.0, 0, np.where(x > 24.0, 2, 1))
+    depth = np.searchsorted(np.asarray(DRAW_DEPTH_EDGES[1:-1]), y, side="right")
+    return lat * len(DRAW_DEPTH_CENTRES) + depth
+
+
+def hit_class(owner: np.ndarray, ring: np.ndarray, is_guard: np.ndarray) -> np.ndarray:
+    """Struck-stone descriptor class: owner (own / opp) x ring (0-4) x guard flag."""
+    return ((owner > 0).astype(int) * 5 + ring.astype(int)) * 2 + is_guard.astype(int)
+
+
+def _target_features(rows: pd.DataFrame, X: np.ndarray) -> np.ndarray:
+    from .train import column
+    cols = ["shot_type_code", "turn_code", "diff_hammer_clip", "ends_remaining_clip"]
+    return np.column_stack([X] + [column(rows, X, c) for c in cols])
+
+
+def apply_target_model(intent: pd.DataFrame, rows: pd.DataFrame, X: np.ndarray, seed: int = 0, n_splits: int = 5) -> pd.DataFrame:
+    """Fill the design columns: draws from the modal target cell for every draw; hits without rings
+    from the modal struck-stone class. Out of fold by book. `rows`/`X` are the unmirrored cache rows."""
+    from sklearn.ensemble import HistGradientBoostingClassifier
+    from sklearn.model_selection import GroupKFold
+    t0 = time.time()
+    key = ["game_key", "end", "shot"]
+    r = rows[rows["mirror"] == 0].reset_index(drop=True)
+    Xu = X[(rows["mirror"] == 0).to_numpy()]
+    it = intent.set_index(key).reindex(pd.MultiIndex.from_frame(r[key])).reset_index()
+    F = _target_features(r, Xu)
+    groups = r["book"].to_numpy()
+    out = it.copy()
+
+    def oof_predict(train_mask, apply_mask, labels):
+        pred = np.full(len(r), -1)
+        if train_mask.sum() < 500:                       # too few to fit: the field's majority class for every row
+            if train_mask.any():
+                vals, counts = np.unique(labels[train_mask], return_counts=True)
+                pred[apply_mask] = vals[np.argmax(counts)]
+            return pred
+        tr_idx = np.flatnonzero(train_mask)
+        ap_idx = np.flatnonzero(apply_mask)
+        n_groups = len(set(groups[tr_idx]))
+        splits = GroupKFold(n_splits=min(n_splits, n_groups)).split(F[tr_idx], labels[tr_idx], groups[tr_idx]) if n_groups >= 2 else [(np.arange(len(tr_idx)), np.arange(0))]
+        held_books = set()
+        for tr, te in splits:
+            books_te = set(groups[tr_idx][te])
+            m = HistGradientBoostingClassifier(max_iter=100, learning_rate=0.1, max_leaf_nodes=15, min_samples_leaf=100,
+                                               categorical_features=[F.shape[1] - 4], random_state=seed).fit(F[tr_idx][tr], labels[tr_idx][tr])
+            target = ap_idx[np.isin(groups[ap_idx], list(books_te))]
+            if len(target):
+                pred[target] = m.classes_[np.argmax(m.predict_proba(F[target]), axis=1)]
+            held_books |= books_te
+        rest = ap_idx[~np.isin(groups[ap_idx], list(held_books))]      # books with no training rows: full model
+        if len(rest):
+            m = HistGradientBoostingClassifier(max_iter=100, learning_rate=0.1, max_leaf_nodes=15, min_samples_leaf=100,
+                                               categorical_features=[F.shape[1] - 4], random_state=seed).fit(F[tr_idx], labels[tr_idx])
+            pred[rest] = m.classes_[np.argmax(m.predict_proba(F[rest]), axis=1)]
+        return pred
+
+    # draws: modal cell for every draw, trained on made draws with a marker
+    is_draw = (it["family"] == "draw").to_numpy()
+    known = it["target_known"].to_numpy(dtype=float) == 1.0
+    cells = draw_cell(it["realised_x"].to_numpy(dtype=float), it["realised_y"].to_numpy(dtype=float))
+    pred = oof_predict(is_draw & known, is_draw, cells)
+    ok = is_draw & (pred >= 0)
+    lat, depth = pred[ok] // len(DRAW_DEPTH_CENTRES), pred[ok] % len(DRAW_DEPTH_CENTRES)
+    out.loc[ok, "target_x"] = np.asarray(DRAW_LATERAL_CENTRES)[lat]
+    out.loc[ok, "target_y"] = np.asarray(DRAW_DEPTH_CENTRES)[depth]
+    ty = out.loc[ok, "target_y"].to_numpy(); tx = out.loc[ok, "target_x"].to_numpy()
+    out.loc[ok, "target_ring"] = [RING_CODE[ring_of(x, y)] for x, y in zip(tx, ty)]
+    out.loc[ok, ["target_owner", "target_is_shot_rock", "target_is_guard"]] = 0.0
+    out.loc[ok, "target_is_guard"] = (ty > RING_12_RADIUS + STONE_RADIUS).astype(float)
+    # hits without rings: modal struck-stone class, trained on hits with rings
+    is_hit = (it["family"] == "hit").to_numpy()
+    hc = hit_class(it["target_owner"].to_numpy(dtype=float), it["target_ring"].to_numpy(dtype=float), it["target_is_guard"].to_numpy(dtype=float))
+    pred = oof_predict(is_hit & known, is_hit & ~known, hc)
+    ok = is_hit & ~known & (pred >= 0)
+    if ok.any():
+        cls_mean = it[is_hit & known].assign(_c=hc[is_hit & known]).groupby("_c")[["target_x", "target_y", "target_is_shot_rock"]].mean()
+        c = pred[ok]
+        out.loc[ok, "target_owner"] = np.where((c // 2) // 5 == 1, 1.0, -1.0)
+        out.loc[ok, "target_ring"] = ((c // 2) % 5).astype(float)
+        out.loc[ok, "target_is_guard"] = (c % 2).astype(float)
+        m = cls_mean.reindex(c)
+        out.loc[ok, "target_x"] = 0.0
+        out.loc[ok, "target_y"] = m["target_y"].fillna(0.0).to_numpy()
+        out.loc[ok, "target_is_shot_rock"] = m["target_is_shot_rock"].fillna(0.0).to_numpy()
+    log.info("target model: draws %d (modal for all), hits filled %d, in %.0fs", int(is_draw.sum()), int(ok.sum()), time.time() - t0)
+    return out
