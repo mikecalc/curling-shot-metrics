@@ -265,7 +265,7 @@ Held out by book on the full archive, five folds, with and without the game situ
 | Trivial (rocks remaining, hammer, count; plus situation) | 1.593 | 1.559 | 0.742 |
 | f (position features) | 1.494 | 1.470 | 0.708 |
 | g (position and call) | 1.472 | 1.453 | 0.701 |
-| g with the expected grade (Section 3.5) | | G_LEVEL_CV | |
+| g with the expected grade (Section 3.5) | | 1.447 | 0.699 |
 
 On the time split (train through 2024, test on the 2025 and 2026 events, 219,000 held-out rows) the same story: f 1.477 to 1.454 and g 1.455 to 1.437. The situation helps in every band of rocks remaining and in every score-difference band, most at tied scores (1.403 to 1.366 on the time split), where ends remaining decides whether the end is "two or blank" or "must score". It was adopted on that evidence (experiment log in `reports/experiments/`). The regime label and the v-vector as alternative encodings were not needed.
 
