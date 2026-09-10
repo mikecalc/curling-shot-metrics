@@ -636,7 +636,7 @@ def main(argv=None):
     o.add_argument("--name", default="raster")
     o.add_argument("--epochs", type=int, default=6)
     o.add_argument("--batch", type=int, default=256)
-    o.add_argument("--lr", type=float, default=2e-3)
+    o.add_argument("--lr", type=float, default=1e-3)
     o.add_argument("--max-train", type=int, default=None, help="subsample the training rows")
     o.add_argument("--n-probe", type=int, default=300)
     o.add_argument("--f-only", action="store_true")

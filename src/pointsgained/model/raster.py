@@ -128,23 +128,32 @@ def rasterise(x, y, owner, valid, target_xy=None, mirror=None):
 # ---- network ---------------------------------------------------------------------------------
 
 def build_net(n_channels: int, n_scalars: int, width: int = 24):
+    """Five stride-2 conv blocks over the raster plus two coordinate channels (the sheet is anchored at
+    the pin, so where a feature is matters as much as what it is), then the final map is flattened,
+    not pooled: global pooling would make the network blind to location."""
     torch = _torch()
     nn = torch.nn
+    ys = torch.linspace(-1, 1, H).view(1, 1, H, 1).expand(1, 1, H, W)
+    xs = torch.linspace(-1, 1, W).view(1, 1, 1, W).expand(1, 1, H, W)
+    coords = torch.cat([ys, xs], dim=1)
 
     class Net(nn.Module):
         def __init__(self):
             super().__init__()
-            chans = [n_channels, width, 2 * width, 4 * width, 4 * width, 8 * width]
+            self.register_buffer("coords", coords)
+            chans = [n_channels + 2, width, 2 * width, 4 * width, 4 * width, 4 * width]
             blocks = []
             for a, b in zip(chans[:-1], chans[1:]):
                 blocks += [nn.Conv2d(a, b, 3, stride=2, padding=1), nn.BatchNorm2d(b), nn.GELU()]
             self.conv = nn.Sequential(*blocks)
-            self.pool = nn.AdaptiveAvgPool2d(1)
-            self.head = nn.Sequential(nn.Linear(8 * width + n_scalars, 128), nn.GELU(), nn.Dropout(0.1),
-                                      nn.Linear(128, 64), nn.GELU(), nn.Linear(64, N_OUT))
+            with torch.no_grad():
+                n_flat = self.conv(torch.zeros(1, n_channels + 2, H, W)).numel()
+            self.head = nn.Sequential(nn.Linear(n_flat + n_scalars, 256), nn.GELU(), nn.Dropout(0.2),
+                                      nn.Linear(256, 64), nn.GELU(), nn.Linear(64, N_OUT))
 
         def forward(self, img, scal):
-            h = self.pool(self.conv(img)).flatten(1)
+            B = img.shape[0]
+            h = self.conv(torch.cat([img, self.coords.expand(B, -1, -1, -1)], dim=1)).flatten(1)
             return self.head(torch.cat([h, scal], dim=1))
 
     return Net()
@@ -196,7 +205,7 @@ class RasterFit:
 
 
 def fit_raster(kind: str, arrays: StoneArrays, S: np.ndarray, y: np.ndarray, target_xy: np.ndarray | None,
-               train_idx: np.ndarray, val_idx: np.ndarray, epochs: int = 8, batch: int = 256, lr: float = 2e-3,
+               train_idx: np.ndarray, val_idx: np.ndarray, epochs: int = 8, batch: int = 256, lr: float = 1e-3,
                seed: int = 0, max_train: int | None = None, log_every: int = 200) -> RasterFit:
     """Train f (kind='f', no target channel) or g on the given rows; early stopping on val log-loss."""
     torch = _torch()
