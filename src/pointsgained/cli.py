@@ -465,7 +465,7 @@ def cmd_raster(args):
     mg = make_model(args.seed, _cat_index(g_cols)).fit(X_g[tr], y[tr]); P["g_tree"] = _full_proba(mg, X_g[te])
     logging.info("trees fitted in %.0fs", time.time() - t0)
     del X_f, X_g
-    ds.rows = ds.rows.iloc[:0]                                  # the raster path works from `rows`, `X`, `arrays`
+    ds.rows = ds.rows[(ds.rows["mirror"] == 0).to_numpy()].reset_index(drop=True)   # the probe reads unmirrored rows only
     import gc; gc.collect()
     fits = {}
     for kind in (["f", "g"] if not args.f_only else ["f"]):
