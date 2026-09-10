@@ -387,6 +387,91 @@ def cmd_difficulty(args):
     print(f"wrote {args.reports}/difficulty_report.md in {time.time() - t0:.0f}s")
 
 
+def cmd_raster(args):
+    """Raw-geometry f (and g) on one split: time-split log-loss against the trees, the subtlety probe
+    and the monotonicity checks (design Sections 5.2, 7.5). Writes reports/raster_<name>.json."""
+    import numpy as np
+    from .model.cache import load_or_build
+    from .model.experiment import split_rows, attach_tier
+    from .model.train import design_matrices, make_model, _cat_index, _full_proba, evaluate, FittedModels, design_columns
+    from .model.raster import pre_position_arrays, scalar_matrix, fit_raster, target_xy_from_rows, arrays_subset
+    from .model import probe as PR
+    from .model.value import HammerAdjustedPoints
+    t0 = time.time()
+    sets = _feature_sets(args.features)
+    ds = _with_level(load_or_build(args.parquet), sets, args.parquet, args.aliases)
+    rows_all = attach_tier(ds.rows, args.inventory)
+    unm = (rows_all["mirror"] == 0).to_numpy()
+    rows = rows_all[unm].reset_index(drop=True); X = ds.X[unm]; y = ds.y[unm]
+    tr, te = split_rows(rows, args.split, args.cutoff_year, args.fold)
+    if args.max_train and len(tr) > args.max_train:
+        tr = np.random.default_rng(args.seed).choice(tr, args.max_train, replace=False)
+    val = np.random.default_rng(args.seed + 1).choice(te, min(len(te), 40000), replace=False)   # early-stopping subset
+    logging.info("raster: %d train, %d test rows; building stone arrays", len(tr), len(te))
+    arrays = pre_position_arrays(ds)
+    rep = {"name": args.name, "split": args.split, "sets": list(sets), "n_train": int(len(tr)), "n_test": int(len(te)), "device": None}
+    from .model.raster import device_name
+    rep["device"] = device_name()
+    P = {}
+    # trees on the same split for a like-for-like comparison
+    X_f, f_cols, X_g, g_cols = design_matrices(rows, X, sets)
+    mf = make_model(args.seed).fit(X_f[tr], y[tr]); P["f_tree"] = _full_proba(mf, X_f[te])
+    mg = make_model(args.seed, _cat_index(g_cols)).fit(X_g[tr], y[tr]); P["g_tree"] = _full_proba(mg, X_g[te])
+    logging.info("trees fitted in %.0fs", time.time() - t0)
+    fits = {}
+    for kind in (["f", "g"] if not args.f_only else ["f"]):
+        S, cols = scalar_matrix(rows, X, kind)
+        txy = target_xy_from_rows(rows) if (kind == "g" and "intent" in sets) else None
+        fit = fit_raster(kind, arrays, S, y, txy, tr, val, epochs=args.epochs, batch=args.batch, lr=args.lr, seed=args.seed)
+        fits[kind] = (fit, S, txy)
+        P[f"{kind}_raster"] = fit.predict(arrays_subset(arrays, te), S[te], None if txy is None else txy[te])
+        rep[f"{kind}_history"] = fit.history
+        logging.info("raster %s done in %.0fs", kind, time.time() - t0)
+    ev = evaluate(P, y[te], rows.iloc[te], X[te])
+    rep.update({k: v for k, v in ev.items() if k != "calibration_f"})
+    # probe on made doubles with a known struck stone, and monotonicity
+    vm = HammerAdjustedPoints(0.58); v = PR.v_points(vm)
+    if "g" in fits and os.path.exists(os.path.join(args.parquet, "intent.parquet")):
+        it = pd.read_parquet(os.path.join(args.parquet, "intent.parquet"))
+        probes = PR.probe_positions(ds, it, n=args.n_probe, seed=args.seed)
+        if len(probes):
+            models = FittedModels(mf, mg, mf, f_cols, g_cols, tuple(sets), {}, [], "book")
+            tc = PR.tree_curve(models, ds, probes, v)
+            fit, S, txy = fits["g"]
+            pr = probes["row"].to_numpy()
+            rc = PR.raster_curve(fit, ds, probes, v, S[pr], None if txy is None else txy[pr])
+            rep["probe"] = {"n": int(len(probes)), "offsets": PR.OFFSETS.tolist(), "tree": PR.curve_summary(tc), "raster": PR.curve_summary(rc),
+                            "tree_mean_curve": np.round(tc.mean(0), 4).tolist(), "raster_mean_curve": np.round(rc.mean(0), 4).tolist()}
+            np.save(os.path.join(args.reports, f"probe_{args.name}.npy"), np.stack([tc, rc]))
+    if "f" in fits:
+        fit, S, _ = fits["f"]
+        from .model.raster import StoneArrays, MAX_STONES
+        def raster_value(positions):
+            n = len(positions)
+            x = np.zeros((n, MAX_STONES), np.float32); yy = np.zeros_like(x); o = np.zeros_like(x); valid = np.zeros((n, MAX_STONES), bool)
+            feats = []
+            for i, p in enumerate(positions):
+                m = min(p.n, MAX_STONES)
+                x[i, :m], yy[i, :m], o[i, :m], valid[i, :m] = p.x[:m], p.y[:m], p.owner[:m], True
+                feats.append(np.hstack([position_features_row(p), ]))
+            Xp = np.vstack(feats)
+            sub = pd.DataFrame({"discipline": "M", "diff_hammer": 0, "ends_remaining": 5, "is_extra_end": False, "turn": "cw", "shot_type_code": 0}, index=range(n))
+            Sp, _ = scalar_matrix(sub, Xp, "f")
+            return fit.predict(StoneArrays(x, yy, o, valid), Sp, None) @ v
+        def tree_value(positions):
+            Xp = np.vstack([position_features_row(p) for p in positions])
+            sub = pd.DataFrame({"discipline": "M", "diff_hammer": 0, "ends_remaining": 5, "is_extra_end": False, "turn": "cw", "shot_type_code": 0}, index=range(len(positions)))
+            Xf, _, _, _ = design_matrices(sub, Xp, sets)
+            return _full_proba(mf, Xf) @ v
+        from .model.features import position_features as position_features_row
+        rep["monotonicity"] = {"raster": PR.monotonicity_report(raster_value), "tree": PR.monotonicity_report(tree_value)}
+    rep["seconds"] = round(time.time() - t0, 1)
+    os.makedirs(args.reports, exist_ok=True)
+    with open(os.path.join(args.reports, f"raster_{args.name}.json"), "w") as f:
+        json.dump(rep, f, indent=1, default=str)
+    print(json.dumps({k: rep[k] for k in rep if k.endswith("_logloss") or k in ("n_train", "n_test", "device", "seconds", "probe", "monotonicity")}, indent=1, default=str))
+
+
 def cmd_testset(args):
     """The six-shot face-validity table from the current Points Gained table."""
     from .model.testset import write_testset_report
@@ -488,6 +573,24 @@ def main(argv=None):
     m.add_argument("--seed", type=int, default=0)
     m.add_argument("--no-leave-out", action="store_true", help="team strength from all books including the row's own")
     m.set_defaults(func=cmd_difficulty)
+    o = sub.add_parser("raster", help="raw-geometry f/g on one split with the subtlety probe and monotonicity gates")
+    o.add_argument("--parquet", default="data/parquet")
+    o.add_argument("--reports", default="reports")
+    o.add_argument("--inventory", default="data/inventory.csv")
+    o.add_argument("--aliases", default="data/player_aliases.csv")
+    o.add_argument("--features", default="base,situation,level,intent")
+    o.add_argument("--split", choices=["time", "book"], default="time")
+    o.add_argument("--cutoff-year", type=int, default=2024)
+    o.add_argument("--fold", type=int, default=0)
+    o.add_argument("--name", default="raster")
+    o.add_argument("--epochs", type=int, default=6)
+    o.add_argument("--batch", type=int, default=512)
+    o.add_argument("--lr", type=float, default=2e-3)
+    o.add_argument("--max-train", type=int, default=None, help="subsample the training rows")
+    o.add_argument("--n-probe", type=int, default=300)
+    o.add_argument("--f-only", action="store_true")
+    o.add_argument("--seed", type=int, default=0)
+    o.set_defaults(func=cmd_raster)
     k = sub.add_parser("testset", help="face-validity table for the six pinned 2026 Olympic shots")
     k.add_argument("--parquet", default="data/parquet")
     k.add_argument("--reports", default="reports")
