@@ -360,14 +360,16 @@ def cmd_events(args):
                     if not len(gp):
                         continue
                     f.write(f"### {pos.title()}s\n\n" + gp[cols].rename(columns=short).round(3).to_markdown(index=False) + "\n\n")
-        index.append((year, ev, title, fn, int(grp["player"].nunique()), sorted(grp["discipline"].unique())))
+        n_games = int(pg.loc[pg["book"] == ev, "game_key"].nunique())
+        index.append((year, ev, title, fn, int(grp["player"].nunique()), sorted(grp["discipline"].unique()), n_games))
     with open(os.path.join(out_dir, "README.md"), "w") as f:
         f.write("# Per-event player leaderboards\n\nOne file per event; players grouped by position and sorted by median execution relative to that event's field.\n\n")
         for year in sorted(set(i[0] for i in index), reverse=True):
             f.write(f"## {year}\n\n")
-            for y, ev, title, fn, n, discs in sorted(index, key=lambda i: i[1]):
+            for y, ev, title, fn, n, discs, ng in sorted(index, key=lambda i: i[1]):
                 if y == year:
-                    f.write(f"- [{title}]({fn}) — {ev}, {'/'.join(discs)}, {n} players\n")
+                    note = " (shot-by-shot for a few games only)" if ng < 10 else ""
+                    f.write(f"- [{title}]({fn}) — {ev}, {'/'.join(discs)}, {ng} games, {n} players{note}\n")
             f.write("\n")
     # keep the combined markdown for grep, but the per-event files are the reading copy
     with open(os.path.join(args.reports, "leaderboard_events.md"), "w") as f:
