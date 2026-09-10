@@ -127,13 +127,13 @@ def test_reference_skill_decomposition():
     ds.rows["skill_thrower"] = np.where(ds.rows["team"] == "AAA", 0.8, -0.2)
     ds.rows["grade_logit_base"] = 0.5
     ds.rows["event_effect"] = 0.0
-    f_cols, g_cols = design_columns(("level",))
+    f_cols, g_cols = design_columns(("level_player",))
     col = f_cols.index("stones_in_play")
     class SkillModel(StubModel):
         def predict_proba(self, X):                       # outcome shifts with the expected grade (last column)
             z = np.outer(X[:, self.col] + 3 * X[:, -1], np.linspace(-1, 1, N_OUT))
             p = np.exp(z); return p / p.sum(axis=1, keepdims=True)
-    models = FittedModels(StubModel(col), SkillModel(g_cols.index("stones_in_play")), StubModel(col), f_cols, g_cols, ("level",), {}, [], "book")
+    models = FittedModels(StubModel(col), SkillModel(g_cols.index("stones_in_play")), StubModel(col), f_cols, g_cols, ("level_player",), {}, [], "book")
     assert g_cols[-1] == "expected_grade"
     vm = HammerAdjustedPoints(0.6)
     pg = compute_points_gained(ds, models, vm, skill_reference=np.zeros(len(ds.rows)))
@@ -148,7 +148,7 @@ def test_design_columns_and_sets():
     assert f_cols == FEATURE_NAMES + ["is_women"] and g_cols == f_cols + ["shot_type_code", "turn_code"]
     f2, g2 = design_columns(("situation", "level"))
     assert f2 == f_cols + ["diff_hammer_clip", "ends_remaining_clip", "is_extra_end"]
-    assert g2[-1:] == ["expected_grade"] and "shot_type_code" in g2
+    assert g2[-1:] == ["event_rating"] and "shot_type_code" in g2
     ds = build_dataset(synthetic_tabs())
     X_f, fc, X_g, gc = design_matrices(ds.rows, ds.X, ("situation",))
     assert X_f.shape == (16, len(fc)) and X_g.shape == (16, len(gc))

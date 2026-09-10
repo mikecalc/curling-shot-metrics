@@ -126,6 +126,8 @@ def by_player_event(pg: pd.DataFrame, books: list[str] | None = None, min_shots:
     df["pg_throw_rel"] = df["pg_throw"] - pd.MultiIndex.from_arrays([df["shot_type"], df["hammer"]]).map(base_all).to_numpy(dtype=float)
     base_ev = df.groupby(["book", "discipline", "shot_type", "hammer"], observed=True)["pg_throw"].transform("mean")
     df["pg_throw_rel_event"] = df["pg_throw"] - base_ev
+    base_ev_wp = df.groupby(["book", "discipline", "shot_type", "hammer"], observed=True)["pg_throw_wp"].transform("mean")
+    df["pg_throw_rel_event_wp"] = df["pg_throw_wp"] - base_ev_wp
     # same shot number and hammer state at this event: removes the leverage that fourths carry
     base_slot = df.groupby(["book", "discipline", "shot", "hammer"], observed=True)["pg_throw"].transform("mean")
     df["pg_throw_rel_slot"] = df["pg_throw"] - base_slot
@@ -146,8 +148,12 @@ def by_player_event(pg: pd.DataFrame, books: list[str] | None = None, min_shots:
         pg_throw_rel_slot=("pg_throw_rel_slot", "mean"),
         pg_total=("pg", "sum"), pg_throw_total=("pg_throw", "sum"),
         pg_wp=("pg_wp", "mean"), pg_call_wp=("pg_call_wp", "mean"), pg_throw_wp=("pg_throw_wp", "mean"),
+        # the same tail in win probability: execution relative to the event's field, in percentage points
+        pg_throw_rel_event_wp=("pg_throw_rel_event_wp", "mean"),
+        floor10_wp=("pg_throw_rel_event_wp", lambda x: float(x.quantile(0.10))),
+        big_misses_wp=("pg_throw_rel_event_wp", lambda x: int((x < -0.05).sum())),      # shots that cost 5+ points of win probability
+        worst5_wp=("pg_throw_rel_event_wp", lambda x: x.nsmallest(5).sum()),
         grade=("grade_pct", "mean"),
-        **({"pg_call_own": ("pg_call_own", "mean"), "pg_throw_own": ("pg_throw_own", "mean")} if "pg_call_own" in df else {}),
     ).reset_index()
     agg = agg[agg["shots"] >= min_shots].rename(columns={"book": "event"})
     return agg.sort_values(["event", "discipline", "pg_throw_rel_event_median"], ascending=[True, True, False])

@@ -112,9 +112,12 @@ def _feature_sets(spec: str) -> tuple[str, ...]:
     return tuple(s.strip() for s in spec.split(",") if s.strip())
 
 
-def _with_level(ds, sets, parquet_root, aliases_csv):
-    """Attach the level columns (skill, event effect, difficulty) and the intent columns when their sets are requested."""
-    if "level" in sets or "level_id" in sets:
+def _with_level(ds, sets, parquet_root, aliases_csv, event_strength_csv="data/event_strength.csv"):
+    """Attach the level columns (event rating; or the per-player skill sets) and the intent columns when requested."""
+    if "level" in sets:
+        es = pd.read_csv(event_strength_csv).set_index("book")["rating"] if os.path.exists(event_strength_csv) else pd.Series(dtype=float)
+        ds.rows = ds.rows.assign(event_rating=es.reindex(ds.rows["book"].to_numpy()).fillna(float(es.median()) if len(es) else 85.0).to_numpy(dtype=float))
+    if "level_player" in sets or "level_id" in sets:
         from .model.difficulty import load_level
         ds.rows = load_level(parquet_root, ds.rows, aliases_csv)
     if "intent" in sets:
@@ -214,7 +217,7 @@ def cmd_model(args):
 
     vm = HammerAdjustedPoints(vs_all.H)
     skill_ref = None
-    if "level" in sets:
+    if "level_player" in sets:
         from .model.difficulty import reference_skill
         from .model.experiment import attach_tier
         tiers = attach_tier(ds.rows, args.inventory).get("tier")
@@ -321,7 +324,7 @@ def cmd_events(args):
     os.makedirs(args.reports, exist_ok=True)
     lb.to_csv(os.path.join(args.reports, "leaderboard_events.csv"), index=False)
     cols = ["player", "team", "position", "shots", "games", "pg_throw_rel_event_median", "pg_throw_rel_event", "sd", "floor10", "reliability",
-            "big_misses", "big_makes", "worst5", "pg_throw_rel_slot", "pg_call", "pg_throw_wp", "grade"]
+            "big_misses", "big_makes", "worst5", "pg_throw_rel_event_wp", "floor10_wp", "big_misses_wp", "worst5_wp", "pg_throw_rel_slot", "pg_call", "grade"]
     with open(os.path.join(args.reports, "leaderboard_events.md"), "w") as f:
         f.write("# Per-event player leaderboards\n\nExecution is measured relative to that event's field for the same shot type and hammer state "
                 "(hammer-adjusted points per shot). Sorted by the median of that value: what the player's typical shot was worth. "
@@ -329,7 +332,9 @@ def cmd_events(args):
                 "and `worst5` is the sum of the five most costly shots. `sd` is plain variability (mostly leverage of the position). "
                 "`floor10` is the 10th percentile of execution, a bad day; `reliability` is the share of shots at or above the field's expectation "
                 "for that shot type and hammer state. Fourths carry the most leverage, so read position against position; "
-                "`pg_throw_rel_slot` compares with the same shot number instead. `_wp` is win probability.\n\n")
+                "`pg_throw_rel_slot` compares with the same shot number instead. The `_wp` columns are the same execution measure and tail in win probability "
+                "(`big_misses_wp` counts shots that cost five or more points of win probability). Execution is the primary pivot in both currencies; "
+                "the call component (`pg_call`) is reported after it.\n\n")
         for (ev, d), grp in lb.groupby(["event", "discipline"], sort=True):
             f.write(f"## {ev} ({'Men' if d == 'M' else 'Women'})\n\n" + grp[cols].round(3).to_markdown(index=False) + "\n\n")
     print(f"{len(lb)} player-event rows over {lb['event'].nunique()} events -> {args.reports}/leaderboard_events.{{csv,md}}")
@@ -459,9 +464,10 @@ def cmd_raster(args):
             Sp, _ = scalar_matrix(sub, Xp, "f")
             return fit.predict(StoneArrays(x, yy, o, valid), Sp, None) @ v
         def tree_value(positions):
+            from .model.train import column as _col
             Xp = np.vstack([position_features_row(p) for p in positions])
             sub = pd.DataFrame({"discipline": "M", "diff_hammer": 0, "ends_remaining": 5, "is_extra_end": False, "turn": "cw", "shot_type_code": 0}, index=range(len(positions)))
-            Xf, _, _, _ = design_matrices(sub, Xp, sets)
+            Xf = np.column_stack([_col(sub, Xp, c) for c in f_cols])       # f columns only: no level or intent needed
             return _full_proba(mf, Xf) @ v
         from .model.features import position_features as position_features_row
         rep["monotonicity"] = {"raster": PR.monotonicity_report(raster_value), "tree": PR.monotonicity_report(tree_value)}
