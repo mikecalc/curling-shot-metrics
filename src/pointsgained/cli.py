@@ -286,6 +286,15 @@ def cmd_events(args):
     print(f"{len(lb)} player-event rows over {lb['event'].nunique()} events -> {args.reports}/leaderboard_events.{{csv,md}}")
 
 
+def cmd_testset(args):
+    """The six-shot face-validity table from the current Points Gained table."""
+    from .model.testset import write_testset_report
+    pg = pd.read_parquet(os.path.join(args.parquet, "points_gained.parquet"))
+    os.makedirs(args.reports, exist_ok=True)
+    t = write_testset_report(pg, os.path.join(args.reports, "testset.md"))
+    print(t.round(3).to_string(index=False))
+
+
 def main(argv=None):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     p = argparse.ArgumentParser(prog="pointsgained")
@@ -360,6 +369,10 @@ def main(argv=None):
     h.add_argument("--match", nargs="*", default=None, help="substrings of book ids to include")
     h.add_argument("--min-shots", type=int, default=30)
     h.set_defaults(func=cmd_events)
+    k = sub.add_parser("testset", help="face-validity table for the six pinned 2026 Olympic shots")
+    k.add_argument("--parquet", default="data/parquet")
+    k.add_argument("--reports", default="reports")
+    k.set_defaults(func=cmd_testset)
     args = p.parse_args(argv)
     args.func(args)
 
