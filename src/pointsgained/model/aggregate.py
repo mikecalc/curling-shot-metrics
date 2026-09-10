@@ -37,11 +37,17 @@ STATE_BINS = [-99, -3, -1, 0, 2, 99]
 STATE_LABELS = ["down 3+", "down 1-2", "tied", "up 1-2", "up 3+"]
 
 
-def attach_strata(pg: pd.DataFrame, situations: dict, inventory_csv: str | None = None) -> pd.DataFrame:
-    """Add tier, event family, hammer label and game-state bucket (thrower's view) to the PG table."""
+def attach_strata(pg: pd.DataFrame, situations: dict | None = None, inventory_csv: str | None = None) -> pd.DataFrame:
+    """Add tier, event family, hammer label and game-state bucket (thrower's view) to the PG table.
+    The situation comes from the table's own diff_hammer / ends_remaining columns, or from `situations`."""
     pg = pg.copy()
-    diff_h = np.array([situations.get((g, e), (np.nan, np.nan))[0] for g, e in zip(pg["game_key"], pg["end"])], dtype=float)
-    ends_left = np.array([situations.get((g, e), (np.nan, np.nan))[1] for g, e in zip(pg["game_key"], pg["end"])], dtype=float)
+    if "diff_hammer" in pg and situations is None:
+        diff_h = pg["diff_hammer"].to_numpy(dtype=float)
+        ends_left = pg["ends_remaining"].to_numpy(dtype=float)
+    else:
+        situations = situations or {}
+        diff_h = np.array([situations.get((g, e), (np.nan, np.nan))[0] for g, e in zip(pg["game_key"], pg["end"])], dtype=float)
+        ends_left = np.array([situations.get((g, e), (np.nan, np.nan))[1] for g, e in zip(pg["game_key"], pg["end"])], dtype=float)
     pg["diff_thrower"] = np.where(pg["thrower_has_hammer"], diff_h, -diff_h)
     pg["ends_remaining"] = ends_left
     pg["game_state"] = pd.cut(pg["diff_thrower"], STATE_BINS, labels=STATE_LABELS)

@@ -1,6 +1,16 @@
-"""Fit the baseline f and g models (gradient-boosted trees) and report validation (Section 7.5)."""
+"""Fit the baseline f and g models (gradient-boosted trees) and report validation (Section 7.5).
+
+Feature sets (design Sections 5.4, 7.2, 13) are named so that experiments can toggle them:
+  base       the 28 position features plus discipline (f and g)
+  situation  score difference and ends remaining, hammer perspective (f and g)
+  call       shot type and turn (g only, always on)
+  level      thrower skill and event effect (g only)
+  intent     target of the called shot from the delivered stone (g only)
+"""
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -12,7 +22,60 @@ from sklearn.model_selection import GroupKFold
 from .features import FEATURE_NAMES
 from .value import N_OUT
 
+log = logging.getLogger(__name__)
+
 TRIVIAL_FEATURES = ["rocks_remaining", "next_thrower_has_hammer", "count"]
+TURN_CODE = {"cw": 1.0, "ccw": -1.0, "in": 0.5, "out": -0.5}
+
+FEATURE_SETS = {
+    "base": FEATURE_NAMES + ["is_women"],
+    "situation": ["diff_hammer_clip", "ends_remaining_clip", "is_extra_end"],
+    "call": ["shot_type_code", "turn_code"],
+    "level": ["skill_thrower", "event_effect"],
+    "intent": ["target_x", "target_y", "target_owner", "target_ring", "target_is_shot_rock", "target_is_guard",
+               "shooter_stays", "target_known"],
+}
+F_SETS = ("base", "situation")                  # sets that enter f (and g)
+G_ONLY_SETS = ("call", "level", "intent")       # sets that enter g only
+CATEGORICAL = {"shot_type_code"}
+
+
+def column(rows: pd.DataFrame, X: np.ndarray, name: str) -> np.ndarray:
+    """One design column, from the baseline features or derived from the row table."""
+    if name in FEATURE_NAMES:
+        return X[:, FEATURE_NAMES.index(name)]
+    if name == "is_women":
+        return (rows["discipline"] == "W").to_numpy(dtype=float)
+    if name == "diff_hammer_clip":
+        return rows["diff_hammer"].clip(-6, 6).to_numpy(dtype=float)
+    if name == "ends_remaining_clip":
+        return rows["ends_remaining"].clip(1, 10).to_numpy(dtype=float)
+    if name == "is_extra_end":
+        return rows["is_extra_end"].to_numpy(dtype=float)
+    if name == "turn_code":
+        return rows["turn"].map(TURN_CODE).fillna(0.0).to_numpy(dtype=float)
+    if name == "shot_type_code":
+        return rows["shot_type_code"].to_numpy(dtype=float)
+    if name in rows:
+        return pd.to_numeric(rows[name], errors="coerce").fillna(0.0).to_numpy(dtype=float)
+    raise KeyError(f"no builder for design column {name!r}")
+
+
+def design_columns(sets: tuple[str, ...]) -> tuple[list[str], list[str]]:
+    """(f columns, g columns) for the named feature sets. 'base' and 'call' are always present."""
+    sets = tuple(dict.fromkeys(("base",) + tuple(sets) + ("call",)))
+    f_cols = [c for s in F_SETS if s in sets for c in FEATURE_SETS[s]]
+    g_cols = f_cols + [c for s in G_ONLY_SETS if s in sets for c in FEATURE_SETS[s]]
+    return f_cols, g_cols
+
+
+def design_matrices(rows: pd.DataFrame, X: np.ndarray, sets: tuple[str, ...] = ("base",)):
+    """f uses position features + discipline (+ situation); g adds the call (+ level, intent)."""
+    f_cols, g_cols = design_columns(sets)
+    X_f = np.column_stack([column(rows, X, c) for c in f_cols]) if len(rows) else np.zeros((0, len(f_cols)))
+    extra = [column(rows, X, c) for c in g_cols[len(f_cols):]]
+    X_g = np.column_stack([X_f] + extra) if extra else X_f
+    return X_f, f_cols, X_g, g_cols
 
 
 def _full_proba(model, X) -> np.ndarray:
@@ -38,6 +101,11 @@ def make_model(seed: int = 0, categorical=None):
                                           categorical_features=categorical, random_state=seed)
 
 
+def _cat_index(cols: list[str]):
+    idx = [i for i, c in enumerate(cols) if c in CATEGORICAL]
+    return idx or None
+
+
 @dataclass
 class FittedModels:
     f: HistGradientBoostingClassifier
@@ -45,9 +113,14 @@ class FittedModels:
     trivial: HistGradientBoostingClassifier
     f_cols: list[str]
     g_cols: list[str]
+    sets: tuple[str, ...] = ("base",)
     cv_report: dict = field(default_factory=dict)
     folds: list = field(default_factory=list)     # (set of held-out group keys, f model, g model)
     group_key: str = "book"
+
+    def design(self, rows: pd.DataFrame, X: np.ndarray):
+        X_f, _, X_g, _ = design_matrices(rows, X, self.sets)
+        return X_f, X_g
 
     def predict_f(self, X_f: np.ndarray, groups=None) -> np.ndarray:
         return self._predict("f", X_f, groups)
@@ -70,66 +143,80 @@ class FittedModels:
         return out
 
 
-def design_matrices(rows: pd.DataFrame, X: np.ndarray):
-    """f uses position features + discipline; g adds the shot type and turn."""
-    disc = (rows["discipline"] == "W").astype(float).to_numpy()[:, None]
-    fgz = X[:, FEATURE_NAMES.index("fgz_rocks")][:, None]
-    X_f = np.hstack([X, disc])
-    f_cols = FEATURE_NAMES + ["is_women"]
-    turn = rows["turn"].map({"cw": 1.0, "ccw": -1.0, "in": 0.5, "out": -0.5}).fillna(0.0).to_numpy()[:, None]
-    stc = rows["shot_type_code"].to_numpy()[:, None].astype(float)
-    X_g = np.hstack([X_f, stc, turn])
-    g_cols = f_cols + ["shot_type_code", "turn"]
-    return X_f, f_cols, X_g, g_cols
+def _scores(P: np.ndarray, y: np.ndarray, eps: float = 1e-6) -> tuple[float, float]:
+    Pn = np.clip(P, eps, 1); Pn /= Pn.sum(axis=1, keepdims=True)
+    return float(log_loss(y, Pn, labels=list(range(N_OUT)))), _brier(Pn, y)
 
 
-def fit_models(rows: pd.DataFrame, X: np.ndarray, y: np.ndarray, seed: int = 0) -> FittedModels:
-    X_f, f_cols, X_g, g_cols = design_matrices(rows, X)
-    cat_g = [g_cols.index("shot_type_code")]
-    tri_idx = [FEATURE_NAMES.index(c) for c in TRIVIAL_FEATURES]
+def evaluate(P: dict[str, np.ndarray], y: np.ndarray, rows: pd.DataFrame, X: np.ndarray) -> dict:
+    """Log-loss and Brier per model, overall, by rocks remaining, by |score diff| and by tier when present."""
+    rep = {}
+    for name, Pm in P.items():
+        ll, br = _scores(Pm, y)
+        rep[f"{name}_logloss"], rep[f"{name}_brier"] = ll, br
+    rr = X[:, FEATURE_NAMES.index("rocks_remaining")].astype(int)
+    by_rr = {}
+    for r in sorted(set(rr)):
+        m = rr == r
+        by_rr[int(r)] = {"n": int(m.sum()), **{name: round(_scores(Pm[m], y[m])[0], 4) for name, Pm in P.items()}}
+    rep["logloss_by_rocks_remaining"] = by_rr
+    if "diff_hammer" in rows:
+        ad = rows["diff_hammer"].abs().clip(upper=4).to_numpy()
+        by_d = {}
+        for d in sorted(set(ad)):
+            m = ad == d
+            by_d[int(d)] = {"n": int(m.sum()), **{name: round(_scores(Pm[m], y[m])[0], 4) for name, Pm in P.items()}}
+        rep["logloss_by_abs_diff"] = by_d
+    if "tier" in rows and rows["tier"].notna().any():
+        by_t = {}
+        for t, m in rows.groupby("tier").indices.items():
+            by_t[str(t)] = {"n": int(len(m)), **{name: round(_scores(Pm[m], y[m])[0], 4) for name, Pm in P.items()}}
+        rep["logloss_by_tier"] = by_t
+    # calibration of f by class: mean predicted vs observed in quintiles of predicted prob
+    if "f" in P:
+        calib = {}
+        for k in range(N_OUT):
+            pk = P["f"][:, k]; yk = (y == k).astype(float)
+            if yk.sum() < 20:
+                continue
+            bins = np.quantile(pk, np.linspace(0, 1, 6))
+            idx = np.clip(np.searchsorted(bins, pk, side="right") - 1, 0, 4)
+            calib[int(k - 3)] = [(round(float(pk[idx == b].mean()), 3), round(float(yk[idx == b].mean()), 3), int((idx == b).sum()))
+                                 for b in range(5) if (idx == b).any()]
+        rep["calibration_f"] = calib
+    return rep
+
+
+def fit_models(rows: pd.DataFrame, X: np.ndarray, y: np.ndarray, seed: int = 0,
+               sets: tuple[str, ...] = ("base",), n_splits: int = 5) -> FittedModels:
+    t0 = time.time()
+    X_f, f_cols, X_g, g_cols = design_matrices(rows, X, sets)
+    cat_g = _cat_index(g_cols)
+    tri_cols = TRIVIAL_FEATURES + (FEATURE_SETS["situation"] if "situation" in sets else [])
+    X_t = np.column_stack([column(rows, X, c) for c in tri_cols])
     groups = rows["book"].to_numpy()
     n_groups = len(set(groups))
-    report = {"n_rows": int(len(rows)), "n_groups": int(n_groups), "group_key": "book"}
+    report = {"n_rows": int(len(rows)), "n_groups": int(n_groups), "group_key": "book", "sets": list(sets),
+              "f_cols": f_cols, "g_cols": g_cols}
     if n_groups < 3:
         groups = rows["game_key"].to_numpy(); n_groups = len(set(groups)); report["group_key"] = "game_key"
-    n_splits = min(5, n_groups)
+    n_splits = min(n_splits, n_groups)
     folds = GroupKFold(n_splits=n_splits)
     P_f = np.zeros((len(y), N_OUT)); P_g = np.zeros_like(P_f); P_t = np.zeros_like(P_f)
     unm = (rows["mirror"] == 0).to_numpy()
     fold_models = []
-    for tr, te in folds.split(X_f, y, groups):
+    for k, (tr, te) in enumerate(folds.split(X_f, y, groups)):
+        t1 = time.time()
         mf = make_model(seed).fit(X_f[tr], y[tr]); P_f[te] = _full_proba(mf, X_f[te])
         mg = make_model(seed, cat_g).fit(X_g[tr], y[tr]); P_g[te] = _full_proba(mg, X_g[te])
-        mt = make_model(seed).fit(X[tr][:, tri_idx], y[tr]); P_t[te] = _full_proba(mt, X[te][:, tri_idx])
+        mt = make_model(seed).fit(X_t[tr], y[tr]); P_t[te] = _full_proba(mt, X_t[te])
         fold_models.append((set(groups[te]), mf, mg))
-    eps = 1e-6
-    for name, P in (("trivial", P_t), ("f", P_f), ("g", P_g)):
-        Pn = np.clip(P[unm], eps, 1); Pn /= Pn.sum(axis=1, keepdims=True)
-        report[f"{name}_logloss"] = float(log_loss(y[unm], Pn, labels=list(range(N_OUT))))
-        report[f"{name}_brier"] = _brier(Pn, y[unm])
-    # calibration of f by class: mean predicted vs observed in deciles of predicted prob
-    calib = {}
-    for k in range(N_OUT):
-        pk = P_f[unm][:, k]; yk = (y[unm] == k).astype(float)
-        if yk.sum() < 20:
-            continue
-        bins = np.quantile(pk, np.linspace(0, 1, 6))
-        idx = np.clip(np.searchsorted(bins, pk, side="right") - 1, 0, 4)
-        calib[int(k - 3)] = [(round(float(pk[idx == b].mean()), 3), round(float(yk[idx == b].mean()), 3), int((idx == b).sum()))
-                             for b in range(5) if (idx == b).any()]
-    report["calibration_f"] = calib
-    # by rocks_remaining: how log-loss improves as the end progresses
-    rr = X[unm][:, FEATURE_NAMES.index("rocks_remaining")]
-    by_rr = {}
-    for r in sorted(set(rr.astype(int))):
-        m = rr == r
-        Pn = np.clip(P_f[unm][m], eps, 1); Pn /= Pn.sum(axis=1, keepdims=True)
-        Pt = np.clip(P_t[unm][m], eps, 1); Pt /= Pt.sum(axis=1, keepdims=True)
-        by_rr[int(r)] = {"n": int(m.sum()),
-                         "f": round(float(log_loss(y[unm][m], Pn, labels=list(range(N_OUT)))), 4),
-                         "trivial": round(float(log_loss(y[unm][m], Pt, labels=list(range(N_OUT)))), 4)}
-    report["logloss_by_rocks_remaining"] = by_rr
+        log.info("fold %d/%d fitted in %.0fs", k + 1, n_splits, time.time() - t1)
+    report.update(evaluate({"trivial": P_t[unm], "f": P_f[unm], "g": P_g[unm]}, y[unm], rows[unm], X[unm]))
+    t1 = time.time()
     f = make_model(seed).fit(X_f, y)
     g = make_model(seed, cat_g).fit(X_g, y)
-    t = make_model(seed).fit(X[:, tri_idx], y)
-    return FittedModels(f, g, t, f_cols, g_cols, report, fold_models, report["group_key"])
+    t = make_model(seed).fit(X_t, y)
+    log.info("full-data models fitted in %.0fs (total %.0fs)", time.time() - t1, time.time() - t0)
+    report["fit_seconds"] = round(time.time() - t0, 1)
+    return FittedModels(f, g, t, f_cols, g_cols, tuple(sets), report, fold_models, report["group_key"])

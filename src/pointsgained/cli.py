@@ -1,4 +1,4 @@
-"""Command line interface: pointsgained ingest | validate | audit."""
+"""Command line interface: pointsgained ingest | validate | audit | model | features | experiment | events | inventory | download | batch."""
 from __future__ import annotations
 
 import argparse
@@ -101,23 +101,48 @@ def cmd_audit(args):
     print(f"wrote {args.out} with {len(tiles)} panels")
 
 
+def cmd_features(args):
+    """Build (or refresh) the feature cache: one row per shot and mirror with strata, situation, label and features."""
+    from .model.cache import load_or_build
+    ds = load_or_build(args.parquet, mirror=not args.no_mirror, rebuild=args.rebuild)
+    print(f"{len(ds.rows)} rows, {len(ds.stones)} stones -> {args.parquet}/features.parquet")
+
+
+def _feature_sets(spec: str) -> tuple[str, ...]:
+    return tuple(s.strip() for s in spec.split(",") if s.strip())
+
+
+def cmd_experiment(args):
+    """Fit f, g and the trivial model once on one split and score the held-out rows."""
+    from .model.cache import load_or_build
+    from .model.experiment import run_experiment
+    ds = load_or_build(args.parquet, rebuild=args.rebuild)
+    sets = _feature_sets(args.features)
+    name = args.name or f"{args.split}_{'+'.join(sets)}"
+    rep = run_experiment(ds, name, sets, split=args.split, cutoff_year=args.cutoff_year, fold=args.fold,
+                         seed=args.seed, reports=args.reports, inventory_csv=args.inventory)
+    print(json.dumps({k: rep[k] for k in ("name", "split", "sets", "n_train", "n_test", "trivial_logloss", "f_logloss", "g_logloss", "seconds")}, indent=2))
+    print("by rocks remaining:", {r: (v["f"], v["trivial"]) for r, v in rep["logloss_by_rocks_remaining"].items()})
+    if "logloss_by_abs_diff" in rep:
+        print("by |diff|:", {d: (v["f"], v["trivial"]) for d, v in rep["logloss_by_abs_diff"].items()})
+
+
 def cmd_model(args):
-    """Phase 1 pipeline: positions -> value set -> WP table -> f/g -> Points Gained -> leaderboards."""
-    import numpy as np
-    from .model.dataset import load_books, build_dataset
+    """Phase 1 pipeline: feature cache -> value set -> WP table -> f/g -> Points Gained -> leaderboards."""
+    from .model.cache import load_or_build
+    from .model.dataset import load_books
     from .model.value import ValueSet, HammerAdjustedPoints, OUTCOMES
-    from .model.winprob import ends_from_line_scores, build_table, WinProbability
+    from .model.winprob import ends_from_line_scores, build_table
     from .model.train import fit_models
     from .model.pg import compute_points_gained, conservation_check
     from .model import aggregate as agg
     os.makedirs(args.reports, exist_ok=True)
     t0 = time.time()
-    tabs = load_books(args.parquet)
-    logging.info("loaded %d games, %d ends, %d shots", len(tabs["games"]), len(tabs["ends"]), len(tabs["shots"]))
-    ds = build_dataset(tabs, mirror=not args.no_mirror)
-    logging.info("dataset: %d rows (%d unmirrored) in %.0fs", len(ds.rows), int((ds.rows["mirror"] == 0).sum()), time.time() - t0)
-    rep = {"n_games": int(len(tabs["games"])), "n_ends": int(len(tabs["ends"])), "n_shots": int(len(tabs["shots"])),
-           "n_rows": int(len(ds.rows))}
+    ds = load_or_build(args.parquet, mirror=not args.no_mirror, rebuild=args.rebuild)
+    sets = _feature_sets(args.features)
+    rep = {"n_games": int(ds.rows["game_key"].nunique()), "n_ends": int(ds.rows.groupby(["game_key", "end"]).ngroups),
+           "n_shots": int((ds.rows["mirror"] == 0).sum()), "n_rows": int(len(ds.rows)), "feature_sets": list(sets)}
+    logging.info("dataset: %d rows (%d shots) in %.0fs", rep["n_rows"], rep["n_shots"], time.time() - t0)
 
     # value set per discipline from the end outcomes seen in shot-by-shot ends
     first = ds.rows[(ds.rows["mirror"] == 0) & (ds.rows["shot"] == 1)]
@@ -128,7 +153,8 @@ def cmd_model(args):
         vs = ValueSet.from_outcomes(grp["label"])
         rep[f"N_{d}"], rep[f"H_{d}"], rep[f"ends_{d}"] = round(vs.N, 4), round(vs.H, 4), int(len(grp))
 
-    # win-probability table from line scores
+    # win-probability table from line scores (every book, including those without shot-by-shot pages)
+    tabs = load_books(args.parquet)
     er = ends_from_line_scores(tabs["line_scores"])
     rep["line_score_ends"] = int(len(er))
     wpt = build_table(er) if len(er) else None
@@ -138,13 +164,13 @@ def cmd_model(args):
                               for d, n, h in [(0, 10, 1), (0, 5, 1), (1, 5, 0), (-1, 5, 1), (2, 3, 0), (0, 1, 1), (0, 1, 0), (-2, 2, 1)]}
         rep["regimes"] = {f"d={d},n={n}": wpt.regime(d, n) for d, n in [(0, 10), (0, 1), (-1, 1), (1, 2), (-2, 3), (3, 4)]}
 
-    models = fit_models(ds.rows, ds.X, ds.y, seed=args.seed)
+    models = fit_models(ds.rows, ds.X, ds.y, seed=args.seed, sets=sets)
     rep["cv"] = models.cv_report
     logging.info("models fitted in %.0fs; f logloss %.4f vs trivial %.4f", time.time() - t0,
                  models.cv_report["f_logloss"], models.cv_report["trivial_logloss"])
 
     vm = HammerAdjustedPoints(vs_all.H)
-    pg = compute_points_gained(ds, models, vm)
+    pg = compute_points_gained(ds, models, vm, wp_table=wpt)
     cons = conservation_check(pg, vm)
     rep["conservation_max_abs_residual"] = float(cons["residual"].abs().max())
     rep["conservation_terminal_ok_rate"] = float(cons["terminal_is_actual"].mean())
@@ -153,19 +179,8 @@ def cmd_model(args):
     rep["V_S0_mean"] = round(float(s0["V_pre"].mean()), 4)
     rep["H_used"] = round(vs_all.H, 4)
     if wpt is not None:
-        from .model.pg import situation_lookup
-        sit = situation_lookup(tabs)
-        cache = {}
-        def vm_wp(gk, e):
-            d, n = sit.get((gk, e), (0, 10))
-            key = (d, n)
-            if key not in cache:
-                cache[key] = WinProbability(wpt, d, n)
-            return cache[key]
-        pg_wp = compute_points_gained(ds, models, vm, vm_by_situation=vm_wp)
-        for c in ("pg", "pg_call", "pg_throw", "V_pre"):
-            pg[f"{c}_wp"] = pg_wp[c].values
         rep["wp_pg_abs_mean"] = round(float(pg["pg_wp"].abs().mean()), 4)
+    logging.info("points gained computed in %.0fs", time.time() - t0)
     pg.to_parquet(os.path.join(args.parquet, "points_gained.parquet"), index=False)
     cons.to_parquet(os.path.join(args.parquet, "conservation.parquet"), index=False)
 
@@ -174,16 +189,17 @@ def cmd_model(args):
     for k, df in lb.items():
         df.to_csv(os.path.join(args.reports, f"leaderboard_{k}.csv"), index=False)
     # stratified tables (discipline, tier, hammer, game state), both currencies
-    from .model.pg import situation_lookup
-    pgs = agg.attach_strata(pg, situation_lookup(tabs), args.inventory)
+    pgs = agg.attach_strata(pg, inventory_csv=args.inventory)
     strata = agg.strata_tables(pgs, min_shots_player=args.min_shots)
     for k, df in strata.items():
         df.to_csv(os.path.join(args.reports, f"strata_{k}.csv"), index=False)
+    rep["seconds"] = round(time.time() - t0, 1)
     with open(os.path.join(args.reports, "model_report.json"), "w") as f:
         json.dump(rep, f, indent=2, default=str)
     with open(os.path.join(args.reports, "model_report.md"), "w") as f:
         f.write("# Points Gained: Phase 1 model report\n\n")
-        f.write(f"Games {rep['n_games']}, ends {rep['n_ends']}, shots {rep['n_shots']}, training rows {rep['n_rows']}.\n\n")
+        f.write(f"Games {rep['n_games']}, ends {rep['n_ends']}, shots {rep['n_shots']}, training rows {rep['n_rows']}. "
+                f"Feature sets: {', '.join(sets)}. Run time {rep['seconds']:.0f}s.\n\n")
         f.write(f"Hammer outcome distribution (hammer perspective, clipped): {rep['hammer_outcome_dist']}\n\n")
         f.write(f"N (hammer net) = {rep['N_all']}, H (Markov hammer value) = {rep['H_all']}\n\n")
         for d in ("M", "W"):
@@ -197,6 +213,10 @@ def cmd_model(args):
         f.write("\nLog-loss by rocks remaining (f vs trivial):\n\n| rocks remaining | n | f | trivial |\n|---|---|---|---|\n")
         for r, v in sorted(cv["logloss_by_rocks_remaining"].items()):
             f.write(f"| {r} | {v['n']} | {v['f']} | {v['trivial']} |\n")
+        if "logloss_by_abs_diff" in cv:
+            f.write("\nLog-loss by |score difference| (f vs trivial):\n\n| abs diff | n | f | trivial |\n|---|---|---|---|\n")
+            for r, v in sorted(cv["logloss_by_abs_diff"].items()):
+                f.write(f"| {r} | {v['n']} | {v['f']} | {v['trivial']} |\n")
         f.write(f"\n## Conservation\n\nMax |sum PG - (final - start)| over ends: {rep['conservation_max_abs_residual']:.2e}; ")
         f.write(f"terminal distribution equals the actual score in {100 * rep['conservation_terminal_ok_rate']:.1f}% of ends.\n\n")
         f.write(f"Mean V(f(S0)) = {rep['V_S0_mean']} versus H = {rep['H_used']} (calibration check).\n\n")
@@ -217,7 +237,7 @@ def cmd_model(args):
         f.write(strata["players"].head(30).round(4).to_markdown(index=False) + "\n\n")
         f.write("### Teams by hammer\n\n" + strata["teams_hammer"].round(4).to_markdown(index=False) + "\n")
     print(json.dumps({k: v for k, v in rep.items() if k not in ("cv",)}, indent=2, default=str))
-    print(json.dumps({k: v for k, v in rep["cv"].items() if k not in ("calibration_f", "logloss_by_rocks_remaining")}, indent=2))
+    print(json.dumps({k: v for k, v in rep["cv"].items() if k not in ("calibration_f", "logloss_by_rocks_remaining", "logloss_by_abs_diff", "logloss_by_tier", "f_cols", "g_cols")}, indent=2))
     print(f"wrote {args.reports}/model_report.md in {time.time() - t0:.0f}s")
 
 
@@ -292,7 +312,26 @@ def main(argv=None):
     d.add_argument("--min-shots", type=int, default=40)
     d.add_argument("--no-mirror", action="store_true")
     d.add_argument("--inventory", default="data/inventory.csv", help="for tier and event family strata")
+    d.add_argument("--features", default="base", help="comma list of feature sets: base,situation,level,intent")
+    d.add_argument("--rebuild", action="store_true", help="rebuild the feature cache")
     d.set_defaults(func=cmd_model)
+    i = sub.add_parser("features", help="build or refresh the feature cache under the parquet root")
+    i.add_argument("--parquet", default="data/parquet")
+    i.add_argument("--no-mirror", action="store_true")
+    i.add_argument("--rebuild", action="store_true")
+    i.set_defaults(func=cmd_features)
+    j = sub.add_parser("experiment", help="fit once on one split and score the held-out rows")
+    j.add_argument("--parquet", default="data/parquet")
+    j.add_argument("--reports", default="reports")
+    j.add_argument("--inventory", default="data/inventory.csv")
+    j.add_argument("--features", default="base", help="comma list of feature sets")
+    j.add_argument("--split", choices=["time", "book"], default="time")
+    j.add_argument("--cutoff-year", type=int, default=2024, help="time split: last training year")
+    j.add_argument("--fold", type=int, default=0, help="book split: which of the five folds")
+    j.add_argument("--name", default=None)
+    j.add_argument("--seed", type=int, default=0)
+    j.add_argument("--rebuild", action="store_true")
+    j.set_defaults(func=cmd_experiment)
     e = sub.add_parser("inventory", help="build the inventory of the curlit results directory")
     e.add_argument("--out", default="data/inventory.csv")
     e.add_argument("--html", default=None, help="parse a saved copy of the results page instead of fetching")
