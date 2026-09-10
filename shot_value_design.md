@@ -21,7 +21,7 @@ Every shot in curling has two parts. First a call is made, by the skip and often
 
 The model evaluates every rock in both dimensions. Selection asks what the call's menu was worth compared with the position the team was handed. Execution asks what the throw produced compared with the menu the throw was handed. Neither is judged by the other: the execution value does not penalise a poor call or reward a brilliant one, and the selection value does not credit a lucky throw or blame a bad one. A call reads the same on a make and on a miss. The two components sum to the shot's total contribution to the end.
 
-The best calls create menus whose expectation, weighted by how *this* team executes, is highest relative to the position. That is not always the menu with the biggest upside, and the right trade-off depends on who is throwing. The clearest example in the data is Brad Jacobs' last rock in the ninth end of the 2026 Olympic final: down one with hammer, he called a runback through traffic that scored three and decided the gold medal. Against the field's usual call from that position, a draw, the model prices the call at −16.7 percentage points of win probability and the throw at +31.9. That is not a verdict that the call was wrong. It says the field does not call that shot, because for the median skip it is a poor menu; whether it was the right menu for Jacobs is a question about geometry (was the shot there?) and about level of play (how often does he make it?), and answering it properly is what Sections 5.2 and 3.5 are for.
+The best calls create menus whose expectation, weighted by how *this* team executes, is highest relative to the position. That is not always the menu with the biggest upside, and the right trade-off depends on who is throwing. The clearest example in the data is Brad Jacobs' last rock in the ninth end of the 2026 Olympic final: down one with hammer, he called a runback through traffic that scored three and decided the gold medal. Against the field's usual call from that position, a draw, the type-only model priced the call at −16.7 percentage points of win probability and the throw at +31.9; with the struck stone as part of the call (Section 6) it is −4.0 and +21.0. That is not a verdict that the call was wrong. It says the field does not call that shot, because for the median skip it is a poor menu; whether it was the right menu for Jacobs is a question about geometry (was the shot there?) and about level of play (how often does he make it?), and answering it properly is what Sections 5.2 and 3.5 are for.
 
 ### 1.2 Strategy: how game situation enters
 
@@ -243,7 +243,7 @@ What g takes instead (feature set `intent`):
 - **Hits** (Take-out, Hit and Roll, Double, Clearing, Raise, Promotion, Wick): the **struck stone**, the prior-position ring furthest up the sheet (the shooter arrives from the hog line), at any grade: which stone was hit is intent, not outcome. Its columns are the pre-shot position (x, y), owner, ring, whether it was the shot rock and whether it was a guard. Without rings, the modal struck-stone class from a second target model.
 - Whether the shooter stayed and whether the target was realised are kept for diagnostics and the Phase 2 error model but are not columns of g.
 
-With that rule the gain is honest and modest: g from 1.4297 to G_INTENT_TIME on the time split and from 1.4366 to G_INTENT_BOOK by book, every band of rocks remaining slightly better, the last rock most (0.815 to about 0.80). The information is in the hits. The rings were missing from the 2016–2019 books because those templates draw them two pixels thick in the moved stone's colour; a second ring rule in the detector recovered them, and those thirty books were re-extracted. The Through / Draw distinction on a last rock with an empty house remains the blank-versus-score decision and is handled by the type alone.
+With that rule the gain is honest and modest: g from 1.4297 to 1.4278 on the time split, from 1.4366 to 1.4342 by book and from 1.447 to 1.444 in the five-fold cross-validation, every band of rocks remaining slightly better, the last rock most (0.815 to 0.796). The information is in the hits. What changes more than the log-loss is the call component: its mean absolute size per shot is now 0.064 points against 0.137 for execution, about half rather than a tenth, and it is largest on the hit family (0.07 to 0.10 on take-outs, doubles, raises and promotions). On the six-shot test set (Section 13) the made runbacks moved the way they should: Jacobs' ninth-end call from −12.0 to −4.0 percentage points of win probability, Retornaz's tied-last-end promotion from −3.7 to +3.1, Muskatewitz's raise from −8.1 to +1.8; Casper's two stayed negative, and Schwarz-van Berkel's missed clearing got worse as a call (−2.2 to −7.1). The rings were missing from the 2016–2019 books because those templates draw them two pixels thick in the moved stone's colour; a second ring rule in the detector recovered them, and those thirty books were re-extracted. The Through / Draw distinction on a last rock with an empty house remains the blank-versus-score decision and is handled by the type alone.
 
 ---
 
@@ -274,6 +274,7 @@ Held out by book on the full archive, five folds, with and without the game situ
 | f (position features) | 1.494 | 1.470 | 0.708 |
 | g (position and call) | 1.472 | 1.453 | 0.701 |
 | g with the expected grade (Section 3.5) | | 1.447 | 0.699 |
+| g with the expected grade and the intent target (Section 6) | | 1.444 | 0.698 |
 
 On the time split (train through 2024, test on the 2025 and 2026 events, 219,000 held-out rows) the same story: f 1.477 to 1.454 and g 1.455 to 1.437. The situation helps in every band of rocks remaining and in every score-difference band, most at tied scores (1.403 to 1.366 on the time split), where ends remaining decides whether the end is "two or blank" or "must score". It was adopted on that evidence (experiment log in `reports/experiments/`). The regime label and the v-vector as alternative encodings were not needed.
 
@@ -425,7 +426,7 @@ Built and run, September 2026:
 | M6 Plumbing: feature cache, vectorised build and PG, experiment command | Done; full pipeline 2.5 h to 17 min, identical results |
 | M7 Game situation in f and g | Done; f 1.470 / g 1.453 / trivial 1.559 held out by book |
 | M8 Difficulty model: skill scalar and event effect; g takes the expected grade | Done; g 1.4373 → 1.4297 on the time split |
-| M9 Intent from the delivered stone; target model; ring detector for 2016–2019 | Done; g 1.4297 → G_INTENT_TIME on the time split |
+| M9 Intent from the delivered stone; target model; ring detector for 2016–2019 | Done; g 1.4297 → 1.4278 on the time split, 1.447 → 1.444 by book |
 | M10 Raster geometry f and g with the subtlety probe | After M9 |
 | M11 Phase 2 | After M10 |
 
