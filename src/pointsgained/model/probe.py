@@ -6,8 +6,9 @@ for the raster model and for the tree model. A model that has learned the geomet
 change where the double closes; the trees, which see the position through 28 numbers, show a
 flat line.
 
-Monotonicity: adding an opposing guard in front of the shot rock must not raise own value; moving
-own shot rock from the eight-foot to the button must not lower the count probability.
+Monotonicity: three checks on synthetic positions, each of which must not raise the hammer team's
+value: an opponent stone appearing inside own shot rock, own counting stone removed, own guard
+removed from in front of own shot rock.
 """
 from __future__ import annotations
 
