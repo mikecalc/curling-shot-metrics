@@ -241,6 +241,27 @@ def cmd_batch(args):
     print(inv[inv["in_scope"] == True]["status"].value_counts().to_string())
 
 
+def cmd_events(args):
+    """Per-event player leaderboards with position and field-relative execution."""
+    from .model import aggregate as agg
+    pg = pd.read_parquet(os.path.join(args.parquet, "points_gained.parquet"))
+    books = args.books or None
+    if args.match:
+        books = sorted(b for b in pg["book"].unique() if any(m in b for m in args.match))
+    lb = agg.by_player_event(pg, books, min_shots=args.min_shots)
+    os.makedirs(args.reports, exist_ok=True)
+    lb.to_csv(os.path.join(args.reports, "leaderboard_events.csv"), index=False)
+    cols = ["player", "team", "position", "shots", "games", "pg_throw_rel_slot", "pg_throw_rel_event", "pg_throw", "pg_call", "pg",
+            "pg_throw_wp", "pg_call_wp", "grade"]
+    with open(os.path.join(args.reports, "leaderboard_events.md"), "w") as f:
+        f.write("# Per-event player leaderboards\n\nSorted by `pg_throw_rel_slot`: execution relative to that event's field for the same shot "
+                "number and hammer state (hammer-adjusted points per shot), which puts leads and fourths on the same footing. "
+                "`pg_throw_rel_event` is relative to the event's field for the same shot type and hammer state; `_wp` columns are win probability.\n\n")
+        for (ev, d), grp in lb.groupby(["event", "discipline"], sort=True):
+            f.write(f"## {ev} ({'Men' if d == 'M' else 'Women'})\n\n" + grp[cols].round(3).to_markdown(index=False) + "\n\n")
+    print(f"{len(lb)} player-event rows over {lb['event'].nunique()} events -> {args.reports}/leaderboard_events.{{csv,md}}")
+
+
 def main(argv=None):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     p = argparse.ArgumentParser(prog="pointsgained")
@@ -289,6 +310,13 @@ def main(argv=None):
     g.add_argument("--force", action="store_true")
     g.add_argument("--workers", type=int, default=1)
     g.set_defaults(func=cmd_batch)
+    h = sub.add_parser("events", help="per-event player leaderboards")
+    h.add_argument("--parquet", default="data/parquet")
+    h.add_argument("--reports", default="reports")
+    h.add_argument("--books", nargs="*", default=None, help="book ids (file stems)")
+    h.add_argument("--match", nargs="*", default=None, help="substrings of book ids to include")
+    h.add_argument("--min-shots", type=int, default=30)
+    h.set_defaults(func=cmd_events)
     args = p.parse_args(argv)
     args.func(args)
 

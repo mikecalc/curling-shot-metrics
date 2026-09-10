@@ -90,3 +90,50 @@ def strata_tables(pg: pd.DataFrame, min_shots_player: int = 40) -> dict[str, pd.
                     .rename(columns={"player_key": "player"}).sort_values("pg_throw_rel", ascending=False))
     t["players_hammer"] = _agg(pg, ["discipline", "player_key", "hammer"], min_shots=max(20, min_shots_player // 2)).rename(columns={"player_key": "player"})
     return t
+
+
+# ---- Per-event player leaderboards ----------------------------------------------------------
+
+POSITION_NAMES = {1: "LEAD", 2: "SECOND", 3: "THIRD", 4: "FOURTH"}
+
+
+def normalise_player(name) -> str:
+    if not isinstance(name, str):
+        return ""
+    return " ".join(name.upper().split())
+
+
+def by_player_event(pg: pd.DataFrame, books: list[str] | None = None, min_shots: int = 30) -> pd.DataFrame:
+    """One row per (event book, discipline, player): position from throwing order (mode over the
+    player's shots), execution relative to the whole field and to that event's field, both currencies."""
+    df = pg.copy()
+    if books:
+        df = df[df["book"].isin(books)]
+    df["player"] = df["player"].map(normalise_player)
+    df = df[df["player"] != ""]
+    df["hammer"] = np.where(df["thrower_has_hammer"], "hammer", "no hammer")
+    df["team_shot"] = (df["shot"] + 1) // 2                     # 1..8 within the team's order
+    df["pos_code"] = ((df["team_shot"] + 1) // 2).clip(1, 4)     # 1-2 lead, 3-4 second, 5-6 third, 7-8 fourth
+    # field baselines for execution: whole corpus, and this event's field
+    base_all = pg.assign(hammer=np.where(pg["thrower_has_hammer"], "hammer", "no hammer")) \
+                 .groupby(["shot_type", "hammer"], observed=True)["pg_throw"].mean()
+    df["pg_throw_rel"] = df["pg_throw"] - pd.MultiIndex.from_arrays([df["shot_type"], df["hammer"]]).map(base_all).to_numpy(dtype=float)
+    base_ev = df.groupby(["book", "discipline", "shot_type", "hammer"], observed=True)["pg_throw"].transform("mean")
+    df["pg_throw_rel_event"] = df["pg_throw"] - base_ev
+    # same shot number and hammer state at this event: removes the leverage that fourths carry
+    base_slot = df.groupby(["book", "discipline", "shot", "hammer"], observed=True)["pg_throw"].transform("mean")
+    df["pg_throw_rel_slot"] = df["pg_throw"] - base_slot
+    keys = ["book", "discipline", "player"]
+    agg = df.groupby(keys).agg(
+        team=("team", lambda s: "/".join(sorted(set(s)))),
+        position=("pos_code", lambda s: POSITION_NAMES[int(s.mode().iloc[0])]),
+        shots=("pg", "size"), games=("game_key", "nunique"),
+        pg=("pg", "mean"), pg_call=("pg_call", "mean"), pg_throw=("pg_throw", "mean"),
+        pg_throw_rel=("pg_throw_rel", "mean"), pg_throw_rel_event=("pg_throw_rel_event", "mean"),
+        pg_throw_rel_slot=("pg_throw_rel_slot", "mean"),
+        pg_total=("pg", "sum"), pg_throw_total=("pg_throw", "sum"),
+        pg_wp=("pg_wp", "mean"), pg_call_wp=("pg_call_wp", "mean"), pg_throw_wp=("pg_throw_wp", "mean"),
+        grade=("grade_pct", "mean"),
+    ).reset_index()
+    agg = agg[agg["shots"] >= min_shots].rename(columns={"book": "event"})
+    return agg.sort_values(["event", "discipline", "pg_throw_rel_slot"], ascending=[True, True, False])
