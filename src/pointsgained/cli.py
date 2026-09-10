@@ -469,7 +469,7 @@ def cmd_raster(args):
     import gc; gc.collect()
     fits = {}
     for kind in (["f", "g"] if not args.f_only else ["f"]):
-        S, cols = scalar_matrix(rows, X, kind)
+        S, cols = scalar_matrix(rows, X, kind, hybrid=args.hybrid)
         txy = target_xy_from_rows(rows) if (kind == "g" and "intent" in sets) else None
         fit = fit_raster(kind, arrays, S, y, txy, tr, val, epochs=args.epochs, batch=args.batch, lr=args.lr, seed=args.seed)
         fits[kind] = (fit, S, txy)
@@ -505,7 +505,7 @@ def cmd_raster(args):
                 feats.append(np.hstack([position_features_row(p), ]))
             Xp = np.vstack(feats)
             sub = pd.DataFrame({"discipline": "M", "diff_hammer": 0, "ends_remaining": 5, "is_extra_end": False, "turn": "cw", "shot_type_code": 0}, index=range(n))
-            Sp, _ = scalar_matrix(sub, Xp, "f")
+            Sp, _ = scalar_matrix(sub, Xp, "f", hybrid=args.hybrid)
             return fit.predict(StoneArrays(x, yy, o, valid), Sp, None) @ v
         def tree_value(positions):
             from .model.train import column as _col
@@ -640,6 +640,7 @@ def main(argv=None):
     o.add_argument("--max-train", type=int, default=None, help="subsample the training rows")
     o.add_argument("--n-probe", type=int, default=300)
     o.add_argument("--f-only", action="store_true")
+    o.add_argument("--hybrid", action="store_true", help="also feed the 28 hand-built features to the dense layer")
     o.add_argument("--seed", type=int, default=0)
     o.set_defaults(func=cmd_raster)
     k = sub.add_parser("testset", help="face-validity table for the six pinned 2026 Olympic shots")

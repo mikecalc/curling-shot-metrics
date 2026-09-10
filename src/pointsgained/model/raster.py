@@ -164,8 +164,10 @@ def build_net(n_channels: int, n_scalars: int, width: int = 24, bottleneck: int 
 
 # ---- data assembly ---------------------------------------------------------------------------
 
-def scalar_matrix(rows: pd.DataFrame, X: np.ndarray, kind: str) -> tuple[np.ndarray, list[str]]:
-    cols = list(SCALAR_F)
+def scalar_matrix(rows: pd.DataFrame, X: np.ndarray, kind: str, hybrid: bool = False) -> tuple[np.ndarray, list[str]]:
+    """Scalar inputs joined at the dense layer. `hybrid` adds the 28 hand-built position features, so
+    the network can only win by reading geometry the features miss."""
+    cols = list(SCALAR_F) + ([c for c in FEATURE_NAMES if c not in SCALAR_F] if hybrid else [])
     S = [column(rows, X, c) for c in cols]
     if kind == "g":
         st = rows["shot_type_code"].to_numpy(int)
