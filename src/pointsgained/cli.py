@@ -113,11 +113,29 @@ def _feature_sets(spec: str) -> tuple[str, ...]:
 
 
 def _with_level(ds, sets, parquet_root, aliases_csv):
-    """Attach skill_thrower / event_effect to the dataset rows when the 'level' set is requested."""
+    """Attach the level columns (skill, event effect, difficulty) and the intent columns when their sets are requested."""
     if "level" in sets or "level_id" in sets:
         from .model.difficulty import load_level
         ds.rows = load_level(parquet_root, ds.rows, aliases_csv)
+    if "intent" in sets:
+        from .model.intent import attach_intent
+        ds.rows = attach_intent(ds.rows, pd.read_parquet(os.path.join(parquet_root, "intent.parquet")))
     return ds
+
+
+def cmd_intent(args):
+    """Realised intent per shot from the delivered stone and prior rings (design Section 6) -> intent.parquet."""
+    from .model.dataset import load_books
+    from .model.intent import realised_intent
+    t0 = time.time()
+    tabs = load_books(args.parquet)
+    it = realised_intent(tabs)
+    it.to_parquet(os.path.join(args.parquet, "intent.parquet"), index=False)
+    books = tabs["games"].drop_duplicates("game_key").set_index("game_key")["book"]
+    it["year"] = it["game_key"].map(books).str.extract(r"(20\d\d)")[0]
+    cov = it.groupby(["year", "family"])["target_known"].mean().unstack("family").round(3)
+    print(cov.to_string())
+    print(f"{len(it)} shots, target known {it['target_known'].mean():.3f} -> {args.parquet}/intent.parquet in {time.time() - t0:.0f}s")
 
 
 def cmd_experiment(args):
@@ -271,7 +289,7 @@ def cmd_download(args):
 
 def cmd_batch(args):
     from .corpus.batch import run_batch
-    inv = run_batch(args.inventory, args.raw, args.out, args.reports, limit=args.limit, force=args.force, workers=args.workers)
+    inv = run_batch(args.inventory, args.raw, args.out, args.reports, limit=args.limit, force=args.force, workers=args.workers, match=args.match)
     print(inv[inv["in_scope"] == True]["status"].value_counts().to_string())
 
 
@@ -429,6 +447,7 @@ def main(argv=None):
     g.add_argument("--limit", type=int, default=None)
     g.add_argument("--force", action="store_true")
     g.add_argument("--workers", type=int, default=1)
+    g.add_argument("--match", nargs="*", default=None, help="only books whose file name contains one of these substrings")
     g.set_defaults(func=cmd_batch)
     h = sub.add_parser("events", help="per-event player leaderboards")
     h.add_argument("--parquet", default="data/parquet")
@@ -437,6 +456,9 @@ def main(argv=None):
     h.add_argument("--match", nargs="*", default=None, help="substrings of book ids to include")
     h.add_argument("--min-shots", type=int, default=30)
     h.set_defaults(func=cmd_events)
+    n = sub.add_parser("intent", help="realised intent per shot from the delivered stone and prior rings")
+    n.add_argument("--parquet", default="data/parquet")
+    n.set_defaults(func=cmd_intent)
     m = sub.add_parser("difficulty", help="fit the shot-difficulty model: skill per player, effect per event")
     m.add_argument("--parquet", default="data/parquet")
     m.add_argument("--reports", default="reports")

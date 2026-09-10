@@ -99,14 +99,18 @@ def _worker(args):
 
 
 def run_batch(inventory_csv: str, raw_dir: str, out_dir: str, reports_dir: str,
-              limit: int | None = None, force: bool = False, workers: int = 1) -> pd.DataFrame:
-    """Survey, extract and validate every downloaded in-scope book. Only this process writes the inventory."""
+              limit: int | None = None, force: bool = False, workers: int = 1,
+              match: list[str] | None = None) -> pd.DataFrame:
+    """Survey, extract and validate every downloaded in-scope book. Only this process writes the inventory.
+    `match`: only books whose file name contains one of these substrings (with force, re-extracts them)."""
     from concurrent.futures import ProcessPoolExecutor, as_completed
     inv = read_inventory(inventory_csv)
     os.makedirs(out_dir, exist_ok=True); os.makedirs(reports_dir, exist_ok=True)
     jobs = []
     for i, r in inv.iterrows():
         if not r["in_scope"] or r["status"] in ("validated", "excluded") and not force:
+            continue
+        if match and not any(m in str(r["file_name"]) for m in match):
             continue
         year = int(r["year"]) if pd.notna(r["year"]) else 0
         pdf = os.path.join(raw_dir, str(year), r["file_name"])
