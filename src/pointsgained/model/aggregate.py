@@ -147,6 +147,7 @@ def by_player_event(pg: pd.DataFrame, books: list[str] | None = None, min_shots:
         pg_total=("pg", "sum"), pg_throw_total=("pg_throw", "sum"),
         pg_wp=("pg_wp", "mean"), pg_call_wp=("pg_call_wp", "mean"), pg_throw_wp=("pg_throw_wp", "mean"),
         grade=("grade_pct", "mean"),
+        **({"pg_call_own": ("pg_call_own", "mean"), "pg_throw_own": ("pg_throw_own", "mean")} if "pg_call_own" in df else {}),
     ).reset_index()
     agg = agg[agg["shots"] >= min_shots].rename(columns={"book": "event"})
     return agg.sort_values(["event", "discipline", "pg_throw_rel_event_median"], ascending=[True, True, False])

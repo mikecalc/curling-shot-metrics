@@ -40,9 +40,13 @@ def wp_vectors(table: WinProbTable, diff_hammer: np.ndarray, ends_remaining: np.
 
 
 def compute_points_gained(ds: Dataset, models: FittedModels, vm: ValueMapping,
-                          wp_table: WinProbTable | None = None) -> pd.DataFrame:
+                          wp_table: WinProbTable | None = None, skill_reference: np.ndarray | None = None) -> pd.DataFrame:
     """One row per real shot with D(S), D(S|C), D(S'), and pg / pg_call / pg_throw (thrower's view)
-    in hammer-adjusted points, plus the same in win probability (`_wp` columns) when a table is given."""
+    in hammer-adjusted points, plus the same in win probability (`_wp` columns) when a table is given.
+
+    With `skill_reference` (one value per row of ds.rows) and a g that takes `skill_thrower`, the
+    default call distribution is evaluated at the reference skill (level-comparable) and the
+    thrower's own skill gives the `_own` columns: the call's value for the person throwing it."""
     unm_idx = np.flatnonzero((ds.rows["mirror"] == 0).to_numpy())
     rows = ds.rows.iloc[unm_idx].reset_index(drop=True)
     X = ds.X[unm_idx]
@@ -50,6 +54,12 @@ def compute_points_gained(ds: Dataset, models: FittedModels, vm: ValueMapping,
     groups = rows[models.group_key].to_numpy() if models.group_key in rows else None
     D_pre = models.predict_f(X_f, groups)      # out-of-fold: never valued by a model that saw this book
     D_call = models.predict_g(X_g, groups)
+    D_call_own = None
+    if skill_reference is not None and ({"skill_thrower", "expected_grade"} & set(models.g_cols)):
+        D_call_own = D_call
+        ref_rows = rows.assign(skill_thrower=np.asarray(skill_reference)[unm_idx])
+        _, X_g_ref = models.design(ref_rows, X)
+        D_call = models.predict_g(X_g_ref, groups)
     is_last = rows["is_last_shot"].to_numpy(bool)
     end_score = rows["end_score_hammer"].to_numpy(int)
     # post position = next shot's pre position (same end); last shot = the realised outcome
@@ -88,7 +98,13 @@ def compute_points_gained(ds: Dataset, models: FittedModels, vm: ValueMapping,
         out["pg" + suffix] = sign * (V_post - V_pre)
         out["pg_call" + suffix] = sign * (V_call - V_pre)
         out["pg_throw" + suffix] = sign * (V_post - V_call)
+        if D_call_own is not None:
+            V_own = (D_call_own * Vm).sum(1)
+            out["pg_call_own" + suffix] = sign * (V_own - V_pre)
+            out["pg_throw_own" + suffix] = sign * (V_post - V_own)
     out["D_pre"] = list(np.round(D_pre, 4)); out["D_call"] = list(np.round(D_call, 4)); out["D_post"] = list(np.round(D_post, 4))
+    if D_call_own is not None:
+        out["D_call_own"] = list(np.round(D_call_own, 4))
     out["end_score_hammer"] = end_score
     out["is_last_shot"] = is_last
     out["post_missing"] = ~rows["has_post"].to_numpy(bool) & ~is_last

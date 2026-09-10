@@ -112,12 +112,20 @@ def _feature_sets(spec: str) -> tuple[str, ...]:
     return tuple(s.strip() for s in spec.split(",") if s.strip())
 
 
+def _with_level(ds, sets, parquet_root, aliases_csv):
+    """Attach skill_thrower / event_effect to the dataset rows when the 'level' set is requested."""
+    if "level" in sets or "level_id" in sets:
+        from .model.difficulty import load_level
+        ds.rows = load_level(parquet_root, ds.rows, aliases_csv)
+    return ds
+
+
 def cmd_experiment(args):
     """Fit f, g and the trivial model once on one split and score the held-out rows."""
     from .model.cache import load_or_build
     from .model.experiment import run_experiment
-    ds = load_or_build(args.parquet, rebuild=args.rebuild)
     sets = _feature_sets(args.features)
+    ds = _with_level(load_or_build(args.parquet, rebuild=args.rebuild), sets, args.parquet, args.aliases)
     name = args.name or f"{args.split}_{'+'.join(sets)}"
     rep = run_experiment(ds, name, sets, split=args.split, cutoff_year=args.cutoff_year, fold=args.fold,
                          seed=args.seed, reports=args.reports, inventory_csv=args.inventory)
@@ -138,8 +146,8 @@ def cmd_model(args):
     from .model import aggregate as agg
     os.makedirs(args.reports, exist_ok=True)
     t0 = time.time()
-    ds = load_or_build(args.parquet, mirror=not args.no_mirror, rebuild=args.rebuild)
     sets = _feature_sets(args.features)
+    ds = _with_level(load_or_build(args.parquet, mirror=not args.no_mirror, rebuild=args.rebuild), sets, args.parquet, args.aliases)
     rep = {"n_games": int(ds.rows["game_key"].nunique()), "n_ends": int(ds.rows.groupby(["game_key", "end"]).ngroups),
            "n_shots": int((ds.rows["mirror"] == 0).sum()), "n_rows": int(len(ds.rows)), "feature_sets": list(sets)}
     logging.info("dataset: %d rows (%d shots) in %.0fs", rep["n_rows"], rep["n_shots"], time.time() - t0)
@@ -170,7 +178,13 @@ def cmd_model(args):
                  models.cv_report["f_logloss"], models.cv_report["trivial_logloss"])
 
     vm = HammerAdjustedPoints(vs_all.H)
-    pg = compute_points_gained(ds, models, vm, wp_table=wpt)
+    skill_ref = None
+    if "level" in sets:
+        from .model.difficulty import reference_skill
+        from .model.experiment import attach_tier
+        tiers = attach_tier(ds.rows, args.inventory).get("tier")
+        skill_ref = reference_skill(ds.rows, ds.rows["skill_thrower"].to_numpy(), tiers)
+    pg = compute_points_gained(ds, models, vm, wp_table=wpt, skill_reference=skill_ref)
     cons = conservation_check(pg, vm)
     rep["conservation_max_abs_residual"] = float(cons["residual"].abs().max())
     rep["conservation_terminal_ok_rate"] = float(cons["terminal_is_actual"].mean())
@@ -286,6 +300,58 @@ def cmd_events(args):
     print(f"{len(lb)} player-event rows over {lb['event'].nunique()} events -> {args.reports}/leaderboard_events.{{csv,md}}")
 
 
+def cmd_difficulty(args):
+    """Fit the shot-difficulty model: skill scalar per player and event effect per book (design 3.5, 8)."""
+    import numpy as np
+    from .model.cache import load_or_build
+    from .model.dataset import load_books
+    from .model.strength import field_strength_by_book, strength_table, junior_books_from_inventory
+    from .model.difficulty import fit_difficulty, normalise_player, apply_aliases
+    t0 = time.time()
+    ds = load_or_build(args.parquet)
+    tabs = load_books(args.parquet)
+    jb = junior_books_from_inventory(args.inventory) if os.path.exists(args.inventory) else set()
+    st = strength_table(tabs, jb)
+    st.to_parquet(os.path.join(args.parquet, "team_strength.parquet"), index=False)
+    fsb = field_strength_by_book(ds.rows, tabs, jb)
+    fsb.to_parquet(os.path.join(args.parquet, "event_field_strength.parquet"), index=False)
+    fkey = fsb.set_index(["book", "discipline"])["field_strength"]
+    field_strength = fkey.reindex(pd.MultiIndex.from_arrays([ds.rows["book"], ds.rows["discipline"]])).to_numpy(dtype=float)
+    logging.info("field strength for %d book-disciplines in %.0fs (%d nation-seasons)", len(fsb), time.time() - t0, len(st))
+    es = pd.read_csv(args.event_strength).set_index("book")["rating"] if os.path.exists(args.event_strength) else pd.Series(dtype=float)
+    event_strength = es.reindex(ds.rows["book"].to_numpy()).to_numpy(dtype=float)
+    aliases = pd.read_csv(args.aliases) if os.path.exists(args.aliases) else None
+    pk = apply_aliases(ds.rows["player"].map(normalise_player), ds.rows["discipline"], aliases)
+    team_key = ds.rows["team"].astype(str) + np.where(ds.rows["book"].isin(jb), "-J", "")
+    res = fit_difficulty(ds.rows, ds.X, event_strength, field_strength, pk, team_key=team_key, seed=args.seed)
+    res["players"].to_parquet(os.path.join(args.parquet, "skill.parquet"), index=False)
+    res["events"].to_parquet(os.path.join(args.parquet, "event_effects.parquet"), index=False)
+    res["shots"].to_parquet(os.path.join(args.parquet, "shot_difficulty.parquet"), index=False)
+    os.makedirs(args.reports, exist_ok=True)
+    p, e = res["players"], res["events"]
+    with open(os.path.join(args.reports, "difficulty_report.md"), "w") as f:
+        f.write("# Shot-difficulty model: skill and event effects\n\n")
+        f.write(f"Coefficients (logit scale): {', '.join(f'{k} {v:.3f}' for k, v in res['coef'].items())}. Fit {res['seconds']}s.\n\n")
+        f.write("Skill is the thrower's expected advantage on the grade over the fields the player has played in, in logit units: "
+                "team effect plus a shrunk player deviation. Level of play enters through the event: the hand-rated event strength "
+                "(`data/event_strength.csv`) and the field strength derived from game results (mean Bradley-Terry strength of the "
+                "teams in the book, fitted leaving the book out). The event effect is what remains of the book after both: ice, "
+                "conditions and the grader.\n\n")
+        fs = fsb.merge(pd.read_csv(args.event_strength)[["book", "rating"]], on="book", how="left") if os.path.exists(args.event_strength) else fsb
+        f.write("## Field strength by event (derived) next to the event rating (hand)\n\n")
+        f.write(fs.sort_values(["discipline", "field_strength"], ascending=[True, False]).round(3).to_markdown(index=False) + "\n\n")
+        for d in ("M", "W"):
+            q = p[(p["discipline"] == d) & (p["shots"] >= 200)].sort_values("skill", ascending=False)
+            f.write(f"## {'Men' if d == 'M' else 'Women'}: top and bottom 15 by skill (min 200 shots)\n\n")
+            f.write(pd.concat([q.head(15), q.tail(15)])[["player", "team", "shots", "grade", "skill", "player_dev", "team_effect", "event_level"]].round(3).to_markdown(index=False) + "\n\n")
+        f.write("## Event effects\n\n" + e.sort_values("event_effect").round(3).to_markdown(index=False) + "\n")
+    print(json.dumps({k: round(float(v), 4) for k, v in res["coef"].items()}))
+    print(p.groupby("discipline")["skill"].describe().round(3).to_string())
+    print(e.sort_values("event_effect")[["book", "event_effect"]].head(5).round(3).to_string(index=False))
+    print(e.sort_values("event_effect")[["book", "event_effect"]].tail(5).round(3).to_string(index=False))
+    print(f"wrote {args.reports}/difficulty_report.md in {time.time() - t0:.0f}s")
+
+
 def cmd_testset(args):
     """The six-shot face-validity table from the current Points Gained table."""
     from .model.testset import write_testset_report
@@ -323,6 +389,7 @@ def main(argv=None):
     d.add_argument("--inventory", default="data/inventory.csv", help="for tier and event family strata")
     d.add_argument("--features", default="base", help="comma list of feature sets: base,situation,level,intent")
     d.add_argument("--rebuild", action="store_true", help="rebuild the feature cache")
+    d.add_argument("--aliases", default="data/player_aliases.csv")
     d.set_defaults(func=cmd_model)
     i = sub.add_parser("features", help="build or refresh the feature cache under the parquet root")
     i.add_argument("--parquet", default="data/parquet")
@@ -340,6 +407,7 @@ def main(argv=None):
     j.add_argument("--name", default=None)
     j.add_argument("--seed", type=int, default=0)
     j.add_argument("--rebuild", action="store_true")
+    j.add_argument("--aliases", default="data/player_aliases.csv")
     j.set_defaults(func=cmd_experiment)
     e = sub.add_parser("inventory", help="build the inventory of the curlit results directory")
     e.add_argument("--out", default="data/inventory.csv")
@@ -369,6 +437,15 @@ def main(argv=None):
     h.add_argument("--match", nargs="*", default=None, help="substrings of book ids to include")
     h.add_argument("--min-shots", type=int, default=30)
     h.set_defaults(func=cmd_events)
+    m = sub.add_parser("difficulty", help="fit the shot-difficulty model: skill per player, effect per event")
+    m.add_argument("--parquet", default="data/parquet")
+    m.add_argument("--reports", default="reports")
+    m.add_argument("--inventory", default="data/inventory.csv")
+    m.add_argument("--event-strength", default="data/event_strength.csv")
+    m.add_argument("--aliases", default="data/player_aliases.csv")
+    m.add_argument("--seed", type=int, default=0)
+    m.add_argument("--no-leave-out", action="store_true", help="team strength from all books including the row's own")
+    m.set_defaults(func=cmd_difficulty)
     k = sub.add_parser("testset", help="face-validity table for the six pinned 2026 Olympic shots")
     k.add_argument("--parquet", default="data/parquet")
     k.add_argument("--reports", default="reports")

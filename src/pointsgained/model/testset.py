@@ -22,7 +22,7 @@ TEST_SHOTS = [
 ]
 
 COLS = ["player", "shot_type", "grade_pct", "diff_hammer", "ends_remaining", "end_score_hammer",
-        "pg_call", "pg_throw", "pg_call_wp", "pg_throw_wp"]
+        "pg_call", "pg_throw", "pg_call_own", "pg_throw_own", "pg_call_wp", "pg_throw_wp", "pg_call_own_wp", "pg_throw_own_wp"]
 
 
 def testset_table(pg: pd.DataFrame, extra_cols: list[str] | None = None) -> pd.DataFrame:
@@ -37,7 +37,8 @@ def write_testset_report(pg: pd.DataFrame, path: str, title: str = "Face-validit
     t = testset_table(pg, extra_cols)
     with open(path, "w") as f:
         f.write(f"# {title}\n\nSix last-rock shots from the 2026 Olympic men's tournament (design Section 6). "
-                "`pg_call` and `pg_throw` are in hammer-adjusted points from the thrower's view; `_wp` is win probability. "
+                "`pg_call` and `pg_throw` are in hammer-adjusted points from the thrower's view, with the call valued at the "
+                "tier's reference skill; `_own` values the call at the thrower's own skill (design 3.5); `_wp` is win probability. "
                 "`diff_hammer` is the hammer team's lead before the end.\n\n")
         f.write(t.round(3).to_markdown(index=False) + "\n")
     return t

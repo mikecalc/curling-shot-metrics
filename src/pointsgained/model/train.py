@@ -31,12 +31,13 @@ FEATURE_SETS = {
     "base": FEATURE_NAMES + ["is_women"],
     "situation": ["diff_hammer_clip", "ends_remaining_clip", "is_extra_end"],
     "call": ["shot_type_code", "turn_code"],
-    "level": ["skill_thrower", "event_effect"],
+    "level": ["expected_grade"],                         # the difficulty model's expected grade at the thrower's skill
+    "level_id": ["skill_thrower", "event_effect"],       # raw per-player / per-book effects (identity proxies; see experiments)
     "intent": ["target_x", "target_y", "target_owner", "target_ring", "target_is_shot_rock", "target_is_guard",
                "shooter_stays", "target_known"],
 }
 F_SETS = ("base", "situation")                  # sets that enter f (and g)
-G_ONLY_SETS = ("call", "level", "intent")       # sets that enter g only
+G_ONLY_SETS = ("call", "level", "level_id", "intent")       # sets that enter g only
 CATEGORICAL = {"shot_type_code"}
 
 
@@ -56,6 +57,10 @@ def column(rows: pd.DataFrame, X: np.ndarray, name: str) -> np.ndarray:
         return rows["turn"].map(TURN_CODE).fillna(0.0).to_numpy(dtype=float)
     if name == "shot_type_code":
         return rows["shot_type_code"].to_numpy(dtype=float)
+    if name == "expected_grade":
+        # the difficulty model's expected grade for this shot at the thrower's skill (design 3.5)
+        z = rows["grade_logit_base"].to_numpy(dtype=float) + rows["skill_thrower"].to_numpy(dtype=float)
+        return 1.0 / (1.0 + np.exp(-z))
     if name in rows:
         return pd.to_numeric(rows[name], errors="coerce").fillna(0.0).to_numpy(dtype=float)
     raise KeyError(f"no builder for design column {name!r}")
