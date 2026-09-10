@@ -16,6 +16,7 @@ def test_fixture_panels():
         assert sum(s.color == "yellow" for s in dg.stones) == exp["n_yellow"], name
         assert dg.counters == exp["counters"], name
         assert next((s.color for s in dg.stones if s.delivered), None) == exp["delivered"], name
+        assert len(dg.priors) == exp["n_priors"], name
         for c in ("red", "yellow"):
             assert dg.counters[f"{c}_remaining"] + sum(s.color == c for s in dg.stones) + dg.counters[f"{c}_removed"] == 8, name
 

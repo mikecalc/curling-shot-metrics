@@ -36,6 +36,7 @@ CLASS_INDEX = {c: i for i, c in enumerate(CLASSES)}
 
 STONE_FILL_AREA = 200        # px, nominal filled-disk area of one stone (r ~ 8 px inside outline)
 MIN_STONE_AREA = 60
+RING_AREA_MAX = 160          # a 2 px ring of stone radius covers ~115-135 px; a filled stone ~250
 MIN_COUNTER_AREA = 6
 STONE_RADIUS_PX = 9
 STONE_COVER_MIN = 0.5        # disk-template coverage needed for a stone peak (rings ~0.25, crossed disks > 0.6)
@@ -333,12 +334,21 @@ def read_diagram(rgb: np.ndarray, calibration: Calibration | None = None) -> Dia
             if area < MIN_STONE_AREA:
                 continue
             d.stones.append(Stone(color, float(cc[local].mean()), float(rr[local].mean()), area))
-        # Priors: in-play components that are thin rings (vanish under erosion) and not a detected stone
+        # Priors: in-play components that are rings and not a detected stone. Two ring styles:
+        # 1 px rings vanish under erosion (WCF template); the 2016-2019 books draw 2 px rings in the
+        # stone's colour, which survive erosion but cover well under a disk's area and are hollow.
         eroded = ndimage.binary_erosion(play_mask, structure=np.ones((3, 3), dtype=bool))
         for c in in_play_raw:
-            if c["area"] >= 20 and c["w"] >= 10 and c["h"] >= 10 and not eroded[c["pixels"]].any():
-                if not any(abs(c["row"] - s.row) < 6 and abs(c["col"] - s.col) < 6 for s in d.stones if s.color == color):
-                    d.priors.append(Prior(color, c["col"], c["row"]))
+            if c["area"] < 20 or c["w"] < 10 or c["h"] < 10:
+                continue
+            if any(abs(c["row"] - s.row) < 6 and abs(c["col"] - s.col) < 6 for s in d.stones if s.color == color):
+                continue
+            thin = not eroded[c["pixels"]].any()
+            cr, cc_ = int(round(c["row"])), int(round(c["col"]))
+            hollow = (c["area"] <= RING_AREA_MAX and c["w"] >= 14 and c["h"] >= 14
+                      and not play_mask[max(0, cr - 1):cr + 2, max(0, cc_ - 1):cc_ + 2].any())
+            if thin or hollow:
+                d.priors.append(Prior(color, c["col"], c["row"]))
     # grey rings
     grey = cls == CLASS_INDEX["grey"]
     grey[: top + 1, :] = False

@@ -162,7 +162,13 @@ A six-foot double is worth less to an elite team than to a club team because the
 
 The archive shows the effect plainly. Execution value per shot, measured against the whole field, is about 0.040 points at tier 1, 0.030 at tier 2 and 0.019 at tier 3, in both disciplines. Today the only level input is the tier and discipline of the event, so a junior's execution is measured against a field that is mostly Olympians, and junior leaderboards are meaningful only within their own event.
 
-The remedy, next phase, is the **continuous skill scalar**: a shot-difficulty model on the official grade, P(grade | shot type, position features, skill), with `skill` a per-player number estimated from the player's grade history and the event tier as a prior. It goes into g as a feature, can be set to a chosen level at prediction time, and is also the error scale for the Phase 2 transition model. It is what turns Jacobs' runback from "not what the field calls" into "worth it for a thrower who makes it this often."
+The remedy is the **shot-difficulty model** on the official grade, built in the modelling phase. Stage one is a gradient-boosted regression of the grade (0, 25, 50, 75, 100, the same scale in every book since 2013) on the shot's difficulty: type, turn, the position features, rocks remaining, situation and discipline. Stage two is a fractional logistic regression on the stage-one logit with two event-level covariates, the hand-rated **event strength** (`data/event_strength.csv`, men's Worlds = 100) and a **field strength** derived from game results (the mean Bradley–Terry strength of the teams in the book, fitted leaving that book out), plus L2-shrunk effects for team, player and book. Level of play is a property of the *event*: who is in it says how strong it is, and a player's grades are read against the fields they played in. Team rankings inform how strong a field is; they are not a per-player input.
+
+Out of that come two numbers. The **skill scalar** per player (team effect plus shrunk player deviation, in logit units) ranges from about −1.2 to +0.9; Jacobs, Kennedy, Gushue and Sundgren head the men, McEwen and Homan the women, and Chinese Taipei, Australia and Lithuania fill the bottom. The **event effect** per book is what remains once field strength is accounted for: ice, conditions, and the grader, since the grade is a judgement (the 2026 junior men's book sits 0.6 logit above the rest, which is at least partly leniency).
+
+**How it enters g.** Not as the raw numbers. Per-player and per-book values identify the player and the book, and a tree fits book-specific outcome rates on them that do not transfer: with `skill` and `event effect` as columns, g got *worse* out of book (1.4373 to 1.4407 log-loss on the time split). What g takes is the **expected grade of this shot for this thrower** at this event, sigmoid(difficulty + skill), a single continuous number. With it g improves from 1.4373 to 1.4297 on the time split and from 1.4426 to 1.4366 by book, about half the size of the call's own contribution over f. The signal is plainly in the data: on last-rock draws with the hammer team not lying shot, the scoring rate rises from 54% to 78% across skill quartiles.
+
+**Two decompositions.** The call is valued at a **reference skill** (the median thrower at the row's discipline and tier) for the level-comparable currency that leaderboards use, and at the **thrower's own skill** (`pg_call_own`, `pg_throw_own`) for the question the runback asks: at Jacobs' skill the ninth-end call prices at −10.5 percentage points of win probability against −16.7 at the field's. The skill scalar is also the error scale for the Phase 2 transition model.
 
 ### 3.6 Pipeline
 
@@ -259,6 +265,7 @@ Held out by book on the full archive, five folds, with and without the game situ
 | Trivial (rocks remaining, hammer, count; plus situation) | 1.593 | 1.559 | 0.742 |
 | f (position features) | 1.494 | 1.470 | 0.708 |
 | g (position and call) | 1.472 | 1.453 | 0.701 |
+| g with the expected grade (Section 3.5) | | G_LEVEL_CV | |
 
 On the time split (train through 2024, test on the 2025 and 2026 events, 219,000 held-out rows) the same story: f 1.477 to 1.454 and g 1.455 to 1.437. The situation helps in every band of rocks remaining and in every score-difference band, most at tied scores (1.403 to 1.366 on the time split), where ends remaining decides whether the end is "two or blank" or "must score". It was adopted on that evidence (experiment log in `reports/experiments/`). The regime label and the v-vector as alternative encodings were not needed.
 
@@ -286,7 +293,7 @@ One row per shot for f, with the pre-position and the end's outcome from the ham
 
 Ice varies: swing, speed, pebble, flatness, and how they change over a game and a week. The design does not model any of it. It follows strokes gained in golf, where the difficulty of a green is never modelled; it falls out of how the field putted on it that week, and a player is measured against that field. If draws to the four-foot are made 65% of the time at one event and 80% at another, that difference *is* the ice, and a made draw at the first event earns more.
 
-Today this is done at the reporting layer: a player's execution at an event is reported relative to that event's field for the same shot type and hammer state (Section 10). The model-level version, an event effect in g fitted jointly with the skill scalar so that ice and field strength are separated, is next phase; sheet and session effects, shrunk hard towards the event, after that. The value function f is not conditioned on event: a position's worth under typical play is a property of the game, and ice effects on value are assumed to wash through execution.
+This is done at two levels. At the reporting layer, a player's execution at an event is reported relative to that event's field for the same shot type and hammer state (Section 10). At the model level, the difficulty model of Section 3.5 separates the field's strength (the event rating and the derived field strength) from what remains of the book, and that residual event effect is folded into the expected grade that g takes, so a made draw at an event where draws were hard is worth more. Sheet and session effects, shrunk hard towards the event, are a later step. The value function f is not conditioned on event: a position's worth under typical play is a property of the game, and ice effects on value are assumed to wash through execution.
 
 ---
 
@@ -384,11 +391,11 @@ Phase 1 answers "what has this been worth." Phase 2 answers "what could this hav
 
 Resolved in Phase 1: outcome clipping at ±3; full shot types without grouping; men and women pooled with a discipline flag; canonical perspective; recorded score as label; gates as set in Section 3.6; the event tier table; raster before set encoding for the geometry model.
 
-Resolved in the modelling phase: the game-state encoding for f and g is the raw pair (score difference, ends remaining) plus an extra-end flag (Section 7.3); evaluation by time (train through 2024, test 2025–2026) runs alongside the by-book split for every experiment.
+Resolved in the modelling phase: the game-state encoding for f and g is the raw pair (score difference, ends remaining) plus an extra-end flag (Section 7.3); evaluation by time (train through 2024, test 2025–2026) runs alongside the by-book split for every experiment; the skill prior is the strength of the *event*, hand-rated with a derived field strength alongside (Section 3.5), not a per-player ranking; level enters g as the expected grade, never as identity-like columns; player identity is a normalised name key per discipline with an alias table (`data/player_aliases.csv`: 31 confirmed pairs such as SCHWARZ B → SCHWARZ-VAN BERKEL, 23 to check, 7 rejected because both names appear in one book); the skill scalar is per player with the team effect as its prior, pooled across seasons for now.
 
 Open:
 
-1. **Skill prior from outside the corpus.** The event tier is too coarse a prior for the skill scalar: the same tier holds Canada and Brazil. The plan is a hand-rated event strength (men's Worlds = 100, room above for Grand Slams) and a team strength per season, either from the World Curling team rankings or, self-contained, a Bradley–Terry strength per nation and season fitted from the line scores of all 208 books.
+1. **Event ratings.** The ratings in `data/event_strength.csv` are tier defaults (Worlds 100, Europeans A 85, juniors 70) pending Mike's rating. The derived field strengths already disagree with them in places: the Olympics sit above the Worlds, the Olympic qualifiers and the Pan-Continental championships well below Europeans A.
 2. **Event effect granularity.** Event first; sheet and session with shrinkage once the model-level effect exists.
 3. **Skill scalar granularity.** Per player with a team-level prior, falling back to team for players with few shots.
 4. **Free guard zone eras.** Pooled with an era flag versus per-era f in early-end positions. Only f is affected; g pools across eras.
@@ -409,9 +416,9 @@ Built and run, September 2026:
 | M4 Archive (inventory, download, survey, parallel batch) | Done; 208 books downloaded, 116 line-score only |
 | M6 Plumbing: feature cache, vectorised build and PG, experiment command | Done; full pipeline 2.5 h to 17 min, identical results |
 | M7 Game situation in f and g | Done; f 1.470 / g 1.453 / trivial 1.559 held out by book |
-| M8 Difficulty model: skill scalar and event effect | Next |
+| M8 Difficulty model: skill scalar and event effect; g takes the expected grade | Done; g 1.4373 → 1.4297 on the time split |
 | M9 Intent from the delivered stone | After M8 |
 | M10 Raster geometry f and g with the subtlety probe | After M9 |
 | M11 Phase 2 | After M10 |
 
-The modelling phase continues in the order above. The remaining items each have their own design decisions: the difficulty model needs the strength priors of Section 12; intent inference needs a rule for when the delivered stone and the prior rings identify the target (the rings are missing from most 2016–2019 books, so the struck stone will come from stone displacement or the intent model's modal target there); the raster model is gated by the subtlety probe and monotonicity checks before it replaces the trees. The five last-rock hit calls the model rates worst at the 2026 Olympics and Jacobs' ninth-end clearing are the pinned test set (`pointsgained testset`) for all three.
+The modelling phase continues in the order above. The remaining items each have their own design decisions: the difficulty model needs the strength priors of Section 12; intent inference needs a rule for when the delivered stone and the prior rings identify the target (the rings are missing from most 2016–2019 books, so the struck stone will come from stone displacement or the intent model's modal target there); the raster model is gated by the subtlety probe and monotonicity checks before it replaces the trees. Skill is pooled across a player's seasons; a per-season skill (Homan 2024 against 2026) is a later refinement. The five last-rock hit calls the model rates worst at the 2026 Olympics and Jacobs' ninth-end clearing are the pinned test set (`pointsgained testset`) for all three.

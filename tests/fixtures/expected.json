@@ -63,5 +63,18 @@
   },
   "delivered": "yellow",
   "n_priors": 0
+ },
+ "2016_coloured_ring": {
+  "flipped": true,
+  "n_red": 1,
+  "n_yellow": 2,
+  "counters": {
+   "red_remaining": 3,
+   "red_removed": 4,
+   "yellow_remaining": 3,
+   "yellow_removed": 3
+  },
+  "delivered": "red",
+  "n_priors": 1
  }
 }
