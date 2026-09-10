@@ -87,5 +87,6 @@ def _append_log(path: str, rep: dict):
     new = not os.path.exists(path)
     with open(path, "a") as f:
         if new:
-            f.write("# Experiment log\n\nHeld-out log-loss (unmirrored rows). Bands are n-weighted means over rocks remaining.\n\n" + header)
+            f.write("# Experiment log\n\nHeld-out log-loss (unmirrored rows). Bands are n-weighted means over rocks remaining. "
+                    "The trivial model (rocks remaining, hammer, count) also takes the situation columns when the set includes `situation`.\n\n" + header)
         f.write(line)

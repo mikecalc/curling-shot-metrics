@@ -1,0 +1,93 @@
+book,event_name,event_family,tier,gender,division,year,rating,source
+ECC2014_ResultsBook_Men_A-Division,European Curling Championships 2014 A-Division,EuropeansA,2.0,M,A,2014,85,default from tier; edit
+WMCC2014_ResultsBook,World Men's Curling Championship,Worlds,1.0,M,,2014,100,default from tier; edit
+ECC2015_ResultsBook_Men_A-Division,European Curling Championships 2015 A-Division,EuropeansA,2.0,M,A,2015,85,default from tier; edit
+WJCC2015_ResultsBook_Men,World Junior Curling Championships,Juniors,3.0,M,,2015,70,default from tier; edit
+ECC2016_ResultsBook_Men_A-Division,European Curling Championships 2016 A-Division,EuropeansA,2.0,M,A,2016,85,default from tier; edit
+WMCC2016_ResultsBook,World Men's Curling Championship,Worlds,1.0,M,,2016,100,default from tier; edit
+ECC2017_ResultsBook_Men_A-Division,European Curling Championships 2017 A-Division,EuropeansA,2.0,M,A,2017,85,default from tier; edit
+ECC2017_ResultsBook_Men_B-Division,European Curling Championships 2017 B-Division,EuropeansB,3.0,M,B,2017,70,default from tier; edit
+OQE2017_ResultsBook_Men,Olympic Qualification Event,OQE,2.0,M,,2017,95,default from tier; edit
+PACC2017_ResultsBook_Men,Pacific-Asia Curling Championships,PacificAsia,2.0,M,,2017,85,default from tier; edit
+WJCC2017_ResultsBook_Men,World Junior Curling Championships,Juniors,3.0,M,,2017,70,default from tier; edit
+WMCC2017_ResultsBook,World Men's Curling Championship,Worlds,1.0,M,,2017,100,default from tier; edit
+ECC2018_ResultsBook_Men_A-Division,European Curling Championships 2018 A-Division,EuropeansA,2.0,M,A,2018,85,default from tier; edit
+PACC2018_ResultsBook_Men,Pacific-Asia Curling Championships,PacificAsia,2.0,M,,2018,85,default from tier; edit
+WJCC2018_ResultsBook_Men,World Junior Curling Championships,Juniors,3.0,M,,2018,70,default from tier; edit
+WMCC2018_ResultsBook,World Men's Curling Championship,Worlds,1.0,M,,2018,100,default from tier; edit
+ECC2019_ResultsBook_Men_A-Division,European Curling Championships 2019 A-Division,EuropeansA,2.0,M,A,2019,85,default from tier; edit
+PACC2019_ResultsBook_Men,Pacific-Asia Curling Championships,PacificAsia,2.0,M,,2019,85,default from tier; edit
+WJCC2019_ResultsBook_Men,World Junior Curling Championships,Juniors,3.0,M,,2019,70,default from tier; edit
+WMCC2019_ResultsBook,World Men's Curling Championship,Worlds,1.0,M,,2019,100,default from tier; edit
+WJCC2020_ResultsBook_Men,World Junior Curling Championships,Juniors,3.0,M,,2020,70,default from tier; edit
+ECC2021_ResultsBook_Men_A-Division,European Curling Championships 2021 A-Division,EuropeansA,2.0,M,A,2021,85,default from tier; edit
+OQE2021_ResultsBook_Men,Olympic Qualification Event,OQE,2.0,M,,2021,95,default from tier; edit
+WMCC2021_ResultsBook,World Men's Curling Championship,Worlds,1.0,M,,2021,100,default from tier; edit
+ECC2022_ResultsBook_Men_A-Division,European Curling Championships 2022 A-Division,EuropeansA,2.0,M,A,2022,85,default from tier; edit
+PCCC2022_ResultsBook_Men_A-Division,Pan Continental Curling Championships 2022 A-Division,PanContinentalA,2.0,M,A,2022,85,default from tier; edit
+WJCC2022_ResultsBook_Men,World Junior Curling Championships,Juniors,3.0,M,,2022,70,default from tier; edit
+WMCC2022_ResultsBook,World Men's Curling Championship,Worlds,1.0,M,,2022,100,default from tier; edit
+ECC2023_ResultsBook_Men_A-Division,European Curling Championships 2023 A-Division,EuropeansA,2.0,M,A,2023,85,default from tier; edit
+PCCC2023_ResultsBook_Men_A-Division,Pan Continental Curling Championships 2023 A-Division,PanContinentalA,2.0,M,A,2023,85,default from tier; edit
+WJCC2023_ResultsBook_Men,World Junior Curling Championships,Juniors,3.0,M,,2023,70,default from tier; edit
+WMCC2023_ResultsBook,World Men's Curling Championship,Worlds,1.0,M,,2023,100,default from tier; edit
+ECC2024_ResultsBook_Men_A-Division,European Curling Championships 2024 A-Division,EuropeansA,2.0,M,A,2024,85,default from tier; edit
+PCCC2024_ResultsBook_Men_A-Division,Pan Continental Curling Championships 2024 A-Division,PanContinentalA,2.0,M,A,2024,85,default from tier; edit
+WJCC2024_ResultsBook_Men,World Junior Curling Championships,Juniors,3.0,M,,2024,70,default from tier; edit
+WMCC2024_ResultsBook,World Men's Curling Championship,Worlds,1.0,M,,2024,100,default from tier; edit
+ECC2025_ResultsBook_Men_A-Division,European Curling Championships 2025 A-Division,EuropeansA,2.0,M,A,2025,85,default from tier; edit
+OQE2025_ResultsBook_Men,Olympic Qualification Event,OQE,2.0,M,,2025,95,default from tier; edit
+PCCC2025_ResultsBook_Men_A-Division,Pan Continental Curling Championships 2025 A-Division,PanContinentalA,2.0,M,A,2025,85,default from tier; edit
+WJCC2025_ResultsBook_Men,World Junior Curling Championships,Juniors,3.0,M,,2025,70,default from tier; edit
+WMCC2025_ResultsBook,World Men's Curling Championship,Worlds,1.0,M,,2025,100,default from tier; edit
+WJCC2026_ResultsBook_Men,World Junior Curling Championships,Juniors,3.0,M,,2026,70,default from tier; edit
+WMCC2026_ResultsBook,World Men's Curling Championship,Worlds,1.0,M,,2026,100,default from tier; edit
+ECC2014_ResultsBook_Women_A-Division,European Curling Championships 2014 A-Division,EuropeansA,2.0,W,A,2014,85,default from tier; edit
+ECC2015_ResultsBook_Women_A-Division,European Curling Championships 2015 A-Division,EuropeansA,2.0,W,A,2015,85,default from tier; edit
+WJCC2015_ResultsBook_Women,World Junior Curling Championships,Juniors,3.0,W,,2015,70,default from tier; edit
+WWCC2015_ResultsBook,World Women's Curling Championship,Worlds,1.0,W,,2015,100,default from tier; edit
+ECC2016_ResultsBook_Women_A-Division,European Curling Championships 2016 A-Division,EuropeansA,2.0,W,A,2016,85,default from tier; edit
+ECC2017_ResultsBook_Women_A-Division,European Curling Championships 2017 A-Division,EuropeansA,2.0,W,A,2017,85,default from tier; edit
+ECC2017_ResultsBook_Women_B-Division,European Curling Championships 2017 B-Division,EuropeansB,3.0,W,B,2017,70,default from tier; edit
+OQE2017_ResultsBook_Women,Olympic Qualification Event,OQE,2.0,W,,2017,95,default from tier; edit
+PACC2017_ResultsBook_Women,Pacific-Asia Curling Championships,PacificAsia,2.0,W,,2017,85,default from tier; edit
+WJCC2017_ResultsBook_Women,World Junior Curling Championships,Juniors,3.0,W,,2017,70,default from tier; edit
+WWCC2017_ResultsBook,World Women's Curling Championship,Worlds,1.0,W,,2017,100,default from tier; edit
+ECC2018_ResultsBook_Women_A-Division,European Curling Championships 2018 A-Division,EuropeansA,2.0,W,A,2018,85,default from tier; edit
+PACC2018_ResultsBook_Women,Pacific-Asia Curling Championships,PacificAsia,2.0,W,,2018,85,default from tier; edit
+WJCC2018_ResultsBook_Women,World Junior Curling Championships,Juniors,3.0,W,,2018,70,default from tier; edit
+WWCC2018_ResultsBook,World Women's Curling Championship,Worlds,1.0,W,,2018,100,default from tier; edit
+ECC2019_ResultsBook_Women_A-Division,European Curling Championships 2019 A-Division,EuropeansA,2.0,W,A,2019,85,default from tier; edit
+PACC2019_ResultsBook_Women,Pacific-Asia Curling Championships,PacificAsia,2.0,W,,2019,85,default from tier; edit
+WJCC2019_ResultsBook_Women,World Junior Curling Championships,Juniors,3.0,W,,2019,70,default from tier; edit
+WWCC2019_ResultsBook,World Women's Curling Championship,Worlds,1.0,W,,2019,100,default from tier; edit
+WJCC2020_ResultsBook_Women,World Junior Curling Championships,Juniors,3.0,W,,2020,70,default from tier; edit
+ECC2021_ResultsBook_Women_A-Division,European Curling Championships 2021 A-Division,EuropeansA,2.0,W,A,2021,85,default from tier; edit
+OQE2021_ResultsBook_Women,Olympic Qualification Event,OQE,2.0,W,,2021,95,default from tier; edit
+WWCC2021_ResultsBook,World Women's Curling Championship,Worlds,1.0,W,,2021,100,default from tier; edit
+ECC2022_ResultsBook_Women_A-Division,European Curling Championships 2022 A-Division,EuropeansA,2.0,W,A,2022,85,default from tier; edit
+PCCC2022_ResultsBook_Women_A-Division,Pan Continental Curling Championships 2022 A-Division,PanContinentalA,2.0,W,A,2022,85,default from tier; edit
+WJCC2022_ResultsBook_Women,World Junior Curling Championships,Juniors,3.0,W,,2022,70,default from tier; edit
+WWCC2022_ResultsBook,World Women's Curling Championship,Worlds,1.0,W,,2022,100,default from tier; edit
+ECC2023_ResultsBook_Women_A-Division,European Curling Championships 2023 A-Division,EuropeansA,2.0,W,A,2023,85,default from tier; edit
+PCCC2023_ResultsBook_Women_A-Division,Pan Continental Curling Championships 2023 A-Division,PanContinentalA,2.0,W,A,2023,85,default from tier; edit
+WJCC2023_ResultsBook_Women,World Junior Curling Championships,Juniors,3.0,W,,2023,70,default from tier; edit
+WWCC2023_ResultsBook,World Women's Curling Championships,Worlds,1.0,W,,2023,100,default from tier; edit
+ECC2024_ResultsBook_Women_A-Division,European Curling Championships 2024 A-Division,EuropeansA,2.0,W,A,2024,85,default from tier; edit
+PCCC2024_ResultsBook_Women_A-Division,Pan Continental Curling Championships 2024 A-Division,PanContinentalA,2.0,W,A,2024,85,default from tier; edit
+WJCC2024_ResultsBook_Women,World Junior Curling Championships,Juniors,3.0,W,,2024,70,default from tier; edit
+WWCC2024_ResultsBook,World Women's Curling Championship,Worlds,1.0,W,,2024,100,default from tier; edit
+ECC2025_ResultsBook_Women_A-Division,European Curling Championships 2025 A-Division,EuropeansA,2.0,W,A,2025,85,default from tier; edit
+OQE2025_ResultsBook_Women,Olympic Qualification Event,OQE,2.0,W,,2025,95,default from tier; edit
+PCCC2025_ResultsBook_Women_A-Division,Pan Continental Curling Championships 2025 A-Division,PanContinentalA,2.0,W,A,2025,85,default from tier; edit
+WJCC2025_ResultsBook_Women,World Junior Curling Championships,Juniors,3.0,W,,2025,70,default from tier; edit
+WWCC2025_ResultsBook,World Women's Curling Championship,Worlds,1.0,W,,2025,100,default from tier; edit
+WJCC2026_ResultsBook_Women,World Junior Curling Championships,Juniors,3.0,W,,2026,70,default from tier; edit
+WWCC2026_ResultsBook,World Women's Curling Championship,Worlds,1.0,W,,2026,100,default from tier; edit
+WJCC2013_ResultsBook,World Junior Curling Championships,Juniors,3.0,,,2013,70,default from tier; edit
+OWG2014_ResultsBook,Olympic Winter Games,Olympics,1.0,,,2014,100,default from tier; edit
+WUNI2017_ResultsBook,Winter Universiade,Universiade,4.0,,,2017,70,default from tier; edit
+OWG2018_ResultsBook,Olympic Winter Games,Olympics,1.0,,,2018,100,default from tier; edit
+OWG2022_ResultsBook,Olympic Winter Games,Olympics,1.0,,,2022,100,default from tier; edit
+WU2023_CUR_v1.0,FISU World University Games,Universiade,4.0,,,2023,70,default from tier; edit
+OWG2026_ResultsBook,"Milano Cortina 2026 Olympic Winter Games, Curling",Olympics,1.0,,,2026,100,default from tier; edit
