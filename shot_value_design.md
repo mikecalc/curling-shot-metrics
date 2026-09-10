@@ -21,7 +21,7 @@ Every shot in curling has two parts. First a call is made, by the skip and often
 
 The model evaluates every rock in both dimensions. Selection asks what the call's menu was worth compared with the position the team was handed. Execution asks what the throw produced compared with the menu the throw was handed. Neither is judged by the other: the execution value does not penalise a poor call or reward a brilliant one, and the selection value does not credit a lucky throw or blame a bad one. A call reads the same on a make and on a miss. The two components sum to the shot's total contribution to the end.
 
-The best calls create menus whose expectation, weighted by how *this* team executes, is highest relative to the position. That is not always the menu with the biggest upside, and the right trade-off depends on who is throwing. The clearest example in the data is Brad Jacobs' last rock in the ninth end of the 2026 Olympic final: down one with hammer, he called a runback through traffic that scored three and decided the gold medal. Against the field's usual call from that position, a draw, the model prices the call at −13.6 percentage points of win probability and the throw at +28.8. That is not a verdict that the call was wrong. It says the field does not call that shot, because for the median skip it is a poor menu; whether it was the right menu for Jacobs is a question about geometry (was the shot there?) and about level of play (how often does he make it?), and answering it properly is what Sections 5.2 and 3.5 are for.
+The best calls create menus whose expectation, weighted by how *this* team executes, is highest relative to the position. That is not always the menu with the biggest upside, and the right trade-off depends on who is throwing. The clearest example in the data is Brad Jacobs' last rock in the ninth end of the 2026 Olympic final: down one with hammer, he called a runback through traffic that scored three and decided the gold medal. Against the field's usual call from that position, a draw, the model prices the call at −16.7 percentage points of win probability and the throw at +31.9. That is not a verdict that the call was wrong. It says the field does not call that shot, because for the median skip it is a poor menu; whether it was the right menu for Jacobs is a question about geometry (was the shot there?) and about level of play (how often does he make it?), and answering it properly is what Sections 5.2 and 3.5 are for.
 
 ### 1.2 Strategy: how game situation enters
 
@@ -29,7 +29,7 @@ Within an end the structure is recursive. Every shot before the last one builds 
 
 Strategy is the observation that not all outcome distributions are equally useful, and which ones are useful depends on the game. Curlers have a vocabulary for this: *must steal*, *force one*, *two or blank*, *don't give up more than two*, *score or go to the extra end*. In this model those goals are not a separate layer and are not enumerated by hand. They are the *shape* of the value mapping v(outcome | game situation): tied in the last end with hammer, one and two are both worth a win, a blank is worth the chance of winning an extra end with hammer, and a steal is worth nothing, and maximising expected value under that shape simply *is* "score or don't get stolen on." The win-probability table (Section 9.4) generates every one of the named strategies as a consequence.
 
-The two currencies disagree in a way that is itself informative. In hammer-adjusted points, a team protecting a three-point lead reads as calling badly, because points reward aggression whatever the game; in win probability the same calls are neutral. On the four development books, the strongest teams' call values were slightly negative in points and zero in win probability for exactly this reason: they are ahead more often. Rachel Homan's raise with her last rock in the eighth end against Italy at the 2026 Olympics, up two with three ends to play, costs 0.09 points but only 0.2 percentage points of win probability; the game barely depended on that end. Both currencies are kept, and reports say which one they are in.
+The two currencies disagree in a way that is itself informative. In hammer-adjusted points, a team protecting a three-point lead reads as calling badly, because points reward aggression whatever the game; in win probability the same calls are neutral. On the four development books, the strongest teams' call values were slightly negative in points and zero in win probability for exactly this reason: they are ahead more often. Rachel Homan's raise with her last rock in the eighth end against Italy at the 2026 Olympics, up two with three ends to play, costs 0.12 points but only 0.4 percentage points of win probability; the game barely depended on that end. Both currencies are kept, and reports say which one they are in.
 
 ### 1.3 Terminology
 
@@ -244,21 +244,27 @@ Every shot's pre-position is labelled with the end's final outcome. Sparsity of 
 - **f(S) → D**: distribution over end outcomes from the position, in the canonical frame. This is D(S) under the field baseline.
 - **g(S, C) → D**: the same with the called shot type and turn as inputs. This is D(S | C).
 
-Both are gradient-boosted tree classifiers over seven outcome classes on the Section 5.4 features plus discipline. Neither yet takes the game situation or an event effect as input; both are next-phase changes (Section 13).
+Both are gradient-boosted tree classifiers over seven outcome classes on the Section 5.4 features plus discipline and, since the modelling phase, the **game situation**: the hammer team's score difference (clipped at ±6), ends remaining (clipped at 10) and an extra-end flag. Situation in f changes what D(S) means, from "what this position is worth under typical play" to "what it is worth given how teams play from here in this situation": up three in the ninth, the field runs the end clean, and f now expects that rather than scoring the blank as a failure. The value mapping still carries the situation in the win-probability currency (Section 9.3); the two uses are complementary and the conservation identity is unaffected because V is fixed within an end. Neither model takes an event effect or a skill input yet (Sections 3.5 and 8).
+
+Feature sets are named (`base`, `situation`, `call`, `level`, `intent`) so that an experiment can toggle them, and the training table is cached once per corpus, so a single-split experiment on 1.2 million rows takes about a hundred seconds and the full pipeline about seventeen minutes.
 
 **Regularisation was the whole story on the small corpus.** On four books, about 2,900 labelled ends, the model had to be held to eight leaves, 300 samples per leaf and 60 to 80 boosting rounds to beat the trivial model (rocks remaining, hammer, count) on held-out books; anything richer lost to it. On the archive the plateau is 15 leaves and 200 rounds: 31 leaves and 300 rounds score the same at twenty-five times the cost, 63 leaves are worse. Points Gained are always computed from out-of-fold predictions, so no position is valued by a model that saw its book.
 
 ### 7.3 Results
 
-Held out by book on the full archive:
+Held out by book on the full archive, five folds, with and without the game situation:
 
-| Model | Log-loss | Brier |
-|---|---|---|
-| Trivial (rocks remaining, hammer, count) | 1.593 | 0.755 |
-| f (position features) | 1.494 | 0.717 |
-| g (position and call) | 1.472 | 0.708 |
+| Model | Log-loss (base) | Log-loss (with situation) | Brier (with situation) |
+|---|---|---|---|
+| Trivial (rocks remaining, hammer, count; plus situation) | 1.593 | 1.559 | 0.742 |
+| f (position features) | 1.494 | 1.470 | 0.708 |
+| g (position and call) | 1.472 | 1.453 | 0.701 |
 
-The gain over the trivial model is real and its location is the important finding. With one rock left the features cut log-loss from 1.27 to 1.01; with four left, from 1.55 to 1.42; with twelve or more left, by 0.03 or less. The model knows what a position is worth once the end is nearly decided and knows almost nothing early. Since tree capacity no longer matters, this is the hand-built features' limit rather than the data's: the geometry a skip reads in the first eight rocks is not in the twenty-eight numbers. It is the case for the raw-geometry model.
+On the time split (train through 2024, test on the 2025 and 2026 events, 219,000 held-out rows) the same story: f 1.477 to 1.454 and g 1.455 to 1.437. The situation helps in every band of rocks remaining and in every score-difference band, most at tied scores (1.403 to 1.366 on the time split), where ends remaining decides whether the end is "two or blank" or "must score". It was adopted on that evidence (experiment log in `reports/experiments/`). The regime label and the v-vector as alternative encodings were not needed.
+
+The gain over the trivial model is real and its location is the important finding. With one rock left the features cut log-loss from 1.23 to 0.94; with four left, from 1.51 to 1.38; with twelve or more left, by 0.04 or less. The model knows what a position is worth once the end is nearly decided and knows almost nothing early. Since tree capacity no longer matters, this is the hand-built features' limit rather than the data's: the geometry a skip reads in the first eight rocks is not in the twenty-eight numbers. It is the case for the raw-geometry model.
+
+The situation also removed most of the reporting artefact of Section 1.2. In hammer-adjusted points the hammer team's call value when up three or more was −0.026 per shot before and is −0.014 after; the non-hammer team's when down three or more went from −0.025 to −0.011, and its execution value in that state from −0.029 to +0.005. What remains is the residual that only the win-probability currency removes.
 
 Two consequences for the reports. Execution values early in an end are noise around a flat baseline, so leaderboards are effectively about the last six rocks of each end. And the call component is small (about 0.005 points per shot against 0.05 for execution) because the call is a type.
 
@@ -378,15 +384,16 @@ Phase 1 answers "what has this been worth." Phase 2 answers "what could this hav
 
 Resolved in Phase 1: outcome clipping at ±3; full shot types without grouping; men and women pooled with a discipline flag; canonical perspective; recorded score as label; gates as set in Section 3.6; the event tier table; raster before set encoding for the geometry model.
 
+Resolved in the modelling phase: the game-state encoding for f and g is the raw pair (score difference, ends remaining) plus an extra-end flag (Section 7.3); evaluation by time (train through 2024, test 2025–2026) runs alongside the by-book split for every experiment.
+
 Open:
 
-1. **Game-state encoding for f and g.** Raw score difference and ends remaining, a regime label, or the v-vector itself. The raw pair is the cheapest experiment and the first to run.
+1. **Skill prior from outside the corpus.** The event tier is too coarse a prior for the skill scalar: the same tier holds Canada and Brazil. The plan is a hand-rated event strength (men's Worlds = 100, room above for Grand Slams) and a team strength per season, either from the World Curling team rankings or, self-contained, a Bradley–Terry strength per nation and season fitted from the line scores of all 208 books.
 2. **Event effect granularity.** Event first; sheet and session with shrinkage once the model-level effect exists.
 3. **Skill scalar granularity.** Per player with a team-level prior, falling back to team for players with few shots.
 4. **Free guard zone eras.** Pooled with an era flag versus per-era f in early-end positions. Only f is affected; g pools across eras.
 5. **Player identity.** An alias table for name changes and a stable player id across events.
 6. **Leverage-normalised consistency.** Execution divided by the width of the call's menu, so that steadiness is comparable across positions.
-7. **Evaluation by time.** Training through 2024 and testing on 2025–2026, alongside the by-book split, so that the model is judged the way it would be used.
 
 ---
 
@@ -400,8 +407,11 @@ Built and run, September 2026:
 | M2 Core (count function, canonical positions, mirroring) | Done |
 | M3 Value mappings, baseline models, Points Gained, reports | Done; f 1.494 / g 1.472 / trivial 1.593 held out by book |
 | M4 Archive (inventory, download, survey, parallel batch) | Done; 208 books downloaded, 116 line-score only |
-| M5 Raw-geometry f and g with the subtlety probe | Next phase |
-| M5b Skill scalar; g with skill | Next phase |
-| M6 Phase 2 | After M5b |
+| M6 Plumbing: feature cache, vectorised build and PG, experiment command | Done; full pipeline 2.5 h to 17 min, identical results |
+| M7 Game situation in f and g | Done; f 1.470 / g 1.453 / trivial 1.559 held out by book |
+| M8 Difficulty model: skill scalar and event effect | Next |
+| M9 Intent from the delivered stone | After M8 |
+| M10 Raster geometry f and g with the subtlety probe | After M9 |
+| M11 Phase 2 | After M10 |
 
-The next phase is a modelling phase with its own design decisions and is planned separately. In expected order of value against cost: game situation and event as inputs to f and g (cheap, and testable in an afternoon on a time split); the raster geometry model with the subtlety probe; intent inference from the delivered stone, which sharpens the call component and seeds the execution error model; the skill scalar; and the plumbing to bring the full-corpus fit from two and a half hours to under thirty minutes so that iteration is possible. The five last-rock runbacks from the 2026 Olympics and Jacobs' ninth-end clearing are the test set for the first three.
+The modelling phase continues in the order above. The remaining items each have their own design decisions: the difficulty model needs the strength priors of Section 12; intent inference needs a rule for when the delivered stone and the prior rings identify the target (the rings are missing from most 2016–2019 books, so the struck stone will come from stone displacement or the intent model's modal target there); the raster model is gated by the subtlety probe and monotonicity checks before it replaces the trees. The five last-rock hit calls the model rates worst at the 2026 Olympics and Jacobs' ninth-end clearing are the pinned test set (`pointsgained testset`) for all three.
