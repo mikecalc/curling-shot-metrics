@@ -314,30 +314,67 @@ def cmd_batch(args):
 
 
 def cmd_events(args):
-    """Per-event player leaderboards with position and field-relative execution."""
+    """Per-event player leaderboards: one file per event under reports/events/, an index by year, one combined CSV."""
     from .model import aggregate as agg
     pg = pd.read_parquet(os.path.join(args.parquet, "points_gained.parquet"))
     books = args.books or None
     if args.match:
         books = sorted(b for b in pg["book"].unique() if any(m in b for m in args.match))
     lb = agg.by_player_event(pg, books, min_shots=args.min_shots)
-    os.makedirs(args.reports, exist_ok=True)
+    out_dir = os.path.join(args.reports, "events")
+    os.makedirs(out_dir, exist_ok=True)
     lb.to_csv(os.path.join(args.reports, "leaderboard_events.csv"), index=False)
-    cols = ["player", "team", "position", "shots", "games", "pg_throw_rel_event_median", "pg_throw_rel_event", "sd", "floor10", "reliability",
-            "big_misses", "big_makes", "worst5", "pg_throw_rel_event_wp", "floor10_wp", "big_misses_wp", "worst5_wp", "pg_throw_rel_slot", "pg_call", "grade"]
+    inv = pd.read_csv(args.inventory) if os.path.exists(args.inventory) else None
+    names = {}
+    if inv is not None:
+        inv["book"] = inv["file_name"].str.replace(r"\.pdf$", "", regex=True)
+        names = inv.drop_duplicates("book").set_index("book")[["event_name", "year", "location", "tier"]].to_dict("index")
+    cols = ["player", "team", "shots", "games", "pg_throw_rel_event_median", "pg_throw_rel_event", "floor10", "reliability",
+            "big_misses", "big_makes", "worst5", "pg_throw_rel_event_wp", "floor10_wp", "big_misses_wp", "worst5_wp", "pg_call", "grade"]
+    short = {"pg_throw_rel_event_median": "median", "pg_throw_rel_event": "mean", "pg_throw_rel_event_wp": "mean_wp", "pg_call": "call"}
+    legend = ("Execution (PG: Throw) relative to this event's field for the same shot type and hammer state, hammer-adjusted points per shot. "
+              "`median` is the player's typical shot; `mean` also carries the tail. `floor10` is the 10th percentile (a bad day); `reliability` the share "
+              "of shots at or above the field's expectation; `big_misses` / `big_makes` count shots beyond half a point either way; `worst5` sums the five "
+              "costliest shots. The `_wp` columns are the same in win probability (`big_misses_wp`: shots costing five or more points of win probability). "
+              "`call` is the call component (secondary). Players are grouped by throwing position and sorted by median.\n\n")
+    index = []
+    for ev, grp in lb.groupby("event", sort=True):
+        meta = names.get(ev, {})
+        title = meta.get("event_name") or ev
+        year = int(meta["year"]) if meta.get("year") == meta.get("year") and meta.get("year") is not None else int(ev[-4:]) if ev[-4:].isdigit() else 0
+        fn = f"{ev}.md"
+        with open(os.path.join(out_dir, fn), "w") as f:
+            f.write(f"# {title} ({ev})\n\n")
+            if meta:
+                f.write(f"{meta.get('location', '')}, {meta.get('year', '')}; tier {meta.get('tier', '')}.\n\n")
+            f.write(legend)
+            for d, gd in grp.groupby("discipline", sort=True):
+                f.write(f"## {'Men' if d == 'M' else 'Women'}\n\n")
+                team = gd.groupby("team").agg(players=("player", "size"), shots=("shots", "sum"),
+                                              mean=("pg_throw_rel_event", lambda x: float((x * gd.loc[x.index, "shots"]).sum() / gd.loc[x.index, "shots"].sum())),
+                                              mean_wp=("pg_throw_rel_event_wp", lambda x: float((x * gd.loc[x.index, "shots"]).sum() / gd.loc[x.index, "shots"].sum())),
+                                              call=("pg_call", "mean")).reset_index().sort_values("mean", ascending=False)
+                f.write("### Teams (shot-weighted execution relative to the field)\n\n" + team.round(3).to_markdown(index=False) + "\n\n")
+                for pos in ("FOURTH", "THIRD", "SECOND", "LEAD"):
+                    gp = gd[gd["position"] == pos].sort_values("pg_throw_rel_event_median", ascending=False)
+                    if not len(gp):
+                        continue
+                    f.write(f"### {pos.title()}s\n\n" + gp[cols].rename(columns=short).round(3).to_markdown(index=False) + "\n\n")
+        index.append((year, ev, title, fn, int(grp["player"].nunique()), sorted(grp["discipline"].unique())))
+    with open(os.path.join(out_dir, "README.md"), "w") as f:
+        f.write("# Per-event player leaderboards\n\nOne file per event; players grouped by position and sorted by median execution relative to that event's field.\n\n")
+        for year in sorted(set(i[0] for i in index), reverse=True):
+            f.write(f"## {year}\n\n")
+            for y, ev, title, fn, n, discs in sorted(index, key=lambda i: i[1]):
+                if y == year:
+                    f.write(f"- [{title}]({fn}) — {ev}, {'/'.join(discs)}, {n} players\n")
+            f.write("\n")
+    # keep the combined markdown for grep, but the per-event files are the reading copy
     with open(os.path.join(args.reports, "leaderboard_events.md"), "w") as f:
-        f.write("# Per-event player leaderboards\n\nExecution is measured relative to that event's field for the same shot type and hammer state "
-                "(hammer-adjusted points per shot). Sorted by the median of that value: what the player's typical shot was worth. "
-                "The mean (`pg_throw_rel_event`) also carries the tail: `big_misses` and `big_makes` count shots beyond half a point either way, "
-                "and `worst5` is the sum of the five most costly shots. `sd` is plain variability (mostly leverage of the position). "
-                "`floor10` is the 10th percentile of execution, a bad day; `reliability` is the share of shots at or above the field's expectation "
-                "for that shot type and hammer state. Fourths carry the most leverage, so read position against position; "
-                "`pg_throw_rel_slot` compares with the same shot number instead. The `_wp` columns are the same execution measure and tail in win probability "
-                "(`big_misses_wp` counts shots that cost five or more points of win probability). Execution is the primary pivot in both currencies; "
-                "the call component (`pg_call`) is reported after it.\n\n")
+        f.write("# Per-event player leaderboards (combined)\n\nSee reports/events/README.md for one file per event.\n\n" + legend)
         for (ev, d), grp in lb.groupby(["event", "discipline"], sort=True):
-            f.write(f"## {ev} ({'Men' if d == 'M' else 'Women'})\n\n" + grp[cols].round(3).to_markdown(index=False) + "\n\n")
-    print(f"{len(lb)} player-event rows over {lb['event'].nunique()} events -> {args.reports}/leaderboard_events.{{csv,md}}")
+            f.write(f"## {ev} ({'Men' if d == 'M' else 'Women'})\n\n" + grp[cols].rename(columns=short).round(3).to_markdown(index=False) + "\n\n")
+    print(f"{len(lb)} player-event rows over {lb['event'].nunique()} events -> {out_dir}/README.md and one file per event")
 
 
 def cmd_difficulty(args):
@@ -563,6 +600,7 @@ def main(argv=None):
     h.add_argument("--books", nargs="*", default=None, help="book ids (file stems)")
     h.add_argument("--match", nargs="*", default=None, help="substrings of book ids to include")
     h.add_argument("--min-shots", type=int, default=30)
+    h.add_argument("--inventory", default="data/inventory.csv")
     h.set_defaults(func=cmd_events)
     n = sub.add_parser("intent", help="realised intent per shot from the delivered stone and prior rings")
     n.add_argument("--parquet", default="data/parquet")
