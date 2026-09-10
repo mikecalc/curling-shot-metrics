@@ -446,7 +446,7 @@ def cmd_raster(args):
     ds = _with_level(load_or_build(args.parquet), sets, args.parquet, args.aliases)
     rows_all = attach_tier(ds.rows, args.inventory)
     unm = (rows_all["mirror"] == 0).to_numpy()
-    keep_cols = [c for c in rows_all.columns if c not in ("player", "team", "hammer_team", "date")]   # memory: drop strings not needed here
+    keep_cols = [c for c in rows_all.columns if c not in ("player", "team", "hammer_team")]   # memory: drop strings not needed here
     rows = rows_all[unm][keep_cols].reset_index(drop=True); X = ds.X[unm]; y = ds.y[unm]
     del rows_all
     tr, te = split_rows(rows, args.split, args.cutoff_year, args.fold)
