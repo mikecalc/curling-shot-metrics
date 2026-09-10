@@ -93,19 +93,25 @@ def curve_summary(curves: np.ndarray) -> dict:
 
 
 def monotonicity_cases(rng=None) -> list[tuple[str, Position, Position, str]]:
-    """(name, position A, position B, expectation) with expectation 'B<=A' on the hammer team's value."""
+    """(name, position A, position B, 'B<=A'): the hammer team's value must not rise from A to B.
+    Three unambiguous checks: an opponent stone appearing inside own shot rock (a steal position),
+    own counting stone removed, and own guard removed from in front of own shot rock."""
     rng = rng or np.random.default_rng(0)
     cases = []
     for k in range(40):
-        # own shot rock in the eight-foot, an opponent stone behind; B adds an opposing centre guard in front of it
-        sx, sy = rng.uniform(-10, 10), rng.uniform(10, 40)
-        a = Position(np.array([sx, 30.0]), np.array([sy, -20.0]), np.array([1, 0]), 7)
-        b = Position(np.array([sx, 30.0, sx]), np.array([sy, -20.0, 110.0]), np.array([1, 0, 0]), 7)
-        cases.append(("opp guard in front of own shot rock", a, b, "B<=A"))
-        # own shot rock at the edge of the eight-foot versus on the button, opponent at the twelve-foot
-        a = Position(np.array([0.0, 60.0]), np.array([46.0, 10.0]), np.array([1, 0]), 5)
-        b = Position(np.array([0.0, 60.0]), np.array([4.0, 10.0]), np.array([1, 0]), 5)
-        cases.append(("own shot rock moved from eight-foot to button", b, a, "B<=A"))   # value(a) <= value(b)
+        ang = rng.uniform(0, 2 * np.pi); r_own = rng.uniform(30, 44)
+        sx, sy = r_own * np.cos(ang), r_own * np.sin(ang)
+        ox, oy = 8.0 * np.cos(ang + 1.0), 8.0 * np.sin(ang + 1.0)          # opponent stone near the button, inside own
+        gx, gy = sx * 0.6, 115.0                                            # own guard up the sheet in front of own stone
+        rr = int(rng.integers(3, 10))
+        a = Position(np.array([sx]), np.array([sy]), np.array([1]), rr)
+        b = Position(np.array([sx, ox]), np.array([sy, oy]), np.array([1, 0]), rr)
+        cases.append(("opponent stone appears inside own shot rock", a, b, "B<=A"))
+        a2 = Position(np.array([sx, 60.0]), np.array([sy, -20.0]), np.array([1, 0]), rr)
+        b2 = Position(np.array([60.0]), np.array([-20.0]), np.array([0]), rr)
+        cases.append(("own counting stone removed", a2, b2, "B<=A"))
+        a3 = Position(np.array([sx, 60.0, gx]), np.array([sy, -20.0, gy]), np.array([1, 0, 1]), rr)
+        cases.append(("own guard removed from in front of own shot rock", a3, a2, "B<=A"))
     return cases
 
 

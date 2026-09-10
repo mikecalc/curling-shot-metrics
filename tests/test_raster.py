@@ -42,9 +42,9 @@ def test_pre_position_arrays_and_scalars():
 
 def test_monotonicity_cases_and_curve_summary():
     cases = PR.monotonicity_cases()
-    assert len(cases) == 80 and all(c[3] == "B<=A" for c in cases)
+    assert len(cases) == 120 and all(c[3] == "B<=A" for c in cases)
     curves = np.tile(np.array([0.3, 0.2, 0.1, 0.0, -0.1, -0.2, -0.3]), (5, 1))
     s = PR.curve_summary(curves)
     assert s == {"1in": 0.1, "2in": 0.2, "4in": 0.3}
-    rep = PR.monotonicity_report(lambda ps: np.array([-(p.n) for p in ps], dtype=float))   # more stones = lower value
-    assert rep["opp guard in front of own shot rock"] == 1.0
+    rep = PR.monotonicity_report(lambda ps: np.array([float((p.owner == 1).sum() - (p.owner == 0).sum()) for p in ps]))   # own minus opp stones
+    assert rep["opponent stone appears inside own shot rock"] == 1.0 and rep["own counting stone removed"] == 1.0
