@@ -127,7 +127,7 @@ def rasterise(x, y, owner, valid, target_xy=None, mirror=None):
 
 # ---- network ---------------------------------------------------------------------------------
 
-def build_net(n_channels: int, n_scalars: int, width: int = 24):
+def build_net(n_channels: int, n_scalars: int, width: int = 24, bottleneck: int = 8):
     """Five stride-2 conv blocks over the raster plus two coordinate channels (the sheet is anchored at
     the pin, so where a feature is matters as much as what it is), then the final map is flattened,
     not pooled: global pooling would make the network blind to location."""
@@ -145,11 +145,14 @@ def build_net(n_channels: int, n_scalars: int, width: int = 24):
             blocks = []
             for a, b in zip(chans[:-1], chans[1:]):
                 blocks += [nn.Conv2d(a, b, 3, stride=2, padding=1), nn.BatchNorm2d(b), nn.GELU()]
+            # a 1x1 bottleneck to a few channels keeps the location map but denies the head the capacity
+            # to memorise positions (a 6336-wide flatten reached train 1.34 / val 1.63 in three epochs)
+            blocks += [nn.Conv2d(chans[-1], bottleneck, 1), nn.BatchNorm2d(bottleneck), nn.GELU()]
             self.conv = nn.Sequential(*blocks)
             with torch.no_grad():
                 n_flat = self.conv(torch.zeros(1, n_channels + 2, H, W)).numel()
-            self.head = nn.Sequential(nn.Linear(n_flat + n_scalars, 256), nn.GELU(), nn.Dropout(0.2),
-                                      nn.Linear(256, 64), nn.GELU(), nn.Linear(64, N_OUT))
+            self.head = nn.Sequential(nn.Dropout(0.3), nn.Linear(n_flat + n_scalars, 128), nn.GELU(), nn.Dropout(0.3),
+                                      nn.Linear(128, N_OUT))
 
         def forward(self, img, scal):
             B = img.shape[0]
@@ -215,7 +218,7 @@ def fit_raster(kind: str, arrays: StoneArrays, S: np.ndarray, y: np.ndarray, tar
     Sn = ((S - mean) / std).astype(np.float32)
     n_ch = 2 if target_xy is None else 3
     net = build_net(n_ch, S.shape[1]).to(dev)
-    opt = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=1e-4)
+    opt = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=1e-2)
     steps_per_epoch = int(np.ceil(len(train_idx) / batch))
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=epochs * steps_per_epoch)
     loss_fn = torch.nn.CrossEntropyLoss()
