@@ -131,6 +131,9 @@ def by_player_event(pg: pd.DataFrame, books: list[str] | None = None, min_shots:
         pg=("pg", "mean"), pg_call=("pg_call", "mean"), pg_throw=("pg_throw", "mean"),
         pg_throw_rel=("pg_throw_rel", "mean"), pg_throw_rel_event=("pg_throw_rel_event", "mean"),
         pg_throw_rel_event_median=("pg_throw_rel_event", "median"),
+        sd=("pg_throw_rel_event", "std"),
+        floor10=("pg_throw_rel_event", lambda x: float(x.quantile(0.10))),          # a bad day: 10th percentile
+        reliability=("pg_throw_rel_event", lambda x: float((x >= 0).mean())),      # share of shots at or above the field's expectation
         big_misses=("pg_throw_rel_event", lambda x: int((x < -0.5).sum())),
         big_makes=("pg_throw_rel_event", lambda x: int((x > 0.5).sum())),
         worst5=("pg_throw_rel_event", lambda x: x.nsmallest(5).sum()),
