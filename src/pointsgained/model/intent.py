@@ -100,7 +100,9 @@ def realised_intent(tabs: dict) -> pd.DataFrame:
     out["target_is_shot_rock"], out["target_is_guard"] = is_shot_rock, is_guard
     out["shooter_stays"], out["target_known"] = shooter_stays, known.astype(float)
     out["family"] = np.where(is_hit, "hit", np.where(is_draw, "draw", "other"))
-    out["realised_x"], out["realised_y"] = tx, ty
+    # diagnostics (never design columns): where the delivered stone actually rested (draws) or the struck stone (hits)
+    out["realised_x"] = np.where(is_hit, df["px"], df["dx"]).astype(float)
+    out["realised_y"] = np.where(is_hit, df["py"], df["dy"]).astype(float)
     log.info("intent: %d shots, target known %.3f (hits %.3f, draws %.3f) in %.0fs", len(out), known.mean(),
              known[is_hit].mean() if is_hit.any() else 0, known[is_draw].mean() if is_draw.any() else 0, time.time() - t0)
     return out
@@ -205,3 +207,25 @@ def apply_target_model(intent: pd.DataFrame, rows: pd.DataFrame, X: np.ndarray, 
         out.loc[ok, "target_is_shot_rock"] = m["target_is_shot_rock"].fillna(0.0).to_numpy()
     log.info("target model: draws %d (modal for all), hits filled %d, in %.0fs", int(is_draw.sum()), int(ok.sum()), time.time() - t0)
     return out
+
+
+def execution_error_summary(intent: pd.DataFrame, rows: pd.DataFrame, skill: np.ndarray | None = None) -> pd.DataFrame:
+    """Seed for the Phase 2 error model (design Section 11): for draws with a marker, the delivered
+    stone's rest relative to the modal target, by grade, skill tercile and rocks-remaining band.
+    Lateral error is |x_rest - x_target| and depth error y_rest - y_target (positive = heavy... towards
+    the hog line), in inches. Hits report how often the struck stone matched the modal class."""
+    key = ["game_key", "end", "shot"]
+    r = rows[rows["mirror"] == 0][key + ["grade_pct"]].copy()
+    if skill is not None:
+        r["skill_bucket"] = pd.qcut(pd.Series(skill[(rows["mirror"] == 0).to_numpy()]), 3, labels=["low", "mid", "high"]).astype(str).to_numpy()
+    else:
+        r["skill_bucket"] = "all"
+    df = intent.merge(r, on=key, how="inner")
+    df["band"] = pd.cut(df["shot"], [0, 4, 8, 12, 16], labels=["1-4", "5-8", "9-12", "13-16"]).astype(str)
+    d = df[(df["family"] == "draw") & df["realised_y"].notna() & (df["realised_x"] != 0.0)].copy()
+    d["lateral"] = (d["realised_x"] - d["target_x"]).abs()
+    d["depth"] = d["realised_y"] - d["target_y"]
+    out = d.groupby(["grade_pct", "skill_bucket", "band"], observed=True).agg(
+        n=("lateral", "size"), lateral_med=("lateral", "median"), depth_med=("depth", "median"),
+        depth_iqr=("depth", lambda s: float(s.quantile(0.75) - s.quantile(0.25)))).reset_index()
+    return out.round(1)

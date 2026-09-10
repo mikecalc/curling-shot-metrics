@@ -134,6 +134,20 @@ def cmd_intent(args):
     ds = load_or_build(args.parquet)
     it = apply_target_model(it, ds.rows, ds.X, seed=args.seed)
     it.to_parquet(os.path.join(args.parquet, "intent.parquet"), index=False)
+    # Phase 2 seed: delivered-stone error relative to the modal target (design Section 11)
+    from .model.intent import execution_error_summary
+    skill = None
+    if os.path.exists(os.path.join(args.parquet, "skill.parquet")):
+        from .model.difficulty import load_level
+        skill = load_level(args.parquet, ds.rows, args.aliases)["skill_thrower"].to_numpy()
+    err = execution_error_summary(it, ds.rows, skill)
+    os.makedirs(args.reports, exist_ok=True)
+    with open(os.path.join(args.reports, "execution_error.md"), "w") as f:
+        f.write("# Delivered-stone error relative to the modal target (draw family)\n\n"
+                "Seed for the Phase 2 execution error model. Lateral error is |x_rest - x_target|, depth error is "
+                "y_rest - y_target (positive towards the hog line), inches; the target is the modal cell centre, so "
+                "part of the spread is the cell's coarseness. Rows by grade, thrower skill tercile and rocks-remaining band.\n\n")
+        f.write(err.to_markdown(index=False) + "\n")
     books = tabs["games"].drop_duplicates("game_key").set_index("game_key")["book"]
     it["year"] = it["game_key"].map(books).str.extract(r"(20\d\d)")[0]
     cov = it.groupby(["year", "family"])["target_known"].mean().unstack("family").round(3)
@@ -462,6 +476,8 @@ def main(argv=None):
     n = sub.add_parser("intent", help="realised intent per shot from the delivered stone and prior rings")
     n.add_argument("--parquet", default="data/parquet")
     n.add_argument("--seed", type=int, default=0)
+    n.add_argument("--reports", default="reports")
+    n.add_argument("--aliases", default="data/player_aliases.csv")
     n.set_defaults(func=cmd_intent)
     m = sub.add_parser("difficulty", help="fit the shot-difficulty model: skill per player, effect per event")
     m.add_argument("--parquet", default="data/parquet")
