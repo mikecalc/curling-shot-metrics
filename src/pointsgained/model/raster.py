@@ -43,6 +43,12 @@ def _torch():
     return torch
 
 
+def _empty_cache():
+    torch = _torch()
+    if torch.backends.mps.is_available():
+        torch.mps.empty_cache()
+
+
 def device_name() -> str:
     torch = _torch()
     return "mps" if torch.backends.mps.is_available() else "cpu"
@@ -170,7 +176,7 @@ class RasterFit:
     scalar_cols: list[str]
     history: list = field(default_factory=list)
 
-    def predict(self, arrays: StoneArrays, S: np.ndarray, target_xy: np.ndarray | None, batch: int = 1024) -> np.ndarray:
+    def predict(self, arrays: StoneArrays, S: np.ndarray, target_xy: np.ndarray | None, batch: int = 256) -> np.ndarray:
         torch = _torch()
         dev = next(self.net.parameters()).device
         self.net.eval()
@@ -184,11 +190,13 @@ class RasterFit:
                                 None if target_xy is None else torch.from_numpy(target_xy[sl]).to(dev))
                 logits = self.net(img, torch.from_numpy(Sn[sl]).to(dev))
                 out[sl] = torch.softmax(logits, dim=1).cpu().numpy()
+                del img, logits
+        _empty_cache()
         return out
 
 
 def fit_raster(kind: str, arrays: StoneArrays, S: np.ndarray, y: np.ndarray, target_xy: np.ndarray | None,
-               train_idx: np.ndarray, val_idx: np.ndarray, epochs: int = 8, batch: int = 512, lr: float = 2e-3,
+               train_idx: np.ndarray, val_idx: np.ndarray, epochs: int = 8, batch: int = 256, lr: float = 2e-3,
                seed: int = 0, max_train: int | None = None, log_every: int = 200) -> RasterFit:
     """Train f (kind='f', no target channel) or g on the given rows; early stopping on val log-loss."""
     torch = _torch()
@@ -222,8 +230,10 @@ def fit_raster(kind: str, arrays: StoneArrays, S: np.ndarray, y: np.ndarray, tar
             loss = loss_fn(logits, yt[idx].to(dev))
             opt.zero_grad(); loss.backward(); opt.step(); sched.step()
             tot += float(loss); nb += 1
+            del img, logits, loss
             if nb % log_every == 0:
                 log.info("%s epoch %d batch %d/%d loss %.4f (%.0fs)", kind, ep + 1, nb, steps_per_epoch, tot / nb, time.time() - t0)
+        _empty_cache()
         P = fit.predict(arrays_subset(arrays, val_idx), S[val_idx], None if target_xy is None else target_xy[val_idx])
         vl = float(-np.mean(np.log(np.clip(P[np.arange(len(val_idx)), y[val_idx]], 1e-6, 1))))
         fit.history.append({"epoch": ep + 1, "train": tot / max(nb, 1), "val": vl, "seconds": round(time.time() - t0)})

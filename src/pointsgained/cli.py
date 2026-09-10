@@ -446,7 +446,9 @@ def cmd_raster(args):
     ds = _with_level(load_or_build(args.parquet), sets, args.parquet, args.aliases)
     rows_all = attach_tier(ds.rows, args.inventory)
     unm = (rows_all["mirror"] == 0).to_numpy()
-    rows = rows_all[unm].reset_index(drop=True); X = ds.X[unm]; y = ds.y[unm]
+    keep_cols = [c for c in rows_all.columns if c not in ("player", "team", "hammer_team", "date")]   # memory: drop strings not needed here
+    rows = rows_all[unm][keep_cols].reset_index(drop=True); X = ds.X[unm]; y = ds.y[unm]
+    del rows_all
     tr, te = split_rows(rows, args.split, args.cutoff_year, args.fold)
     if args.max_train and len(tr) > args.max_train:
         tr = np.random.default_rng(args.seed).choice(tr, args.max_train, replace=False)
@@ -462,6 +464,9 @@ def cmd_raster(args):
     mf = make_model(args.seed).fit(X_f[tr], y[tr]); P["f_tree"] = _full_proba(mf, X_f[te])
     mg = make_model(args.seed, _cat_index(g_cols)).fit(X_g[tr], y[tr]); P["g_tree"] = _full_proba(mg, X_g[te])
     logging.info("trees fitted in %.0fs", time.time() - t0)
+    del X_f, X_g
+    ds.rows = ds.rows.iloc[:0]                                  # the raster path works from `rows`, `X`, `arrays`
+    import gc; gc.collect()
     fits = {}
     for kind in (["f", "g"] if not args.f_only else ["f"]):
         S, cols = scalar_matrix(rows, X, kind)
@@ -630,7 +635,7 @@ def main(argv=None):
     o.add_argument("--fold", type=int, default=0)
     o.add_argument("--name", default="raster")
     o.add_argument("--epochs", type=int, default=6)
-    o.add_argument("--batch", type=int, default=512)
+    o.add_argument("--batch", type=int, default=256)
     o.add_argument("--lr", type=float, default=2e-3)
     o.add_argument("--max-train", type=int, default=None, help="subsample the training rows")
     o.add_argument("--n-probe", type=int, default=300)
