@@ -1,8 +1,8 @@
 # Points Gained: A Shot-Value Metric for Curling — Design Document
 
-**Status:** Phase 1 built and run on the full CURLIT archive (September 2026). This document describes the system as it exists, the reasoning behind its choices, and what the first results say about where it falls short. Section 13 records status and the next phase.
+**Status:** Phase 1 built and run on the full CURLIT archive, then a modelling phase that added the game situation, the event's level of play and the struck stone to the models, tried and rejected a raw-geometry network, and settled the reporting on execution first (September 2026). This document describes the system as it exists, the reasoning behind its choices, what was tried and withdrawn, and what the results say. Section 13 records status.
 
-**Scope:** Within-end valuation in two currencies, hammer-adjusted points and win probability, with call and throw components, computed for 609,014 shots from 92 World Curling results books. A raw-geometry outcome model, intent inference from the delivered stone, and the per-thrower skill scalar are the next phase.
+**Scope:** Within-end valuation in two currencies, hammer-adjusted points and win probability, with call and throw components, computed for 609,014 shots from 92 World Curling results books. The models are boosted trees on hand-built features plus the game situation, the event's strength rating and the struck stone; a raw-geometry network was built and lost to them (Section 5.2), and a per-thrower skill scalar was built and withdrawn as an input (Section 3.5).
 
 ---
 
@@ -51,7 +51,7 @@ The two currencies disagree in a way that is itself informative. In hammer-adjus
 | **Hammer net** (N) | Expected net score of the hammer team in one end. |
 | **Hammer value** (H) | Infinite-horizon value of holding hammer; the spacing used in the points currency. |
 | **Event-relative execution** | PG: Throw minus the event field's mean for the same call and hammer state; the reporting unit for players. |
-| **Skill scalar** | A per-thrower level-of-play number estimated from execution grades (next phase). |
+| **Skill scalar** | A per-thrower level-of-play number estimated from execution grades. Built as a report (Section 3.5); not an input to the models, whose level of play is the event's. |
 
 ---
 
@@ -154,7 +154,7 @@ Facts established while building the extractor, each of which cost a bug before 
 
 Every row carries stratum keys so that models and reports can be re-cut without re-running the pipeline: discipline (from the page header), event family and tier (from a regex table over event names, the single place tiers are defined), season and rule era (from the date), team code, player name, throwing position (from shot order), session and sheet.
 
-Player names need care. The books use surname plus initial, in varying case, and a player's team code changes between events (Scotland at the Worlds, Great Britain at the Olympics); reports key on the upper-cased, whitespace-normalised name within a discipline. Genuine name changes ("SCHWARZ B" in 2022, "SCHWARZ-VAN BERKEL" from 2025) need an alias table, not yet built.
+Player names need care. The books use surname plus initial, in varying case, and a player's team code changes between events (Scotland at the Worlds, Great Britain at the Olympics); reports key on the upper-cased, whitespace-normalised name within a discipline. Genuine name changes ("SCHWARZ B" in 2022, "SCHWARZ-VAN BERKEL" from 2025) are handled by an alias table (`data/player_aliases.csv`, Section 12).
 
 ### 3.5 Level of play
 
@@ -205,8 +205,8 @@ Out of that come two numbers. The **skill scalar** per player (team effect plus 
 
 The subtleties that decide a curling position live at the inch level: whether a double is on, where a roll ends up, whether a guard actually covers the line. Any hand-built classification of positions throws that away. Two representations with different jobs:
 
-- **Raw geometry (primary, next phase).** The model sees the stones themselves; whatever matters is learned from outcomes.
-- **Baseline features (built).** A compact hand-built vector: a baseline to beat and an interpretability layer. No claim is made that these features capture what a skip evaluates, and the results in Section 7 say they do not capture what matters early in an end.
+- **Raw geometry (built, rejected).** The model sees the stones themselves; whatever matters is learned from outcomes. A convolutional network on the rasterised sheet was trained and lost to the feature model in every band of rocks remaining (Section 5.2).
+- **Baseline features (the model).** A compact hand-built vector: originally a baseline to beat and an interpretability layer, now the representation the system runs on. No claim is made that these features capture what a skip evaluates; the results in Section 7 say the models, on either representation, know little early in an end.
 
 ### 5.2 Raw geometry representation
 
@@ -297,7 +297,7 @@ One row per shot for f, with the pre-position and the end's outcome from the ham
 - Conservation to numerical precision (Section 2.5).
 - Calibration at the empty sheet: V(f(S₀)) with hammer should equal H. On the archive, 0.582 against 0.582.
 - Face validity of the leaderboards against the game (Section 10).
-- For the raw-geometry model, the **subtlety probe**: take real positions where a double was made, translate the target stone by ±1, ±2, ±4 inches, and plot g(S, Double) against the offset. A model that has learned the geometry shows a sharp drop where the double closes; a model that has not shows a flat line.
+- For the raw-geometry model, the **subtlety probe** (built in `pointsgained raster`, not run: the geometry model failed the log-loss gate on f, so g was never trained): take real positions where a double was made, translate the target stone by ±1, ±2, ±4 inches, and plot g(S, Double) against the offset. A model that has learned the geometry shows a sharp drop where the double closes; a model that has not shows a flat line.
 
 ---
 
@@ -418,7 +418,7 @@ Open:
 
 ---
 
-## 13. Status and Next Phase
+## 13. Status
 
 Built and run, September 2026:
 
@@ -435,4 +435,4 @@ Built and run, September 2026:
 | M10 Raster geometry model, probe and monotonicity gates | Built and rejected: plain raster f 1.493, hybrid 1.487, trees 1.455 on the time split |
 | M11 Phase 2 | After M10 |
 
-The modelling phase continues in the order above. The remaining items each have their own design decisions: the difficulty model needs the strength priors of Section 12; the raster model is gated by the subtlety probe and monotonicity checks before it replaces the trees. The modelling phase is complete. The system that comes out of it: f and g as boosted trees on the position features, the game situation, the event rating and, for g, the call type, turn and the struck stone; held out by book, f 1.470 and g 1.447 against a trivial 1.559; the full pipeline in about fifteen minutes; per-event reports with execution first in both currencies. Mike's direction for what follows (2026-09-10): the metric is outcome-first. Execution (PG: Throw) is the primary pivot in both currencies, with the tail statistics of Section 10 (floor, reliability, big misses, the five costliest shots) alongside it in points and in win probability; the call component is reported second, and no further work goes into intent. Skips call plan B and plan C while the rock is moving, and the position they leave is what the metric should credit. The five last-rock hit calls the model rates worst at the 2026 Olympics and Jacobs' ninth-end clearing are the pinned test set (`pointsgained testset`) for all three.
+The modelling phase is complete. The system that comes out of it: f and g as boosted trees on the position features, the game situation, the event rating and, for g, the call type, turn and the struck stone; held out by book, f 1.470 and g 1.447 against a trivial 1.559; the full pipeline in about fifteen minutes; per-event reports with execution first in both currencies. Mike's direction for what follows (2026-09-10): the metric is outcome-first. Execution (PG: Throw) is the primary pivot in both currencies, with the tail statistics of Section 10 (floor, reliability, big misses, the five costliest shots) alongside it in points and in win probability; the call component is reported second, and no further work goes into intent. Skips call plan B and plan C while the rock is moving, and the position they leave is what the metric should credit. The five last-rock hit calls the model rates worst at the 2026 Olympics and Jacobs' ninth-end clearing are the pinned test set (`pointsgained testset`) for all three.
