@@ -43,8 +43,11 @@ pointsgained model --features base,situation,level,intent
 # the six pinned 2026 Olympic shots, both currencies, call at the reference and at the thrower's own skill
 pointsgained testset
 
-# 7. per-event player leaderboards (reports/leaderboard_events.md)
+# 7. per-event player leaderboards (reports/events/<book>.md, one file per event, index in reports/events/README.md)
 pointsgained events --match OWG2026 WMCC2026
+
+# 8. one game shot by shot: ends, players, largest swings, every stone's values (reports/games/<game>.md)
+pointsgained game --match OWG2026 Gold_Medal
 
 # one modelling experiment: fit once on a split, score held out (reports/experiments/log.md)
 pointsgained experiment --split time --features base,situation,level,intent
@@ -66,6 +69,7 @@ pointsgained batch
 - `src/pointsgained/corpus/` archive inventory, event family and tier table, downloader, batch processing
 - `tests/` unit tests
 - `data/raw/` PDFs (not committed), `data/parquet/` extracted tables (not committed), `reports/` validation and model reports (not committed)
+- `reports/samples/` finished reports kept in the repository: the model report, the pinned test set, per-event leaderboards for the 2026 Olympics and Worlds and for Beijing 2022, and the two 2026 Olympic finals shot by shot, with a README on how each is built and what it says
 
 ## Conventions
 

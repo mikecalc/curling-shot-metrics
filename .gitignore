@@ -6,7 +6,8 @@ __pycache__/
 data/raw/
 data/parquet/
 data/inventory.csv
-reports/
+reports/*
+!reports/samples/
 *.egg-info/
 build/
 dist/

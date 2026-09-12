@@ -379,6 +379,38 @@ def cmd_events(args):
     print(f"{len(lb)} player-event rows over {lb['event'].nunique()} events -> {out_dir}/README.md and one file per event")
 
 
+def cmd_game(args):
+    """One game shot by shot: ends, players, largest swings and every shot's values, under reports/games/."""
+    from .model.report import game_report, game_file_name
+    pg = pd.read_parquet(os.path.join(args.parquet, "points_gained.parquet"))
+    keys = sorted(k for k in pg["game_key"].unique() if all(m in k for m in args.match))
+    if not keys:
+        raise SystemExit(f"no game key contains all of {args.match}")
+    inv = pd.read_csv(args.inventory) if os.path.exists(args.inventory) else None
+    names = {}
+    if inv is not None:
+        inv["book"] = inv["file_name"].str.replace(r"\.pdf$", "", regex=True)
+        names = inv.drop_duplicates("book").set_index("book")["event_name"].to_dict()
+    out_dir = os.path.join(args.reports, "games")
+    os.makedirs(out_dir, exist_ok=True)
+    for key in keys:
+        book, local_key = key.split("|", 1)
+        games = pd.read_parquet(os.path.join(args.parquet, book, "games.parquet"))
+        meta = games[games["game_key"] == local_key].iloc[0]
+        ls = pd.read_parquet(os.path.join(args.parquet, book, "line_scores.parquet"))
+        ls = ls[ls["game_key"] == local_key].set_index("team")
+        a, b = str(meta["team_a"]), str(meta["team_b"])
+        disc = {"M": "men", "W": "women"}.get(str(meta["discipline"]), str(meta["discipline"]))
+        title = f"{names.get(book, book)}: {meta['session']}, {meta['team_a_name']} v {meta['team_b_name']} ({disc})"
+        final = f"Final score {a} {int(ls.loc[a, 'total'])}, {b} {int(ls.loc[b, 'total'])}" if {a, b} <= set(ls.index) else ""
+        subtitle = f"{meta['date']} {meta['start_time']}; {a} {meta['color_a']}, {b} {meta['color_b']}. {final}. Game key `{key}`."
+        text = game_report(pg[pg["game_key"] == key], title, subtitle, team_order=(a, b))
+        fn = os.path.join(out_dir, game_file_name(key))
+        with open(fn, "w") as f:
+            f.write(text)
+        print(f"wrote {fn}")
+
+
 def cmd_difficulty(args):
     """Fit the shot-difficulty model: skill scalar per player and event effect per book (design 3.5, 8)."""
     import numpy as np
@@ -609,6 +641,12 @@ def main(argv=None):
     h.add_argument("--min-shots", type=int, default=30)
     h.add_argument("--inventory", default="data/inventory.csv")
     h.set_defaults(func=cmd_events)
+    q = sub.add_parser("game", help="one game shot by shot: ends, players, largest swings, every shot's values")
+    q.add_argument("--parquet", default="data/parquet")
+    q.add_argument("--reports", default="reports")
+    q.add_argument("--match", nargs="+", required=True, help="substrings that the game key must all contain, e.g. OWG2026 Gold_Medal")
+    q.add_argument("--inventory", default="data/inventory.csv")
+    q.set_defaults(func=cmd_game)
     n = sub.add_parser("intent", help="realised intent per shot from the delivered stone and prior rings")
     n.add_argument("--parquet", default="data/parquet")
     n.add_argument("--seed", type=int, default=0)
