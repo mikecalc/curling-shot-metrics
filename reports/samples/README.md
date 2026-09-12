@@ -94,11 +94,12 @@ The numbers in that section are the numbers in this file.
   different fields. The combined CSV that `pointsgained events` also writes carries `pg_throw_rel`, the same execution
   against the whole corpus, for comparisons across events.
 - **The call component runs against execution in every sample event.** In all five leaderboards the teams with the best
-  execution have negative call values and the teams with the worst have positive ones. The likely reason is game state
-  rather than judgement: a team in control calls the quiet shot, and the field's usual result from a quiet call is below
-  the value of the position it was called from, while a team that is chasing calls the hit, whose usual result is above
-  it. The design treats the call component as secondary for this reason (Sections 6 and 10.2); read it as "the call the
-  field usually makes here" and not as "the best call".
+  execution have negative call values and the teams with the worst have positive ones. A check over the whole corpus
+  says this is situation, not judgement: good teams are scored on less, hold hammer less and throw from different
+  situations, and within the same situation their calls are valued no differently from anyone else's. Where teams do
+  separate is on the downside of the call: the best teams execute the calls with the fattest bad tail as well as their
+  safe ones, and the weakest teams execute them worse. The design records this as a hypothesis still to be validated
+  (Section 10.3). Read the call column as "the call the field usually makes here" and not as "the best call".
 - **Points and win probability disagree at the end of a game**, by construction. The hammer value H is an infinite-horizon
   quantity and the last end has no next end. Use the `_wp` columns for anything that depends on the ends remaining.
 - **The official grade and the model measure different things.** The grade counts every stone once against the caller's
