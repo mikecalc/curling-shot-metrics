@@ -321,6 +321,7 @@ def cmd_events(args):
     if args.match:
         books = sorted(b for b in pg["book"].unique() if any(m in b for m in args.match))
     lb = agg.by_player_event(pg, books, min_shots=args.min_shots)
+    te = agg.by_team_event(pg, books)
     out_dir = os.path.join(args.reports, "events")
     os.makedirs(out_dir, exist_ok=True)
     lb.to_csv(os.path.join(args.reports, "leaderboard_events.csv"), index=False)
@@ -329,14 +330,18 @@ def cmd_events(args):
     if inv is not None:
         inv["book"] = inv["file_name"].str.replace(r"\.pdf$", "", regex=True)
         names = inv.drop_duplicates("book").set_index("book")[["event_name", "year", "location", "tier"]].to_dict("index")
-    cols = ["player", "team", "shots", "games", "pg_throw_rel_event_median", "pg_throw_rel_event", "floor10", "reliability",
-            "big_misses", "big_makes", "worst5", "pg_throw_rel_event_wp", "floor10_wp", "big_misses_wp", "worst5_wp", "pg_call", "grade"]
-    short = {"pg_throw_rel_event_median": "median", "pg_throw_rel_event": "mean", "pg_throw_rel_event_wp": "mean_wp", "pg_call": "call"}
-    legend = ("Execution (PG: Throw) relative to this event's field for the same shot type and hammer state, hammer-adjusted points per shot. "
-              "`median` is the player's typical shot; `mean` also carries the tail. `floor10` is the 10th percentile (a bad day); `reliability` the share "
-              "of shots at or above the field's expectation; `big_misses` / `big_makes` count shots beyond half a point either way; `worst5` sums the five "
-              "costliest shots. The `_wp` columns are the same in win probability (`big_misses_wp`: shots costing five or more points of win probability). "
-              "`call` is the call component (secondary). Players are grouped by throwing position and sorted by median.\n\n")
+    cols = ["player", "team", "shots", "games", "reliability", "avg_make", "avg_miss", "big_makes", "big_misses", "worst5",
+            "pg_throw_rel_event", "big_makes_wp", "big_misses_wp", "best5_wp", "worst5_wp", "pg_call", "grade"]
+    short = {"pg_throw_rel_event": "net", "pg_call": "call"}
+    legend = ("Execution (PGAA, points gained above average) relative to this event's field for the same shot type and hammer state, "
+              "in hammer-adjusted points per shot. The block reads the player's distribution rather than its average: `reliability` is the "
+              "share of shots at or above the field's expectation; `avg_make` how good the shot was when it was above, `avg_miss` how bad when "
+              "below; `big_makes` / `big_misses` count shots beyond half a point either way; `worst5` sums the five costliest shots. `net` is "
+              "the mean, kept as the single number that folds these together. The `_wp` columns are the effect on win probability, for "
+              "reference: shots that gained or cost five or more points, and the five best and five worst stones summed, in percentage "
+              "points. `call` is the call component (secondary). Players are grouped by throwing position and sorted by reliability, then "
+              "by average miss. The team table above them is a different kind of table: a team's standing is its record and what its "
+              "stones did to its chance of winning, so it carries no execution columns.\n\n")
     index = []
     for ev, grp in lb.groupby("event", sort=True):
         meta = names.get(ev, {})
@@ -350,20 +355,21 @@ def cmd_events(args):
             f.write(legend)
             for d, gd in grp.groupby("discipline", sort=True):
                 f.write(f"## {'Men' if d == 'M' else 'Women'}\n\n")
-                team = gd.groupby("team").agg(players=("player", "size"), shots=("shots", "sum"),
-                                              mean=("pg_throw_rel_event", lambda x: float((x * gd.loc[x.index, "shots"]).sum() / gd.loc[x.index, "shots"].sum())),
-                                              mean_wp=("pg_throw_rel_event_wp", lambda x: float((x * gd.loc[x.index, "shots"]).sum() / gd.loc[x.index, "shots"].sum())),
-                                              call=("pg_call", "mean")).reset_index().sort_values("mean", ascending=False)
-                f.write("### Teams (shot-weighted execution relative to the field)\n\n" + team.round(3).to_markdown(index=False) + "\n\n")
+                tt = te[(te["event"] == ev) & (te["discipline"] == d)].copy()
+                tt["record"] = tt["wins"].astype(str) + "-" + tt["losses"].astype(str)
+                tt = tt[["team", "games", "record", "wp_gain"]].rename(columns={"wp_gain": "WP gained / game"})
+                f.write("### Teams\n\nThe team-level view, in win probability: the record, and the summed effect of the team's own "
+                        "stones on its chance of winning, per game, in percentage points (calls and throws together).\n\n"
+                        + tt.round(1).to_markdown(index=False) + "\n\n")
                 for pos in ("FOURTH", "THIRD", "SECOND", "LEAD"):
-                    gp = gd[gd["position"] == pos].sort_values("pg_throw_rel_event_median", ascending=False)
+                    gp = gd[gd["position"] == pos].sort_values(["reliability", "avg_miss"], ascending=False)
                     if not len(gp):
                         continue
                     f.write(f"### {pos.title()}s\n\n" + gp[cols].rename(columns=short).round(3).to_markdown(index=False) + "\n\n")
         n_games = int(pg.loc[pg["book"] == ev, "game_key"].nunique())
         index.append((year, ev, title, fn, int(grp["player"].nunique()), sorted(grp["discipline"].unique()), n_games))
     with open(os.path.join(out_dir, "README.md"), "w") as f:
-        f.write("# Per-event player leaderboards\n\nOne file per event; players grouped by position and sorted by median execution relative to that event's field.\n\n")
+        f.write("# Per-event player leaderboards\n\nOne file per event; players grouped by position and sorted by reliability (the share of shots at or above that event's field for the same call), then by the average miss.\n\n")
         for year in sorted(set(i[0] for i in index), reverse=True):
             f.write(f"## {year}\n\n")
             for y, ev, title, fn, n, discs, ng in sorted(index, key=lambda i: i[1]):

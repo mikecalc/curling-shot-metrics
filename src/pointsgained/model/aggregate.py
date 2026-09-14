@@ -111,7 +111,10 @@ def normalise_player(name) -> str:
 
 def by_player_event(pg: pd.DataFrame, books: list[str] | None = None, min_shots: int = 30) -> pd.DataFrame:
     """One row per (event book, discipline, player): position from throwing order (mode over the
-    player's shots), execution relative to the whole field and to that event's field, both currencies."""
+    player's shots), execution relative to the whole field and to that event's field, both currencies.
+    The execution block splits the distribution rather than averaging it: reliability (share of shots at
+    or above the field), the average make and the average miss, the big-make and big-miss counts and the
+    worst five; the mean is kept as the net."""
     df = pg.copy()
     if books:
         df = df[df["book"].isin(books)]
@@ -142,6 +145,8 @@ def by_player_event(pg: pd.DataFrame, books: list[str] | None = None, min_shots:
         sd=("pg_throw_rel_event", "std"),
         floor10=("pg_throw_rel_event", lambda x: float(x.quantile(0.10))),          # a bad day: 10th percentile
         reliability=("pg_throw_rel_event", lambda x: float((x >= 0).mean())),      # share of shots at or above the field's expectation
+        avg_make=("pg_throw_rel_event", lambda x: float(x[x >= 0].mean()) if (x >= 0).any() else 0.0),   # how good when above
+        avg_miss=("pg_throw_rel_event", lambda x: float(x[x < 0].mean()) if (x < 0).any() else 0.0),     # how bad when below
         big_misses=("pg_throw_rel_event", lambda x: int((x < -0.5).sum())),
         big_makes=("pg_throw_rel_event", lambda x: int((x > 0.5).sum())),
         worst5=("pg_throw_rel_event", lambda x: x.nsmallest(5).sum()),
@@ -152,8 +157,46 @@ def by_player_event(pg: pd.DataFrame, books: list[str] | None = None, min_shots:
         pg_throw_rel_event_wp=("pg_throw_rel_event_wp", "mean"),
         floor10_wp=("pg_throw_rel_event_wp", lambda x: float(x.quantile(0.10))),
         big_misses_wp=("pg_throw_rel_event_wp", lambda x: int((x < -0.05).sum())),      # shots that cost 5+ points of win probability
+        big_makes_wp=("pg_throw_rel_event_wp", lambda x: int((x > 0.05).sum())),        # shots that gained 5+ points
         worst5_wp=("pg_throw_rel_event_wp", lambda x: x.nsmallest(5).sum()),
+        best5_wp=("pg_throw_rel_event_wp", lambda x: x.nlargest(5).sum()),
         grade=("grade_pct", "mean"),
     ).reset_index()
     agg = agg[agg["shots"] >= min_shots].rename(columns={"book": "event"})
-    return agg.sort_values(["event", "discipline", "pg_throw_rel_event_median"], ascending=[True, True, False])
+    # sorted by reliability (how often above the field), then by how bad the misses were
+    return agg.sort_values(["event", "discipline", "reliability", "avg_miss"], ascending=[True, True, False, False])
+
+
+def by_team_event(pg: pd.DataFrame, books: list[str] | None = None) -> pd.DataFrame:
+    """One row per (event book, discipline, team): the team-level view in win probability. Record from the
+    end scores, and the team's stones' summed effect on its chance of winning (PG in win probability,
+    calls and throws together, thrower's view) per game, in percentage points. No execution columns:
+    a team's standing is what it did to its chance of winning, not how its stones compared with the field."""
+    df = pg if not books else pg[pg["book"].isin(books)]
+    # final score of each game from the end results (hammer team's view per end)
+    ends = df[df["shot"] == 1].drop_duplicates(["game_key", "end"])[["book", "discipline", "game_key", "hammer_team", "end_score_hammer"]]
+    teams = df.groupby("game_key")["team"].agg(lambda s: sorted(set(s)))
+    rec: dict[tuple, list] = {}
+    for gk, g in ends.groupby("game_key", sort=False):
+        ts = teams[gk]
+        if len(ts) != 2:
+            continue
+        score = {t: 0 for t in ts}
+        for h, r in zip(g["hammer_team"], g["end_score_hammer"]):
+            o = ts[1] if h == ts[0] else ts[0]
+            score[h if r > 0 else o] += abs(int(r))
+        if score[ts[0]] == score[ts[1]]:
+            continue
+        w, l = (ts[0], ts[1]) if score[ts[0]] > score[ts[1]] else (ts[1], ts[0])
+        b, d = g["book"].iloc[0], g["discipline"].iloc[0]
+        rec.setdefault((b, d, w), [0, 0])[0] += 1
+        rec.setdefault((b, d, l), [0, 0])[1] += 1
+    keys = ["book", "discipline", "team"]
+    agg = df.groupby(keys).agg(games=("game_key", "nunique"), shots=("pg", "size"),
+                               wp_gain=("pg_wp", "sum"), wp_exec=("pg_throw_wp", "sum")).reset_index()
+    agg["wins"] = [rec.get(k, [0, 0])[0] for k in zip(agg["book"], agg["discipline"], agg["team"])]
+    agg["losses"] = [rec.get(k, [0, 0])[1] for k in zip(agg["book"], agg["discipline"], agg["team"])]
+    agg["wp_gain"] = 100 * agg["wp_gain"] / agg["games"]
+    agg["wp_exec"] = 100 * agg["wp_exec"] / agg["games"]
+    return agg.rename(columns={"book": "event"}).sort_values(["event", "discipline", "wp_gain"], ascending=[True, True, False])
+

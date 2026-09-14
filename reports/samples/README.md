@@ -50,11 +50,14 @@ leaderboard number looks surprising, because it shows which stones produced it.
 **Event leaderboard** (`pointsgained events`). One file per Results Book. Execution (PG: Throw) is the pivot, and it is
 reported relative to that event's field for the same shot type and hammer state, so that a fourth who throws doubles all
 week is compared with the other fourths' doubles rather than with a lead's guards. Players are grouped by throwing position,
-from the throwing order, and sorted by their median shot. The columns are the ones the design settled on after the first
-season of reading these tables (`shot_value_design.md`, Section 10.2): the median for the typical shot, the mean for the
-tail, the tenth percentile as the floor, reliability as the share of shots at or above the field's expectation, the counts
-of big misses and big makes, the sum of the five costliest shots, and the same tail in win probability. The call component
-and the book's official percentage sit at the right. A team table above each position group is the shot-weighted mean.
+from the throwing order, and sorted by reliability, the share of their shots at or above the field's expectation, then by
+the average miss. The execution block reads the player's distribution rather than its average (`shot_value_design.md`,
+Section 10.2): reliability, the average make and the average miss, the counts of big makes and big misses, the sum of the
+five costliest shots, and `net`, the mean, kept as the single number that folds these together. The effect on win
+probability follows for reference: shots that gained or cost five or more points, and the five best and five worst stones
+summed. The call component and the book's official percentage sit at the right. The team table above the position groups
+follows the team-level rule: the record and the summed effect of the team's own stones on its chance of winning, per
+game, and no execution columns.
 
 **Model report** (`pointsgained model`). Written at the end of a full run. Its first half is about the models (accuracy held
 out by book, by rocks remaining and by score difference; conservation; calibration; the win-probability table) and its second
@@ -85,19 +88,25 @@ from those positions being worth less), Paetz's fifth-end double that held Swede
 game, Switzerland from 16 to 33 percent), and her missed double in the eighth (graded 25, −0.32, Switzerland from 23 to
 13 percent), the steal that decided the match.
 
-**Milano Cortina 2026, the fields.** Among the men's fourths Schwarz-van Berkel leads by median, mean and floor, with seven
-big misses against Mouat's thirteen; among the women Homan has the best median but the lowest floor and the most big misses
-of the top three, the pattern the design document describes for her cycle. The team tables put Switzerland, Great Britain
-and Canada in that order on the men's side, and Switzerland first on the women's.
+**Milano Cortina 2026, the fields.** Among the men's fourths Mouat and Schwarz-van Berkel are level on reliability (67
+percent of shots at or above the field) and separate on the miss: Schwarz-van Berkel's average miss is −0.25 with seven big
+misses, Mouat's −0.29 with thirteen, and Jacobs, third on reliability, has the smallest average miss of the group at −0.22.
+Among the women Paetz leads on reliability with six big misses; Homan, second, has fourteen, the pattern the design
+document describes for her cycle. The men's team table has Switzerland at 10-1 and 75 points of win probability gained
+per game from its own stones, with Canada next at 62.
 
-**The 2026 Worlds.** Einarson leads every execution column among the women's fourths. On the men's side Yanagisawa has the
-best median and Whyte the best mean, floor and reliability; Dunstone's five worst stones cost 3.9 points, the shortest tail
-in the group. The bottom of each table shows how the tail behaves at the other end: the fourths with the lowest medians also
-have floors a third to half a point deeper and three times the big-miss counts of the leaders.
+**The 2026 Worlds.** Einarson leads the women's fourths on reliability and net; Han has the smallest average miss in that
+field, −0.21, on a reliability of 55 percent, the consistent shape: not often above the field, rarely far below it. On the
+men's side Whyte, Yanagisawa and Dunstone are within a point of each other on reliability (65, 64 and 64 percent), and
+Dunstone's misses are the smallest, −0.21, with his five worst stones costing 3.9 points, the shortest tail in the group.
+The bottom of each table shows the other shape: the fourths with the lowest reliability also have average misses a tenth of
+a point deeper and two to three times the big-miss counts of the leaders.
 
-**Beijing 2022.** Included because Section 10.2 of the design document builds its argument on it: Shuster's mid-pack median
-and negative mean, Retornaz's low median and positive mean, and the final between the field's two most reliable fourths.
-The numbers in that section are the numbers in this file.
+**Beijing 2022.** Included because Section 10.2 of the design document builds its argument on it: Shuster's mid-pack
+reliability with misses deep enough to make his net negative, Retornaz's lowest reliability in the field with the largest
+average make and a positive net, and the final between the field's two most reliable fourths, Mouat and Edin. The
+reliability and big-miss numbers in that section are the numbers in this file; the median and floor columns it quotes now
+live only in the combined CSV.
 
 ## Things to keep in view
 
