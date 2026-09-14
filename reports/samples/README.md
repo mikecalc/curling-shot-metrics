@@ -59,10 +59,14 @@ summed. The call component and the book's official percentage sit at the right. 
 follows the team-level rule: the record and the summed effect of the team's own stones on its chance of winning, per
 game, and no execution columns.
 
-**Model report** (`pointsgained model`). Written at the end of a full run. Its first half is about the models (accuracy held
-out by book, by rocks remaining and by score difference; conservation; calibration; the win-probability table) and its second
-half is the whole-corpus view: value by shot type, the top players and teams across all 92 books, and the stratified tables
-by discipline, tier, hammer, game state and shot type.
+**Model report** (`pointsgained model`, or `pointsgained model-report` to rewrite it from the saved run without refitting).
+Its first half is about the models (accuracy held out by book, by rocks remaining and by score difference; conservation;
+calibration; the win-probability table). Its second half is the whole-corpus performance view under the same rule as the
+other reports: a team table in win probability (record, win rate and the summed effect of the team's own stones on its
+chance of winning per game, across every book the team appears in), a player table per position with the execution block
+(reliability, average make, average miss, big makes and misses per 100 shots, net, with the win-probability version of
+the net as reference), and execution by shot type. The stratified tables by discipline, tier, hammer, game state and shot
+type close it as model checks.
 
 ## What the samples say
 

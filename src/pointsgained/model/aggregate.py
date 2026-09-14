@@ -7,23 +7,99 @@ import numpy as np
 import pandas as pd
 
 
+def execution_block(x: pd.Series) -> dict:
+    """The distribution of a player's execution, split rather than averaged (design 10.2): reliability
+    (share at or above the field), how good the makes and how bad the misses were, the big-make and
+    big-miss counts beyond half a point, and the mean kept as net."""
+    pos, neg = x[x >= 0], x[x < 0]
+    return dict(reliability=float((x >= 0).mean()), avg_make=float(pos.mean()) if len(pos) else 0.0,
+                avg_miss=float(neg.mean()) if len(neg) else 0.0, big_makes=int((x > 0.5).sum()),
+                big_misses=int((x < -0.5).sum()), net=float(x.mean()))
+
+
 def by_player(pg: pd.DataFrame, min_shots: int = 40) -> pd.DataFrame:
-    g = pg.groupby(["player", "team", "discipline"])
-    df = g.agg(shots=("pg", "size"), pg_throw_total=("pg_throw", "sum"), pg_throw_per_shot=("pg_throw", "mean"),
-               pg_total=("pg", "sum"), grade=("grade_pct", "mean")).reset_index()
-    return df[df["shots"] >= min_shots].sort_values("pg_throw_per_shot", ascending=False)
+    """Whole-corpus player table: execution relative to the field for the same shot type and hammer state,
+    as the execution block, with big makes and misses as rates per 100 shots so that a 200-shot line and a
+    1,400-shot line read alike. Sorted by reliability, then by the average miss. The win-probability
+    effect of the execution (`net_wp`, percentage points per shot) and the call component are reference."""
+    df = pg.copy()
+    df["player"] = df["player"].map(normalise_player)
+    df = df[df["player"] != ""]
+    df["hammer"] = np.where(df["thrower_has_hammer"], "hammer", "no hammer")
+    df["pos_code"] = ((((df["shot"] + 1) // 2) + 1) // 2).clip(1, 4)
+    df["rel"] = df["pg_throw"] - df.groupby(["shot_type", "hammer"], observed=True)["pg_throw"].transform("mean")
+    df["rel_wp"] = df["pg_throw_wp"] - df.groupby(["shot_type", "hammer"], observed=True)["pg_throw_wp"].transform("mean")
+    rows = []
+    for (d, p), g in df.groupby(["discipline", "player"], sort=False):
+        if len(g) < min_shots:
+            continue
+        b = execution_block(g["rel"])
+        rows.append(dict(discipline=d, player=p, teams="/".join(sorted(set(g["team"]))),
+                         position=POSITION_NAMES[int(g["pos_code"].mode().iloc[0])], shots=len(g),
+                         games=int(g["game_key"].nunique()), reliability=b["reliability"], avg_make=b["avg_make"],
+                         avg_miss=b["avg_miss"], big_makes_100=100 * b["big_makes"] / len(g),
+                         big_misses_100=100 * b["big_misses"] / len(g), net=b["net"],
+                         net_wp=100 * float(g["rel_wp"].mean()), call=float(g["pg_call"].mean()),
+                         grade=float(g["grade_pct"].mean())))
+    out = pd.DataFrame(rows)
+    return out.sort_values(["reliability", "avg_miss"], ascending=False) if len(out) else out
 
 
-def by_team(pg: pd.DataFrame) -> pd.DataFrame:
-    g = pg.groupby(["team", "discipline"])
-    return g.agg(shots=("pg", "size"), pg_call_per_shot=("pg_call", "mean"), pg_throw_per_shot=("pg_throw", "mean"),
-                 pg_per_shot=("pg", "mean")).reset_index().sort_values("pg_per_shot", ascending=False)
+def _records(df: pd.DataFrame, keys: list[str]) -> dict[tuple, list[int]]:
+    """Wins and losses per key from the end results (hammer team's view per end); tied games are skipped."""
+    ends = df[df["shot"] == 1].drop_duplicates(["game_key", "end"])[keys[:-1] + ["game_key", "hammer_team", "end_score_hammer"]]
+    teams = df.groupby("game_key")["team"].agg(lambda s: sorted(set(s)))
+    rec: dict[tuple, list[int]] = {}
+    for gk, g in ends.groupby("game_key", sort=False):
+        ts = teams[gk]
+        if len(ts) != 2:
+            continue
+        score = {t: 0 for t in ts}
+        for h, r in zip(g["hammer_team"], g["end_score_hammer"]):
+            o = ts[1] if h == ts[0] else ts[0]
+            score[h if r > 0 else o] += abs(int(r))
+        if score[ts[0]] == score[ts[1]]:
+            continue
+        w, l = (ts[0], ts[1]) if score[ts[0]] > score[ts[1]] else (ts[1], ts[0])
+        prefix = tuple(g[k].iloc[0] for k in keys[:-1])
+        rec.setdefault(prefix + (w,), [0, 0])[0] += 1
+        rec.setdefault(prefix + (l,), [0, 0])[1] += 1
+    return rec
+
+
+def _team_table(df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
+    """The team-level view in win probability: record from the end scores, and the summed effect of the
+    team's own stones on its chance of winning (PG in win probability, calls and throws together) per
+    game, in percentage points. No execution columns: a team's standing is what it did to its chance of
+    winning, not how its stones compared with the field."""
+    rec = _records(df, keys)
+    agg = df.groupby(keys).agg(games=("game_key", "nunique"), shots=("pg", "size"),
+                               wp_gain=("pg_wp", "sum")).reset_index()
+    ks = list(zip(*[agg[k] for k in keys]))
+    agg["wins"] = [rec.get(k, [0, 0])[0] for k in ks]
+    agg["losses"] = [rec.get(k, [0, 0])[1] for k in ks]
+    agg["win_rate"] = agg["wins"] / (agg["wins"] + agg["losses"]).replace(0, np.nan)
+    agg["wp_gain"] = 100 * agg["wp_gain"] / agg["games"]
+    return agg.sort_values(keys[:-1] + ["wp_gain"], ascending=[True] * (len(keys) - 1) + [False])
+
+
+def by_team(pg: pd.DataFrame, min_games: int = 10) -> pd.DataFrame:
+    """Whole-corpus team table: record, win rate and WP gained per game (see _team_table)."""
+    t = _team_table(pg, ["discipline", "team"])
+    return t[t["games"] >= min_games]
 
 
 def by_shot_type(pg: pd.DataFrame) -> pd.DataFrame:
-    g = pg.groupby("shot_type")
-    return g.agg(shots=("pg", "size"), pg_call=("pg_call", "mean"), pg_throw=("pg_throw", "mean"),
-                 pg=("pg", "mean"), grade=("grade_pct", "mean")).reset_index().sort_values("shots", ascending=False)
+    """Execution by call type: how often the delivered stone beat the call's usual result, how good the
+    makes and how bad the misses were, the net, the call component and the book's grade."""
+    rows = []
+    for st, g in pg.groupby("shot_type", sort=False):
+        b = execution_block(g["pg_throw"])
+        rows.append(dict(shot_type=st, shots=len(g), reliability=b["reliability"], avg_make=b["avg_make"],
+                         avg_miss=b["avg_miss"], big_makes_100=100 * b["big_makes"] / len(g),
+                         big_misses_100=100 * b["big_misses"] / len(g), pg_throw=b["net"],
+                         pg_call=float(g["pg_call"].mean()), grade=float(g["grade_pct"].mean())))
+    return pd.DataFrame(rows).sort_values("shots", ascending=False)
 
 
 def by_shot_number(pg: pd.DataFrame) -> pd.DataFrame:
@@ -168,35 +244,6 @@ def by_player_event(pg: pd.DataFrame, books: list[str] | None = None, min_shots:
 
 
 def by_team_event(pg: pd.DataFrame, books: list[str] | None = None) -> pd.DataFrame:
-    """One row per (event book, discipline, team): the team-level view in win probability. Record from the
-    end scores, and the team's stones' summed effect on its chance of winning (PG in win probability,
-    calls and throws together, thrower's view) per game, in percentage points. No execution columns:
-    a team's standing is what it did to its chance of winning, not how its stones compared with the field."""
+    """One row per (event book, discipline, team): the team-level view in win probability (see _team_table)."""
     df = pg if not books else pg[pg["book"].isin(books)]
-    # final score of each game from the end results (hammer team's view per end)
-    ends = df[df["shot"] == 1].drop_duplicates(["game_key", "end"])[["book", "discipline", "game_key", "hammer_team", "end_score_hammer"]]
-    teams = df.groupby("game_key")["team"].agg(lambda s: sorted(set(s)))
-    rec: dict[tuple, list] = {}
-    for gk, g in ends.groupby("game_key", sort=False):
-        ts = teams[gk]
-        if len(ts) != 2:
-            continue
-        score = {t: 0 for t in ts}
-        for h, r in zip(g["hammer_team"], g["end_score_hammer"]):
-            o = ts[1] if h == ts[0] else ts[0]
-            score[h if r > 0 else o] += abs(int(r))
-        if score[ts[0]] == score[ts[1]]:
-            continue
-        w, l = (ts[0], ts[1]) if score[ts[0]] > score[ts[1]] else (ts[1], ts[0])
-        b, d = g["book"].iloc[0], g["discipline"].iloc[0]
-        rec.setdefault((b, d, w), [0, 0])[0] += 1
-        rec.setdefault((b, d, l), [0, 0])[1] += 1
-    keys = ["book", "discipline", "team"]
-    agg = df.groupby(keys).agg(games=("game_key", "nunique"), shots=("pg", "size"),
-                               wp_gain=("pg_wp", "sum"), wp_exec=("pg_throw_wp", "sum")).reset_index()
-    agg["wins"] = [rec.get(k, [0, 0])[0] for k in zip(agg["book"], agg["discipline"], agg["team"])]
-    agg["losses"] = [rec.get(k, [0, 0])[1] for k in zip(agg["book"], agg["discipline"], agg["team"])]
-    agg["wp_gain"] = 100 * agg["wp_gain"] / agg["games"]
-    agg["wp_exec"] = 100 * agg["wp_exec"] / agg["games"]
-    return agg.rename(columns={"book": "event"}).sort_values(["event", "discipline", "wp_gain"], ascending=[True, True, False])
-
+    return _team_table(df, ["book", "discipline", "team"]).rename(columns={"book": "event"})

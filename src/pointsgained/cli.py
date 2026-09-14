@@ -236,61 +236,26 @@ def cmd_model(args):
     pg.to_parquet(os.path.join(args.parquet, "points_gained.parquet"), index=False)
     cons.to_parquet(os.path.join(args.parquet, "conservation.parquet"), index=False)
 
-    lb = {"players": agg.by_player(pg, min_shots=args.min_shots), "teams": agg.by_team(pg),
-          "shot_types": agg.by_shot_type(pg), "shot_numbers": agg.by_shot_number(pg)}
-    for k, df in lb.items():
-        df.to_csv(os.path.join(args.reports, f"leaderboard_{k}.csv"), index=False)
-    # stratified tables (discipline, tier, hammer, game state), both currencies
-    pgs = agg.attach_strata(pg, inventory_csv=args.inventory)
-    strata = agg.strata_tables(pgs, min_shots_player=args.min_shots)
-    for k, df in strata.items():
-        df.to_csv(os.path.join(args.reports, f"strata_{k}.csv"), index=False)
+    from .model.model_report import build_tables, write_model_report
+    lb, strata = build_tables(pg, args.reports, args.min_shots, args.inventory)
     rep["seconds"] = round(time.time() - t0, 1)
     with open(os.path.join(args.reports, "model_report.json"), "w") as f:
         json.dump(rep, f, indent=2, default=str)
-    with open(os.path.join(args.reports, "model_report.md"), "w") as f:
-        f.write("# Points Gained: Phase 1 model report\n\n")
-        f.write(f"Games {rep['n_games']}, ends {rep['n_ends']}, shots {rep['n_shots']}, training rows {rep['n_rows']}. "
-                f"Feature sets: {', '.join(sets)}. Run time {rep['seconds']:.0f}s.\n\n")
-        f.write(f"Hammer outcome distribution (hammer perspective, clipped): {rep['hammer_outcome_dist']}\n\n")
-        f.write(f"N (hammer net) = {rep['N_all']}, H (Markov hammer value) = {rep['H_all']}\n\n")
-        for d in ("M", "W"):
-            if f"N_{d}" in rep:
-                f.write(f"- {d}: N = {rep[f'N_{d}']}, H = {rep[f'H_{d}']} over {rep[f'ends_{d}']} ends\n")
-        f.write("\n## Cross-validated outcome models (held out by book)\n\n")
-        cv = rep["cv"]
-        f.write("| model | log-loss | Brier |\n|---|---|---|\n")
-        for m in ("trivial", "f", "g"):
-            f.write(f"| {m} | {cv[m + '_logloss']:.4f} | {cv[m + '_brier']:.4f} |\n")
-        f.write("\nLog-loss by rocks remaining (f vs trivial):\n\n| rocks remaining | n | f | trivial |\n|---|---|---|---|\n")
-        for r, v in sorted(cv["logloss_by_rocks_remaining"].items()):
-            f.write(f"| {r} | {v['n']} | {v['f']} | {v['trivial']} |\n")
-        if "logloss_by_abs_diff" in cv:
-            f.write("\nLog-loss by |score difference| (f vs trivial):\n\n| abs diff | n | f | trivial |\n|---|---|---|---|\n")
-            for r, v in sorted(cv["logloss_by_abs_diff"].items()):
-                f.write(f"| {r} | {v['n']} | {v['f']} | {v['trivial']} |\n")
-        f.write(f"\n## Conservation\n\nMax |sum PG - (final - start)| over ends: {rep['conservation_max_abs_residual']:.2e}; ")
-        f.write(f"terminal distribution equals the actual score in {100 * rep['conservation_terminal_ok_rate']:.1f}% of ends.\n\n")
-        f.write(f"Mean V(f(S0)) = {rep['V_S0_mean']} versus H = {rep['H_used']} (calibration check).\n\n")
-        if wpt is not None:
-            f.write("## Win probability (from line scores)\n\n")
-            for k, v in rep["wp_examples"].items():
-                f.write(f"- {k}: {v}\n")
-            f.write("\nRegimes: " + "; ".join(f"{k}: {v}" for k, v in rep["regimes"].items()) + "\n\n")
-        f.write("## Leaderboards\n\n### Shot types\n\n" + lb["shot_types"].round(3).to_markdown(index=False) + "\n\n")
-        f.write("### Players (PG: Throw per shot, min %d shots)\n\n" % args.min_shots + lb["players"].head(25).round(3).to_markdown(index=False) + "\n\n")
-        f.write("### Teams\n\n" + lb["teams"].round(3).to_markdown(index=False) + "\n")
-        f.write("\n## Stratified (pg in hammer-adjusted points; _wp columns in win probability)\n\n")
-        for k, title in [("discipline_tier", "By discipline and tier"), ("discipline_hammer", "By discipline and hammer"),
-                         ("game_state_hammer", "By game state (thrower's view) and hammer"),
-                         ("shot_type_hammer", "By shot type and hammer")]:
-            f.write(f"### {title}\n\n" + strata[k].round(4).to_markdown(index=False) + "\n\n")
-        f.write("### Players: execution relative to the field for the same shot type and hammer state (min %d shots)\n\n" % args.min_shots)
-        f.write(strata["players"].head(30).round(4).to_markdown(index=False) + "\n\n")
-        f.write("### Teams by hammer\n\n" + strata["teams_hammer"].round(4).to_markdown(index=False) + "\n")
+    write_model_report(os.path.join(args.reports, "model_report.md"), rep, lb, strata, args.min_shots)
     print(json.dumps({k: v for k, v in rep.items() if k not in ("cv",)}, indent=2, default=str))
     print(json.dumps({k: v for k, v in rep["cv"].items() if k not in ("calibration_f", "logloss_by_rocks_remaining", "logloss_by_abs_diff", "logloss_by_tier", "f_cols", "g_cols")}, indent=2))
     print(f"wrote {args.reports}/model_report.md in {time.time() - t0:.0f}s")
+
+
+def cmd_model_report(args):
+    """Rewrite the model report from the saved run summary and the Points Gained table, without refitting."""
+    from .model.model_report import build_tables, write_model_report
+    with open(os.path.join(args.reports, "model_report.json")) as f:
+        rep = json.load(f)
+    pg = pd.read_parquet(os.path.join(args.parquet, "points_gained.parquet"))
+    lb, strata = build_tables(pg, args.reports, args.min_shots, args.inventory)
+    write_model_report(os.path.join(args.reports, "model_report.md"), rep, lb, strata, args.min_shots)
+    print(f"wrote {args.reports}/model_report.md")
 
 
 def cmd_inventory(args):
@@ -639,6 +604,12 @@ def main(argv=None):
     g.add_argument("--workers", type=int, default=1)
     g.add_argument("--match", nargs="*", default=None, help="only books whose file name contains one of these substrings")
     g.set_defaults(func=cmd_batch)
+    mr = sub.add_parser("model-report", help="rewrite the model report from the saved run summary without refitting")
+    mr.add_argument("--parquet", default="data/parquet")
+    mr.add_argument("--reports", default="reports")
+    mr.add_argument("--min-shots", type=int, default=40)
+    mr.add_argument("--inventory", default="data/inventory.csv")
+    mr.set_defaults(func=cmd_model_report)
     h = sub.add_parser("events", help="per-event player leaderboards")
     h.add_argument("--parquet", default="data/parquet")
     h.add_argument("--reports", default="reports")

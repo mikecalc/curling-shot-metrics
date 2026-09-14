@@ -40,6 +40,9 @@ pointsgained intent
 # 6. models and Points Gained (reports/model_report.md, data/parquet/points_gained.parquet)
 pointsgained model --features base,situation,level,intent
 
+# rewrite the model report's tables from the saved run, without refitting
+pointsgained model-report
+
 # the six pinned 2026 Olympic shots, both currencies, call at the reference and at the thrower's own skill
 pointsgained testset
 
