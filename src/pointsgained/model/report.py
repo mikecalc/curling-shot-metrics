@@ -1,10 +1,11 @@
 """Game report: one game shot by shot from the Points Gained table (design Section 10).
 
 The per-shot table is the substrate every leaderboard is built from; this report shows it for one
-game so the aggregates can be traced back to the shots that produced them. Values V are in
-hammer-adjusted points from the hammer team's view (the canonical frame); the `call`, `throw` and
-`total` columns are from the thrower's view, so a good shot is positive for whoever threw it.
-Win-probability columns are in percentage points.
+game so the aggregates can be traced back to the stones that produced them. Two currencies, by
+the rule that team-level tables are in win probability and individual tables lead with execution:
+the end table is score and win probability only; the players table is execution in hammer-adjusted
+points (`PGAA`, points gained above average, the leaderboard measure) with the effect on win
+probability beside it; the shots table is situation, shot, execution, effect.
 """
 from __future__ import annotations
 
@@ -13,8 +14,7 @@ import re
 import numpy as np
 import pandas as pd
 
-SHOT_COLS = ["shot", "team", "player", "type", "turn", "grade", "V before", "V call", "V after",
-             "call", "throw", "total", "throw wp", "total wp"]
+SHOT_COLS = ["shot", "team", "player", "type", "turn", "grade", "WP before", "PGAA", "call", "WP after", "WP gain"]
 
 
 def game_file_name(game_key: str) -> str:
@@ -29,9 +29,18 @@ def _outcome_label(hammer: str, other: str, score: int) -> str:
     return "blank"
 
 
-def _team_view(values: np.ndarray, hammer_team: np.ndarray, team: str) -> np.ndarray:
-    """A hammer-view win probability seen from `team`."""
-    return np.where(hammer_team == team, values, 1.0 - values)
+def _r(x, nd: int):
+    """Round and clear negative zeros, so a tiny loss prints as 0 rather than -0. Numeric columns only."""
+    if isinstance(x, pd.DataFrame):
+        x = x.copy()
+        for c in x.select_dtypes("number").columns:
+            x[c] = x[c].round(nd) + 0.0
+        return x
+    return x.round(nd) + 0.0
+
+
+def _fmt_stone(r: pd.Series) -> str:
+    return f"{r['PGAA']:+.2f} (end {int(r['end'])}, stone {int(r['shot'])})"
 
 
 def game_report(pg_game: pd.DataFrame, title: str, subtitle: str = "", team_order: tuple[str, str] | None = None) -> str:
@@ -41,96 +50,108 @@ def game_report(pg_game: pd.DataFrame, title: str, subtitle: str = "", team_orde
     if len(teams) != 2:
         raise ValueError(f"expected two teams, found {teams}")
     a, b = teams
+    # win probability from the throwing team's view, in percentage points; execution in hammer-adjusted points
+    has = (df["team"] == df["hammer_team"]).to_numpy()
+    df["WP before"] = 100 * np.where(has, df["V_pre_wp"], 1 - df["V_pre_wp"])
+    df["WP after"] = 100 * np.where(has, df["V_post_wp"], 1 - df["V_post_wp"])
+    df["WP gain"] = 100 * df["pg_wp"]
+    df["PGAA"] = df["pg_throw"]
+    df["call"] = df["pg_call"]
+
     out = [f"# {title}\n"]
     if subtitle:
         out.append(subtitle + "\n")
     out.append(
-        "Every value is a difference of model outputs on the diagrammed positions (design Sections 2 and 10). "
-        "`V before`, `V call` and `V after` are the hammer team's expected hammer-adjusted points before the shot, "
-        "after the call (the field's usual result for this shot type from this position) and after the delivered stone. "
-        "`call`, `throw` and `total` are from the thrower's view: `call` = V call - V before, `throw` = V after - V call, "
-        "`total` = call + throw, signed so a gain for the thrower's team is positive. The `wp` columns are the same "
-        "differences in win probability, in percentage points. Within an end the hammer team's totals minus the "
-        "other team's totals sum exactly to the end's result minus `V before` on the first stone.\n")
+        "Two currencies, used by the level of the table. Team-level: the end table is the score and each team's chance of "
+        "winning the game, in percent, and nothing else. Individual: a player is judged on what they were asked to throw, "
+        "so the players and shots tables lead with execution, `PGAA` (points gained above average), the value of the "
+        "delivered stone against the field's usual result for that shot type from that position, in hammer-adjusted "
+        "points, the currency of the leaderboards. `call` is what the call itself was worth against the field's usual "
+        "call from the position, in the same units. The effect on the game sits beside it: `WP before` and `WP after` are "
+        "the throwing team's chance of winning, `WP gain` the change, in percentage points. Every value is a difference "
+        "of model outputs on the diagrammed positions (design Sections 2, 9 and 10).\n")
 
     # ---- ends ------------------------------------------------------------------------------
     rows = []
     max_resid = 0.0
-    # H, the value of holding hammer, recovered from the first end's terminal value: a score of k is
-    # worth k - H (hammer passes), a steal of k is worth -k + H and a blank +H (design 9.2)
-    g0 = df[df["end"] == df["end"].min()]
-    s0, t0 = int(g0["end_score_hammer"].iloc[0]), float(g0["V_post"].iloc[-1])
-    H = s0 - t0 if s0 > 0 else t0 - s0
+    score = {a: 0, b: 0}
     for end, g in df.groupby("end", sort=True):
         h = str(g["hammer_team"].iloc[0])
         o = b if h == a else a
-        score = int(g["end_score_hammer"].iloc[0])
-        v0 = float(g["V_pre"].iloc[0])
-        v_result = score - H if score > 0 else score + H
-        wp0 = float(g["V_pre_wp"].iloc[0])
-        wp1 = float(g["V_post_wp"].iloc[-1])
-        resid = float(g["pg_canonical"].sum() - (v_result - v0))
-        max_resid = max(max_resid, abs(resid))
-        sums = {t: g[g["team"] == t] for t in (a, b)}
+        res = int(g["end_score_hammer"].iloc[0])
+        score[h if res > 0 else o] += abs(res)
+        wp0 = float(g["WP before"].iloc[0])
+        wp1 = float(g["WP after"].iloc[-1])
+        if str(g["team"].iloc[0]) != a:
+            wp0 = 100 - wp0
+        if str(g["team"].iloc[-1]) != a:
+            wp1 = 100 - wp1
+        # conservation in win probability: one team's gains minus the other's is the end's swing
+        gain = g.groupby("team")["WP gain"].sum()
+        max_resid = max(max_resid, abs(float(gain.get(a, 0.0) - gain.get(b, 0.0) - (wp1 - wp0))))
         rows.append({
-            "end": int(end), "hammer": h, "result": _outcome_label(h, o, score), "E[pts] start": round(v0, 2),
-            "result (adj)": round(v_result, 2),
-            f"{a} call": round(float(sums[a]["pg_call"].sum()), 2), f"{a} throw": round(float(sums[a]["pg_throw"].sum()), 2),
-            f"{b} call": round(float(sums[b]["pg_call"].sum()), 2), f"{b} throw": round(float(sums[b]["pg_throw"].sum()), 2),
-            f"WP {a} start": round(100 * (wp0 if h == a else 1 - wp0), 1),
-            f"WP {a} end": round(100 * (wp1 if h == a else 1 - wp1), 1),
+            "end": int(end), "hammer": h, "result": _outcome_label(h, o, res), f"score {a}-{b}": f"{score[a]}-{score[b]}",
+            f"WP {a} before": wp0, f"WP {a} after": wp1, f"swing {a}": wp1 - wp0,
         })
-    ends = pd.DataFrame(rows)
+    ends = _r(pd.DataFrame(rows), 1)
     out.append("## Ends\n")
-    out.append("`E[pts] start` is the hammer team's expected hammer-adjusted points at the start of the end and "
-               f"`result (adj)` the end's result in the same currency (H = {H:.2f}: a score of k is worth k - H because the "
-               "hammer passes, a steal of k is -k + H, a blank +H). The call and throw columns are each team's summed values "
-               f"over the end (thrower's view); the win-probability columns are {a}'s, before the first stone and after the last.\n")
+    out.append(f"{a}'s chance of winning before the first stone of the end and after the last, and the swing.\n")
     out.append(ends.to_markdown(index=False) + "\n")
-    out.append(f"Conservation: max |sum of shot values - (result (adj) - E[pts] start)| over ends = {max_resid:.1e}.\n")
+    if max_resid > 1e-6:
+        out.append(f"Warning: the stones' WP gains do not close the ends (largest residual {max_resid:.2e} points).\n")
 
     # ---- players ---------------------------------------------------------------------------
     df = df.assign(_pos=((df["shot"] + 1) // 2 + 1) // 2)
     pl = df.groupby(["team", "player"]).agg(
-        shots=("pg", "size"), call=("pg_call", "sum"), throw=("pg_throw", "sum"), total=("pg", "sum"),
-        **{"throw wp": ("pg_throw_wp", lambda x: 100 * x.sum()), "total wp": ("pg_wp", lambda x: 100 * x.sum())},
-        grade=("grade_pct", "mean"), position=("_pos", lambda s: int(s.mode().iloc[0])),
+        shots=("PGAA", "size"), grade=("grade_pct", "mean"), PGAA=("PGAA", "sum"),
+        **{"WP gain": ("WP gain", "sum")}, position=("_pos", lambda s: int(s.mode().iloc[0])),
     ).reset_index()
-    worst = df.loc[df.groupby(["team", "player"])["pg_throw"].idxmin(), ["team", "player", "end", "shot", "pg_throw"]]
-    best = df.loc[df.groupby(["team", "player"])["pg_throw"].idxmax(), ["team", "player", "end", "shot", "pg_throw"]]
-    worst["worst throw"] = worst.apply(lambda r: f"{r['pg_throw']:+.2f} (end {int(r['end'])}, stone {int(r['shot'])})", axis=1)
-    best["best throw"] = best.apply(lambda r: f"{r['pg_throw']:+.2f} (end {int(r['end'])}, stone {int(r['shot'])})", axis=1)
-    pl = pl.merge(worst[["team", "player", "worst throw"]], on=["team", "player"]).merge(best[["team", "player", "best throw"]], on=["team", "player"])
+    worst = df.loc[df.groupby(["team", "player"])["PGAA"].idxmin(), ["team", "player", "end", "shot", "PGAA"]]
+    best = df.loc[df.groupby(["team", "player"])["PGAA"].idxmax(), ["team", "player", "end", "shot", "PGAA"]]
+    worst["worst stone"] = worst.apply(_fmt_stone, axis=1)
+    best["best stone"] = best.apply(_fmt_stone, axis=1)
+    pl = pl.merge(worst[["team", "player", "worst stone"]], on=["team", "player"]).merge(best[["team", "player", "best stone"]], on=["team", "player"])
     pl["team"] = pd.Categorical(pl["team"], teams)
     pl = pl.sort_values(["team", "position"], ascending=[True, False]).drop(columns="position")
+    pl["grade"] = _r(pl["grade"], 1)
+    pl["PGAA"] = _r(pl["PGAA"], 2)
+    pl["WP gain"] = _r(pl["WP gain"], 1)
+    pl = pl[["team", "player", "shots", "grade", "PGAA", "worst stone", "best stone", "WP gain"]]
     out.append("## Players\n")
-    out.append("Sums over the game, thrower's view. `throw` is execution: the value of the delivered stone against the field's "
-               "usual result for the call. `total` adds the call component. The official grade is the book's percentage.\n")
-    out.append(pl.round(2).to_markdown(index=False) + "\n")
+    out.append("Execution over the game: `PGAA` is the sum of what each stone did against the field's usual result for the "
+               "call, in hammer-adjusted points, with the worst and best stones by the same measure. The official grade is "
+               "the book's percentage. `WP gain` is the sum of the player's stones' effect on the team's chance of winning, "
+               "for reference; it includes the calls and weighs the late ends more.\n")
+    out.append(pl.to_markdown(index=False) + "\n")
 
     # ---- swings ----------------------------------------------------------------------------
-    sw = df.assign(**{"total wp": 100 * df["pg_wp"], "throw wp": 100 * df["pg_throw_wp"]})
-    sw = sw.reindex(sw["total wp"].abs().sort_values(ascending=False).index).head(10)
-    sw = sw.rename(columns={"shot_type": "type", "grade_pct": "grade", "pg_call": "call", "pg_throw": "throw", "pg": "total"})
+    sw = df.reindex(df["WP gain"].abs().sort_values(ascending=False).index).head(10)
+    sw = sw.rename(columns={"shot_type": "type", "grade_pct": "grade"})
     out.append("## Largest swings\n")
-    out.append("The ten shots that moved win probability most, either way.\n")
-    out.append(sw[["end", "shot", "team", "player", "type", "turn", "grade", "call", "throw", "total", "throw wp", "total wp"]]
-               .round(2).to_markdown(index=False) + "\n")
+    out.append("The ten stones that moved the chance of winning most, either way.\n")
+    sw = sw[["end", "shot", "team", "player", "type", "turn", "grade", "WP before", "WP after", "WP gain", "PGAA"]].copy()
+    for c in ("WP before", "WP after", "WP gain"):
+        sw[c] = _r(sw[c], 1)
+    sw["PGAA"] = _r(sw["PGAA"], 2)
+    out.append(sw.to_markdown(index=False) + "\n")
 
     # ---- shots -----------------------------------------------------------------------------
     out.append("## Shots\n")
+    out.append("Per stone: the situation (the end header and `WP before`), the shot (type, turn and the book's grade), "
+               "its execution (`PGAA` and `call`, hammer-adjusted points) and its effect (`WP after`, `WP gain`).\n")
     for end, g in df.groupby("end", sort=True):
         h = str(g["hammer_team"].iloc[0])
         o = b if h == a else a
-        score = int(g["end_score_hammer"].iloc[0])
+        res = int(g["end_score_hammer"].iloc[0])
         d = int(g["diff_hammer"].iloc[0])
         lead = "tied" if d == 0 else (f"up {d}" if d > 0 else f"down {-d}")
-        out.append(f"### End {int(end)}: {h} hammer, {lead}, {int(g['ends_remaining'].iloc[0])} ends left; result {_outcome_label(h, o, score)}\n")
-        t = pd.DataFrame({
-            "shot": g["shot"].astype(int), "team": g["team"], "player": g["player"], "type": g["shot_type"], "turn": g["turn"],
-            "grade": g["grade_pct"], "V before": g["V_pre"], "V call": g["V_call"], "V after": g["V_post"],
-            "call": g["pg_call"], "throw": g["pg_throw"], "total": g["pg"],
-            "throw wp": 100 * g["pg_throw_wp"], "total wp": 100 * g["pg_wp"],
-        })
-        out.append(t.round(2).to_markdown(index=False) + "\n")
+        n_left = int(g["ends_remaining"].iloc[0])
+        out.append(f"### End {int(end)}: {h} hammer, {lead}, {n_left} end{'s' if n_left != 1 else ''} left; result {_outcome_label(h, o, res)}\n")
+        t = g.rename(columns={"shot_type": "type", "grade_pct": "grade"})[SHOT_COLS].copy()
+        t["shot"] = t["shot"].astype(int)
+        for c in ("WP before", "WP after", "WP gain"):
+            t[c] = _r(t[c], 1)
+        for c in ("PGAA", "call"):
+            t[c] = _r(t[c], 2)
+        out.append(t.to_markdown(index=False) + "\n")
     return "\n".join(out)
