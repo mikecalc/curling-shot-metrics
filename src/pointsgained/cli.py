@@ -1,4 +1,4 @@
-"""Command line interface: pointsgained ingest | validate | audit | model | features | experiment | events | inventory | download | batch."""
+"""Command line interface: pointsgained ingest | validate | audit | model | features | experiment | events | frontend | inventory | download | batch."""
 from __future__ import annotations
 
 import argparse
@@ -123,6 +123,9 @@ def _with_level(ds, sets, parquet_root, aliases_csv, event_strength_csv="data/ev
     if "intent" in sets:
         from .model.intent import attach_intent
         ds.rows = attach_intent(ds.rows, pd.read_parquet(os.path.join(parquet_root, "intent.parquet")))
+    if "config" in sets:
+        from .model.config_features import attach_config, load_table
+        ds.rows = attach_config(ds.rows, load_table(parquet_root))
     return ds
 
 
@@ -166,9 +169,10 @@ def cmd_experiment(args):
     ds = _with_level(load_or_build(args.parquet, rebuild=args.rebuild), sets, args.parquet, args.aliases)
     name = args.name or f"{args.split}_{'+'.join(sets)}"
     rep = run_experiment(ds, name, sets, split=args.split, cutoff_year=args.cutoff_year, fold=args.fold,
-                         seed=args.seed, reports=args.reports, inventory_csv=args.inventory)
+                         seed=args.seed, reports=args.reports, inventory_csv=args.inventory, target=args.target)
     print(json.dumps({k: rep[k] for k in ("name", "split", "sets", "n_train", "n_test", "trivial_logloss", "f_logloss", "g_logloss", "seconds")}, indent=2))
     print("by rocks remaining:", {r: (v["f"], v["trivial"]) for r, v in rep["logloss_by_rocks_remaining"].items()})
+    print("front-end gates:", {k: round(v, 3) for k, v in rep["frontend_gates"].items()})
     if "logloss_by_abs_diff" in rep:
         print("by |diff|:", {d: (v["f"], v["trivial"]) for d, v in rep["logloss_by_abs_diff"].items()})
 
@@ -382,6 +386,16 @@ def cmd_game(args):
         print(f"wrote {fn}")
 
 
+def cmd_frontend(args):
+    """The front-end diagnostic: what early-end execution values measure, configuration calibration, scenario probes."""
+    from .model.frontend import load_frame, write_report
+    os.makedirs(args.reports, exist_ok=True)
+    t0 = time.time()
+    df = load_frame(args.parquet)
+    path = write_report(df, args.reports)
+    print(f"wrote {path} in {time.time() - t0:.0f}s")
+
+
 def cmd_difficulty(args):
     """Fit the shot-difficulty model: skill scalar per player and event effect per book (design 3.5, 8)."""
     import numpy as np
@@ -570,6 +584,7 @@ def main(argv=None):
     i.add_argument("--rebuild", action="store_true")
     i.set_defaults(func=cmd_features)
     j = sub.add_parser("experiment", help="fit once on one split and score the held-out rows")
+    j.add_argument("--target", default="final", help="final (the end's score) or local:k (early rows take the value k stones later)")
     j.add_argument("--parquet", default="data/parquet")
     j.add_argument("--reports", default="reports")
     j.add_argument("--inventory", default="data/inventory.csv")
@@ -624,6 +639,10 @@ def main(argv=None):
     q.add_argument("--match", nargs="+", required=True, help="substrings that the game key must all contain, e.g. OWG2026 Gold_Medal")
     q.add_argument("--inventory", default="data/inventory.csv")
     q.set_defaults(func=cmd_game)
+    fe = sub.add_parser("frontend", help="front-end diagnostic: early-end execution, configurations, scenario probes")
+    fe.add_argument("--parquet", default="data/parquet")
+    fe.add_argument("--reports", default="reports")
+    fe.set_defaults(func=cmd_frontend)
     n = sub.add_parser("intent", help="realised intent per shot from the delivered stone and prior rings")
     n.add_argument("--parquet", default="data/parquet")
     n.add_argument("--seed", type=int, default=0)

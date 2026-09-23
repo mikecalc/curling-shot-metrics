@@ -7,6 +7,7 @@ Feature sets (design Sections 5.4, 7.2, 13) are named so that experiments can to
   level      the event's strength rating, level of play as a property of the field (g only)
   level_player  the expected grade at the thrower's skill (built, then rejected: the baseline is the field, not the player)
   intent     target of the called shot from the delivered stone (g only)
+  config     configuration labels and pair measures of the position, as a skip reads it (f and g)
 """
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import log_loss
 from sklearn.model_selection import GroupKFold
 
+from .config_features import CONFIG_COLUMNS
 from .features import FEATURE_NAMES
 from .value import N_OUT
 
@@ -36,8 +38,9 @@ FEATURE_SETS = {
     "level_player": ["expected_grade"],                  # the difficulty model's expected grade at the thrower's skill (rejected: per-player)
     "level_id": ["skill_thrower", "event_effect"],       # raw per-player / per-book effects (identity proxies; see experiments)
     "intent": ["target_x", "target_y", "target_owner", "target_ring", "target_is_shot_rock", "target_is_guard"],
+    "config": CONFIG_COLUMNS,                            # configuration labels and pair measures (core/configurations.py)
 }
-F_SETS = ("base", "situation")                  # sets that enter f (and g)
+F_SETS = ("base", "situation", "config")        # sets that enter f (and g)
 G_ONLY_SETS = ("call", "level", "level_player", "level_id", "intent")       # sets that enter g only
 CATEGORICAL = {"shot_type_code"}
 
