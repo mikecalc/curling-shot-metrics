@@ -197,7 +197,11 @@ def evaluate(P: dict[str, np.ndarray], y: np.ndarray, rows: pd.DataFrame, X: np.
 
 
 def fit_models(rows: pd.DataFrame, X: np.ndarray, y: np.ndarray, seed: int = 0,
-               sets: tuple[str, ...] = ("base",), n_splits: int = 5) -> FittedModels:
+               sets: tuple[str, ...] = ("base",), n_splits: int = 5, target: str = "final") -> FittedModels:
+    """f, g and the trivial model: out-of-fold by book for the report and for Points Gained, then on all rows.
+    Under a local target (model/targets.py) the soft targets are rebuilt inside each fold from that fold's
+    training books only, so no held-out book shapes the targets its models are trained on."""
+    from .targets import training_rows
     t0 = time.time()
     X_f, f_cols, X_g, g_cols = design_matrices(rows, X, sets)
     cat_g = _cat_index(g_cols)
@@ -206,7 +210,7 @@ def fit_models(rows: pd.DataFrame, X: np.ndarray, y: np.ndarray, seed: int = 0,
     groups = rows["book"].to_numpy()
     n_groups = len(set(groups))
     report = {"n_rows": int(len(rows)), "n_groups": int(n_groups), "group_key": "book", "sets": list(sets),
-              "f_cols": f_cols, "g_cols": g_cols}
+              "target": target, "f_cols": f_cols, "g_cols": g_cols}
     if n_groups < 3:
         groups = rows["game_key"].to_numpy(); n_groups = len(set(groups)); report["group_key"] = "game_key"
     n_splits = min(n_splits, n_groups)
@@ -216,15 +220,17 @@ def fit_models(rows: pd.DataFrame, X: np.ndarray, y: np.ndarray, seed: int = 0,
     fold_models = []
     for k, (tr, te) in enumerate(folds.split(X_f, y, groups)):
         t1 = time.time()
-        mf = make_model(seed).fit(X_f[tr], y[tr]); P_f[te] = _full_proba(mf, X_f[te])
-        mg = make_model(seed, cat_g).fit(X_g[tr], y[tr]); P_g[te] = _full_proba(mg, X_g[te])
+        idx, yy, w = training_rows(target, rows, X_f, y, tr, seed)
+        mf = make_model(seed).fit(X_f[idx], yy, sample_weight=w); P_f[te] = _full_proba(mf, X_f[te])
+        mg = make_model(seed, cat_g).fit(X_g[idx], yy, sample_weight=w); P_g[te] = _full_proba(mg, X_g[te])
         mt = make_model(seed).fit(X_t[tr], y[tr]); P_t[te] = _full_proba(mt, X_t[te])
         fold_models.append((set(groups[te]), mf, mg))
         log.info("fold %d/%d fitted in %.0fs", k + 1, n_splits, time.time() - t1)
     report.update(evaluate({"trivial": P_t[unm], "f": P_f[unm], "g": P_g[unm]}, y[unm], rows[unm], X[unm]))
     t1 = time.time()
-    f = make_model(seed).fit(X_f, y)
-    g = make_model(seed, cat_g).fit(X_g, y)
+    idx, yy, w = training_rows(target, rows, X_f, y, np.arange(len(y)), seed)
+    f = make_model(seed).fit(X_f[idx], yy, sample_weight=w)
+    g = make_model(seed, cat_g).fit(X_g[idx], yy, sample_weight=w)
     t = make_model(seed).fit(X_t, y)
     log.info("full-data models fitted in %.0fs (total %.0fs)", time.time() - t1, time.time() - t0)
     report["fit_seconds"] = round(time.time() - t0, 1)

@@ -82,6 +82,12 @@ def pre_and_post(rows: pd.DataFrame, table: pd.DataFrame, has_post: pd.Series | 
     return pre, post
 
 
+def config_row(p: Position) -> dict[str, float]:
+    """The `config` design columns of one position."""
+    c, m = configuration(p), measures(p)
+    return {**{f"cfg_{k}": float(c[k]) for k in LABELS}, **{k: float(m[k]) for k in MEASURES}}
+
+
 def attach_config(rows: pd.DataFrame, table: pd.DataFrame) -> pd.DataFrame:
     """The `config` design columns for the training rows (pre-shot position of each row)."""
     pre, _ = pre_and_post(rows, table)

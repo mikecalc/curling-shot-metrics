@@ -4,12 +4,7 @@ Splits:
   time   train on events dated through `cutoff_year`, test on later events (design 12.7)
   book   one GroupKFold fold by book (the same held-out books every time, for comparability)
 
-Targets:
-  final      every row is labelled with the end's final score (the Phase 1 models)
-  local:k    early rows (9 or more rocks remaining) are trained on the value of the position k stones
-             later instead: a soft label, the out-of-fold f distribution there (the end's result if the end
-             finishes first). Positions are valued more locally, and the noise of everything after them
-             is averaged by the model rather than carried in the label.
+Targets (model/targets.py): final, local:k or phase.
 
 Every experiment is scored against the final end outcome on the held-out rows, and also by the
 front-end gates: Points Gained on the held-out rows from the fitted f and g, and whether early
@@ -29,17 +24,12 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupKFold
 
-from .aggregate import normalise_player
+from .aggregate import _records, normalise_player
 from .dataset import Dataset
-from .features import FEATURE_NAMES
 from .frontend import next_stone, opponent_same_game, split_half, _spearman
 from .train import design_matrices, make_model, _cat_index, column, evaluate, _full_proba, TRIVIAL_FEATURES, FEATURE_SETS
-from .value import N_OUT, HammerAdjustedPoints, ValueSet
-
-LOCAL_MIN_ROCKS = 9          # rows with this many rocks remaining or more take the local target
-SOFT_MIN_MASS = 0.005        # soft-label classes below this probability are dropped
-
-log = logging.getLogger(__name__)
+from .targets import training_rows
+from .value import HammerAdjustedPoints, ValueSet
 
 
 def split_rows(rows: pd.DataFrame, split: str, cutoff_year: int = 2024, fold: int = 0):
@@ -61,46 +51,6 @@ def attach_tier(rows: pd.DataFrame, inventory_csv: str | None) -> pd.DataFrame:
     inv["book"] = inv["file_name"].str.replace(r"\.pdf$", "", regex=True)
     m = inv.drop_duplicates("book").set_index("book")["tier"]
     return rows.assign(tier=rows["book"].map(m))
-
-
-def local_targets(rows: pd.DataFrame, X_f: np.ndarray, y: np.ndarray, tr: np.ndarray, k: int, seed: int = 0) -> np.ndarray:
-    """Soft targets (n_rows, 7) for the training rows: one-hot on the end's result, except rows with
-    LOCAL_MIN_ROCKS or more rocks remaining, which take the out-of-fold f distribution of the position k
-    stones later (stage 1: f on final labels, GroupKFold by book within the training rows). If the end
-    finishes within k stones the target is its result; if the chain breaks on a missing diagram, the
-    last position reached is used."""
-    T = np.zeros((len(y), N_OUT))
-    T[np.arange(len(y)), y] = 1.0
-    P1 = np.zeros_like(T)
-    groups = rows["book"].to_numpy()[tr]
-    for a, b in GroupKFold(n_splits=5).split(tr, groups=groups):
-        m = make_model(seed).fit(X_f[tr[a]], y[tr[a]])
-        P1[tr[b]] = _full_proba(m, X_f[tr[b]])
-    post = rows["post_row"].to_numpy()
-    last = rows["is_last_shot"].to_numpy(dtype=bool)
-    rr = rows["rocks_remaining"].to_numpy()
-    early = tr[rr[tr] >= LOCAL_MIN_ROCKS]
-    j = early.copy()
-    terminal = np.zeros(len(early), dtype=bool)
-    moved = np.zeros(len(early), dtype=bool)
-    for _ in range(k):
-        active = ~terminal
-        terminal |= active & last[j]                 # the end finished at j: its result is the target
-        nxt = post[j]
-        step = ~terminal & (nxt >= 0)
-        j = np.where(step, nxt, j)
-        moved |= step
-    use = moved & ~terminal
-    T[early[use]] = P1[j[use]]
-    return T
-
-
-def expand_soft(idx: np.ndarray, T: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """(row index, class, weight) for fitting a classifier on soft targets: one weighted copy of a row per
-    class with probability at least SOFT_MIN_MASS (one-hot rows stay single)."""
-    sub = T[idx]
-    r, c = np.nonzero(sub >= SOFT_MIN_MASS)
-    return idx[r], c, sub[r, c]
 
 
 def frontend_gates(rows: pd.DataFrame, Pf: np.ndarray, Pg: np.ndarray, y: np.ndarray, H: float) -> dict:
@@ -136,7 +86,39 @@ def frontend_gates(rows: pd.DataFrame, Pf: np.ndarray, Pg: np.ndarray, y: np.nda
                     f"{name}_sd": float(p["pg_throw"].std())})
     te = d.groupby(["book", "team", "pos_code"])["rel"].mean().unstack()
     out["lead_second_team"] = _spearman(te[1], te[2]) if {1, 2} <= set(te.columns) else float("nan")
+    out.update(setup_battle(rows, V_f))
     return out
+
+
+def setup_battle(rows: pd.DataFrame, V_f: np.ndarray, min_half: int = 30) -> dict:
+    """The battle for the type of end: per end, the change in the model's value from the empty sheet to the
+    position after the free guard zone (hammer-adjusted points), from each team's view; per team and event,
+    its split-half repeatability and its correlation with the win rate."""
+    r = rows.reset_index(drop=True)
+    fgz = r["fgz_rocks"].to_numpy() if "fgz_rocks" in r else np.full(len(r), 5)
+    v0 = pd.Series(V_f[r["shot"].to_numpy() == 1], index=pd.MultiIndex.from_frame(r.loc[r["shot"] == 1, ["game_key", "end"]]))
+    at = r["shot"].to_numpy() == fgz + 1                      # the row whose pre-position is the end of the setup
+    vb = pd.Series(V_f[at], index=pd.MultiIndex.from_frame(r.loc[at, ["game_key", "end"]]))
+    swing = (vb - v0.reindex(vb.index)).dropna()
+    ends = r[r["shot"] == 1].set_index(["game_key", "end"])[["book", "hammer_team"]].reindex(swing.index)
+    teams = r.groupby("game_key")["team"].agg(lambda x: sorted(set(x)))
+    other = [t[1] if h == t[0] else t[0] for h, t in zip(ends["hammer_team"], teams.reindex(ends.index.get_level_values(0)))
+             if len(t) == 2] if len(ends) else []
+    keep = [len(t) == 2 for t in teams.reindex(ends.index.get_level_values(0))]
+    ends, swing = ends[keep], swing[keep]
+    gk = ends.index.get_level_values(0)
+    view = pd.concat([pd.DataFrame({"book": ends["book"].to_numpy(), "team": ends["hammer_team"].to_numpy(), "game_key": gk, "s": swing.to_numpy()}),
+                      pd.DataFrame({"book": ends["book"].to_numpy(), "team": other, "game_key": gk, "s": -swing.to_numpy()})])
+    view["half"] = view.groupby(["book", "team"])["game_key"].rank(method="dense").astype(int) % 2
+    h = view.groupby(["book", "team", "half"])["s"].agg(["mean", "size"]).unstack()
+    h = h[(h[("size", 0)] >= min_half) & (h[("size", 1)] >= min_half)]
+    rec = _records(r, ["book", "team"])
+    wr = pd.Series({k: v[0] / (v[0] + v[1]) for k, v in rec.items() if sum(v) >= 5}, dtype=float)
+    te = view.groupby(["book", "team"])["s"].mean()
+    j = pd.concat([te, wr.rename("wr")], axis=1).dropna() if len(wr) else pd.DataFrame(columns=["s", "wr"])
+    return {"setup_repeatability": _spearman(h[("mean", 0)], h[("mean", 1)]) if len(h) > 2 else float("nan"),
+            "setup_winrate": _spearman(j["s"], j["wr"]) if len(j) > 2 else float("nan"),
+            "setup_sd": float(swing.std())}
 
 
 def run_experiment(ds: Dataset, name: str, sets: tuple[str, ...], split: str = "time", cutoff_year: int = 2024,
@@ -149,15 +131,9 @@ def run_experiment(ds: Dataset, name: str, sets: tuple[str, ...], split: str = "
     tri_cols = TRIVIAL_FEATURES + (FEATURE_SETS["situation"] if "situation" in sets else [])
     X_t = np.column_stack([column(rows, ds.X, c) for c in tri_cols])
     y = ds.y
-    fit_idx, fit_y, fit_w = tr, y[tr], None
-    if target.startswith("local:"):
-        k = int(target.split(":")[1])
-        t1 = time.time()
-        T = local_targets(rows, X_f, y, tr, k, seed)
-        fit_idx, fit_y, fit_w = expand_soft(tr, T)
-        log.info("%s: local targets (k=%d) in %.0fs, %d weighted rows from %d", name, k, time.time() - t1, len(fit_idx), len(tr))
-    elif target != "final":
-        raise ValueError(f"unknown target {target!r}")
+    t1 = time.time()
+    fit_idx, fit_y, fit_w = training_rows(target, rows, X_f, y, tr, seed)
+    log.info("%s: %s targets in %.0fs, %d weighted rows from %d", name, target, time.time() - t1, len(fit_idx), len(tr))
     P = {}
     for mname, Xm, cat in (("trivial", X_t, None), ("f", X_f, None), ("g", X_g, _cat_index(g_cols))):
         t1 = time.time()
@@ -188,7 +164,7 @@ def run_experiment(ds: Dataset, name: str, sets: tuple[str, ...], split: str = "
 
 GATE_COLUMNS = ["seesaw_1_4", "seesaw_5_8", "lead_opponent", "lead_opponent_grade", "second_opponent", "lead_second_team",
                 "lead_grade_player", "second_grade_player", "fourth_grade_player", "lead_grade_shot", "second_grade_shot",
-                "lead_repeatability", "second_repeatability", "lead_sd"]
+                "lead_repeatability", "second_repeatability", "lead_sd", "setup_repeatability", "setup_winrate"]
 
 
 def _append_gates(path: str, rep: dict):
@@ -209,7 +185,8 @@ def _append_gates(path: str, rep: dict):
                     "with the experiment's f and g: `seesaw_*` the correlation of a stone's execution with the next stone's "
                     "(toward 0 is better), `*_opponent` the correlation of the two teams' mean execution at a position in the "
                     "same game (grades for reference), `lead_second_team` the team-event correlation, agreement with grades "
-                    "(a check only) and split-half repeatability.\n\n"
+                    "(a check only), split-half repeatability, and the setup battle (the change in value over the free "
+                    "guard zone per end, each team's view): its repeatability and correlation with win rate.\n\n"
                     "| " + " | ".join(cols) + " |\n|" + "---|" * len(cols) + "\n")
         f.write(line)
 

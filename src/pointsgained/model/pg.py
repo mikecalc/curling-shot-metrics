@@ -8,6 +8,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from .config_features import CONFIG_COLUMNS, config_row
 from .dataset import Dataset, situation_table
 from .features import position_features, FEATURE_NAMES
 from .train import FittedModels
@@ -72,16 +73,20 @@ def compute_points_gained(ds: Dataset, models: FittedModels, vm: ValueMapping,
     D_post[has_next] = D_pre[post_u[has_next]]
     fallback = np.flatnonzero(~has_next & ~is_last)
     if len(fallback):
-        feats, keep = [], []
+        feats, cfg, keep = [], [], []
         has_post = rows["has_post"].to_numpy(bool)
         for i in fallback:
             if not has_post[i]:
                 continue                    # no diagram: the post position is carried forward as the pre
             r = rows.iloc[i]
             p = ds.position(r["game_key"], int(r["end"]), int(r["shot"]))
-            feats.append(position_features(p)); keep.append(i)
+            feats.append(position_features(p)); cfg.append(config_row(p)); keep.append(i)
         if keep:
+            # the row carries the pre-shot configuration columns; the rebuilt post position needs its own
             sub = rows.iloc[keep].reset_index(drop=True)
+            cols = [c for c in CONFIG_COLUMNS if c in sub]
+            if cols:
+                sub[cols] = pd.DataFrame(cfg)[cols].to_numpy(dtype=float)
             Xp_f, _ = models.design(sub, np.vstack(feats))
             D_post[keep] = models.predict_f(Xp_f, groups[keep] if groups is not None else None)
     D_post[is_last] = _point_masses(end_score[is_last])

@@ -214,7 +214,8 @@ def cmd_model(args):
                               for d, n, h in [(0, 10, 1), (0, 5, 1), (1, 5, 0), (-1, 5, 1), (2, 3, 0), (0, 1, 1), (0, 1, 0), (-2, 2, 1)]}
         rep["regimes"] = {f"d={d},n={n}": wpt.regime(d, n) for d, n in [(0, 10), (0, 1), (-1, 1), (1, 2), (-2, 3), (3, 4)]}
 
-    models = fit_models(ds.rows, ds.X, ds.y, seed=args.seed, sets=sets)
+    models = fit_models(ds.rows, ds.X, ds.y, seed=args.seed, sets=sets, target=args.target)
+    rep["target"] = args.target
     rep["cv"] = models.cv_report
     logging.info("models fitted in %.0fs; f logloss %.4f vs trivial %.4f", time.time() - t0,
                  models.cv_report["f_logloss"], models.cv_report["trivial_logloss"])
@@ -577,6 +578,7 @@ def main(argv=None):
     d.add_argument("--features", default="base", help="comma list of feature sets: base,situation,level,intent")
     d.add_argument("--rebuild", action="store_true", help="rebuild the feature cache")
     d.add_argument("--aliases", default="data/player_aliases.csv")
+    d.add_argument("--target", default="final", help="final, local:k or phase (model/targets.py)")
     d.set_defaults(func=cmd_model)
     i = sub.add_parser("features", help="build or refresh the feature cache under the parquet root")
     i.add_argument("--parquet", default="data/parquet")
