@@ -1,8 +1,15 @@
-# Curling shot metrics: Points Gained
+# Curling shot metrics
 
-Shot-level metrics for the sport of curling, built from World Curling's shot-by-shot results books. The first metric is **Points Gained**, a shot-value measure by analogy with strokes gained in golf. Every shot is valued by
-how much it changed the expected value of the end, decomposed into a selection component
-(PG: Call) and an execution component (PG: Throw). The design is in `shot_value_design.md`.
+Every stone of every end of 4,150 international games, read from World Curling's shot-by-shot results books into
+tables: where every stone was before and after every shot, who threw it, what was called and how it was graded. The
+corpus makes things countable that curling people argue about: how often a double comes off when the two stones are
+level rather than staggered, how often a runback works from four feet and from twelve, who wins the battle over the
+first five rocks of an end, which skips find the scoring runback in a junky house.
+
+On top of it sits an application, **Points Gained**: an expectation model for curling positions, and a value for every
+shot as the change it made to the end's expected result (by analogy with strokes gained in golf), split into the call
+(PG: Call) and the execution (PG: Throw). The design document, `shot_value_design.md`, covers the corpus (Part I), the
+studies it has made possible (Part II), Points Gained (Part III), and open questions and status (Part IV).
 
 Data comes from World Curling shot-by-shot Results Books produced by CURLIT
 (`https://curlit.com/results`). The per-shot diagrams in those PDFs are embedded 300x600
@@ -38,7 +45,7 @@ pointsgained difficulty
 pointsgained intent
 
 # 6. models and Points Gained (reports/model_report.md, data/parquet/points_gained.parquet)
-pointsgained model --features base,situation,level,intent
+pointsgained model --features base,situation,level,intent,config --target local:2
 
 # rewrite the model report's tables from the saved run, without refitting
 pointsgained model-report
@@ -52,8 +59,12 @@ pointsgained events --match OWG2026 WMCC2026
 # 8. one game shot by shot: ends, players, largest swings, every stone's values (reports/games/<game>.md)
 pointsgained game --match OWG2026 Gold_Medal
 
+# 9. the early-end study: front-end measures, configurations, doubles and runbacks by geometry, runbacks by player,
+#    scenario probes (reports/front_end.md; configuration labels cached in data/parquet/configurations.parquet)
+pointsgained frontend
+
 # one modelling experiment: fit once on a split, score held out (reports/experiments/log.md)
-pointsgained experiment --split time --features base,situation,level,intent
+pointsgained experiment --split time --features base,situation,level,intent,config --target local:2
 
 # raw-geometry model (needs torch): time-split log-loss against the trees, subtlety probe, monotonicity
 pointsgained raster --features base,situation,level,intent --epochs 6
@@ -67,12 +78,12 @@ pointsgained batch
 ## Layout
 
 - `src/pointsgained/ingest/` PDF page classification, diagram decoding and stone detection, panel text parsing, book assembly, validation gates
-- `src/pointsgained/core/` sheet geometry, the count function, canonical-frame position assembly
-- `src/pointsgained/model/` value mappings (hammer-adjusted points, win probability), baseline features, f and g models, Points Gained, leaderboards
+- `src/pointsgained/core/` sheet geometry, the count function, canonical-frame position assembly, configurations (the position as a skip reads it)
+- `src/pointsgained/model/` value mappings (hammer-adjusted points, win probability), baseline features, configuration features, training targets, f and g models, Points Gained, leaderboards, the front-end study
 - `src/pointsgained/corpus/` archive inventory, event family and tier table, downloader, batch processing
 - `tests/` unit tests
 - `data/raw/` PDFs (not committed), `data/parquet/` extracted tables (not committed), `reports/` validation and model reports (not committed)
-- `reports/samples/` finished reports kept in the repository: the model report, the pinned test set, per-event leaderboards for the 2026 Olympics and Worlds and for Beijing 2022, and the two 2026 Olympic finals shot by shot, with a README on how each is built and what it says
+- `reports/samples/` finished reports kept in the repository: the model report, the pinned test set, per-event leaderboards for the 2026 Olympics and Worlds and for Beijing 2022, the two 2026 Olympic finals shot by shot, and the early-end study, with a README on how each is built and what it says
 
 ## Conventions
 
