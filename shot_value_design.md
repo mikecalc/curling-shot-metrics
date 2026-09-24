@@ -27,7 +27,7 @@ The studies of Part III are examples of what the four layers support, each produ
 
 The pipeline reads World Curling results books, as published in the CURLIT results-book directory at `curlit.com/results`: one PDF per event, with a shot-by-shot page for every end of every game in the events that have them. The directory lists 310 results books; 208 are team-of-four men's or women's books from 2013 onward and in scope. All 208 were downloaded (2.3 GB). Only 92 contain shot-by-shot pages: 25 tier 1, 42 tier 2, 23 tier 3, 2 tier 4. The other 116 (Europeans B and C, Seniors, Junior-B, Pan Continental B, the qualifiers and the Universiade) are line scores and standings only; they still feed the win-probability table. Any PDF in the same format, from any event, goes through the pipeline unchanged; other sources enter through an adapter (Section 2.6).
 
-Jordan Myslik's earlier extraction (`jwmyslik/curling-analytics`) is the precedent for this work. It could not be rerun: its source host no longer responds and its parser depended on rendered page images. Nothing here depends on it.
+Jordan Myslik's earlier extraction (`jwmyslik/curling-analytics`) is the precedent for this work, and showed that the shot diagrams could be read at scale. It can no longer be rerun because its source host no longer responds. It converted the PDF pages to XML and images; this pipeline reads the embedded diagram images directly. Nothing here depends on it.
 
 ### 2.2 What the diagrams are and what they carry
 
