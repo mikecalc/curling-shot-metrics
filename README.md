@@ -103,13 +103,11 @@ pointsgained batch
 - `src/pointsgained/corpus/` archive inventory, event family and tier table, downloader, batch processing
 - `tests/` unit tests
 - `data/raw/` PDFs (not committed), `data/parquet/` extracted tables (not committed), `reports/` validation and model reports (not committed)
-- `reports/samples/` finished reports kept in the repository: the model report, the pinned test set, per-event leaderboards for the 2026 Olympics and Worlds and for Beijing 2022, the two 2026 Olympic finals shot by shot, and the early-end study, with a README on how each is built and what it says
+- `reports/samples/` finished reports kept in the repository: the model report, the pinned test set, per-event leaderboards for Olympics and Worlds back to 2018, the two 2026 Olympic finals shot by shot, and a sample early-end study, with a README on how each is built and what it says
 
 ## Conventions
 
 - Coordinates in inches, pin at (0, 0), y positive towards the hog line (in front of the tee).
-- Positions are expressed in the canonical hammer-team frame; a thrower's value is the canonical value times +1 with hammer and -1 without. This makes the per-end conservation identity exact.
-- End outcomes are clipped to [-3, +3] from the hammer team's perspective.
 
 ## Data and license
 
