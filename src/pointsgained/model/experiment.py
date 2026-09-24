@@ -31,6 +31,8 @@ from .train import design_matrices, make_model, _cat_index, column, evaluate, _f
 from .targets import training_rows
 from .value import HammerAdjustedPoints, ValueSet
 
+log = logging.getLogger(__name__)
+
 
 def split_rows(rows: pd.DataFrame, split: str, cutoff_year: int = 2024, fold: int = 0):
     """(train index, test index) over rows. Mirrored rows follow their shot."""
