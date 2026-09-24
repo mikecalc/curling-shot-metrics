@@ -4,7 +4,7 @@ A skip does not see sixteen independent stones; they see "the deuce is loose", "
 "a split house", "two guards up". Each label here is a deterministic test on a canonical position
 (hammer team = own, owner 1), multi-label, so a position can be a split house with a centre guard up.
 The question behind most of them is what the position leaves the opponent: can they find the shot
-that wrecks it? Vocabulary and thresholds from Mike (2026-09-23); the split thresholds are checked
+that wrecks it? Vocabulary and thresholds developed by Mike Calcagno; the split thresholds are checked
 against how often the field's hits actually removed both stones of a pair (reports/front_end.md).
 
 Besides the labels, continuous measures (`MEASURES`): the double on each team's two best stones

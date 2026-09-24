@@ -8,7 +8,7 @@ Stage two: a weighted logistic regression on the stage-one logit plus two event-
 dummies for team, player and book. The player coefficient is a shrunk deviation from the team,
 measured against the level of the fields the player has played in; the book coefficient is what
 remains of the event once field strength is accounted for, i.e. the ice, conditions and grader.
-Level of play is a property of the event (Mike, 2026-09-10): team rankings only inform how strong
+Level of play is a property of the event: team rankings only inform how strong
 an event's field is, they are not a per-player covariate.
 
 Outputs: skill per (discipline, player key), event effect per book.
