@@ -1,6 +1,6 @@
 # Curling Analytics: shot-by-shot data, Points Gained, and studies
 
-An open system for shot-by-shot curling analysis, in three layers:
+An open system for shot-by-shot curling analysis, with three major parts:
 
 - **An ingestion pipeline** that reads World Curling's results books (the PDFs published for every major WCF event and
   the Olympics since 2013) and turns every stone of every end into tables: where each stone was after each shot, who
@@ -9,7 +9,7 @@ An open system for shot-by-shot curling analysis, in three layers:
 - **A corpus** built with it: 92 results books, 4,150 international games, 609,014 shots.
 - **Points Gained**, an expectation model for curling positions and a value for every shot as the change it made to the
   end's expected result, split into the call and the execution, in points and in win probability. It rates execution,
-  and it is the general tool the studies use to price a position, a shot or a phase of the end.
+  and it is the general tool the studies use to evaluate a position, a shot or a phase of the end.
 
 On top of these sit sample studies: how often a double comes off by the separation and stagger of the two stones, how
 often a runback works by the distance of the stone in front, what the first five rocks of an end decide, which skips
