@@ -51,7 +51,7 @@ reported relative to that event's field for the same shot type and hammer state,
 week is compared with the other fourths' doubles rather than with a lead's guards. Players are grouped by throwing position,
 from the throwing order, and sorted by reliability, the share of their shots at or above the field's expectation, then by
 the average miss. The execution block reads the player's distribution rather than its average (`shot_value_design.md`,
-Section 13.2): reliability, the average make and the average miss, the counts of big makes and big misses, the sum of the
+Section 10.2): reliability, the average make and the average miss, the counts of big makes and big misses, the sum of the
 five costliest shots, and `net`, the mean, kept as the single number that folds these together. The effect on win
 probability follows for reference: shots that gained or cost five or more points, and the five best and five worst stones
 summed. The call component and the book's official percentage sit at the right. The team table above the position groups
@@ -105,7 +105,7 @@ Dunstone's misses are the smallest, −0.21, with his five worst stones costing 
 The bottom of each table shows the other shape: the fourths with the lowest reliability also have average misses a tenth of
 a point deeper and two to three times the big-miss counts of the leaders.
 
-**Beijing 2022.** Included because Section 13.2 of the design document builds its argument on it: Shuster's reliability in the
+**Beijing 2022.** Included because Section 10.2 of the design document builds its argument on it: Shuster's reliability in the
 lower half of the field (51 percent) with misses deep enough to make his net negative, Retornaz's lowest reliability in the
 field with the largest average make and a positive net, and the final between the field's two most reliable fourths, Edin
 and Mouat. That section quotes the model of September 10; this file is the current model, whose numbers differ in the
@@ -123,7 +123,7 @@ quotes live only in the combined CSV.
   situations, and within the same situation their calls are valued no differently from anyone else's. Where teams do
   separate is on the downside of the call: the best teams execute the calls with the fattest bad tail as well as their
   safe ones, and the weakest teams execute them worse. The design records this as a hypothesis still to be validated
-  (Section 13.3). Read the call column as "the call the field usually makes here" and not as "the best call".
+  (Section 10.3). Read the call column as "the call the field usually makes here" and not as "the best call".
 - **Points and win probability disagree at the end of a game**, by construction. The hammer value H is an infinite-horizon
   quantity and the last end has no next end, so a blank in the ninth is worth the same 0.58 in points as a blank in the
   first and twenty-four points more in win probability. The game reports' end tables are in win probability for this

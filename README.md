@@ -1,15 +1,33 @@
-# Curling shot metrics
+# Curling Analytics: shot-by-shot data, Points Gained, and studies
 
-Every stone of every end of 4,150 international games, read from World Curling's shot-by-shot results books into
-tables: where every stone was before and after every shot, who threw it, what was called and how it was graded. The
-corpus makes things countable that curling people argue about: how often a double comes off when the two stones are
-level rather than staggered, how often a runback works from four feet and from twelve, who wins the battle over the
-first five rocks of an end, which skips find the scoring runback in a junky house.
+An open system for shot-by-shot curling analysis, in three layers:
 
-On top of it sits an application, **Points Gained**: an expectation model for curling positions, and a value for every
-shot as the change it made to the end's expected result (by analogy with strokes gained in golf), split into the call
-(PG: Call) and the execution (PG: Throw). The design document, `shot_value_design.md`, covers the corpus (Part I), the
-studies it has made possible (Part II), Points Gained (Part III), and open questions and status (Part IV).
+- **An ingestion pipeline** that reads World Curling's results books (the PDFs published for every major WCF event and
+  the Olympics since 2013) and turns every stone of every end into tables: where each stone was after each shot, who
+  threw it, what was called, how it was graded, and how the end and the game came out. Its table schema is the
+  contract for any other source of games.
+- **A corpus** built with it: 92 results books, 4,150 international games, 609,014 shots.
+- **Points Gained**, an expectation model for curling positions and a value for every shot as the change it made to the
+  end's expected result, split into the call and the execution, in points and in win probability. It rates execution,
+  and it is the general tool the studies use to price a position, a shot or a phase of the end.
+
+On top of these sit sample studies: how often a double comes off by the separation and stagger of the two stones, how
+often a runback works by the distance of the stone in front, what the first five rocks of an end decide, which skips
+are best at runbacks, and per-event leaderboards for every Olympics and World Championship since 2018
+(`reports/samples/`). The design document, `shot_value_design.md`, describes the pipeline and corpus (Part I), Points
+Gained (Part II), the studies (Part III), and how to contribute (Part IV).
+
+## Contributing
+
+- **Data.** The most useful contribution is more games in shot-by-shot form: national championships (the Brier and the
+  Scotties above all), the Grand Slams, and World Curling Tour events. Results books in the CURLIT format go straight
+  through the pipeline; any other source needs an adapter into the six tables described in Section 2.6 of the design
+  document. Line scores alone help too. If you hold or know of such data, please open an issue.
+- **Points Gained.** The models, training targets and evaluation harness (`pointsgained experiment`) are all here, with
+  a list of known weaknesses and the positions the model misprices (design document, Section 17).
+- **Studies.** Every study reads the same tables: one row per stone with its values, the configuration of every
+  position, and the extraction tables. `src/pointsgained/model/frontend.py` is a worked example, and the strategic
+  situations in Section 15 of the design document are open.
 
 Data comes from World Curling shot-by-shot Results Books produced by CURLIT
 (`https://curlit.com/results`). The per-shot diagrams in those PDFs are embedded 300x600
