@@ -8,9 +8,7 @@ in them comes from the corpus and the fitted expectation models described in `sh
 | `model_report.md` | The model's own report card: corpus counts, hammer values, held-out accuracy, conservation, whole-corpus leaderboards and strata | `pointsgained model --features base,situation,level,intent,config --target local:2` |
 | `front_end.md` | The early-end study: what front-end execution values measure (repeatability, the see-saw, agreement with grades), configuration calibration and survival, the field's double and runback rates by geometry, runbacks by player, and scenario probes | `pointsgained frontend` |
 | `testset.md` | Six pinned last-rock shots from the 2026 Olympics, both currencies, used as a face-validity check whenever the model changes | `pointsgained testset` |
-| `events/OWG2026_ResultsBook.md` | Per-player leaderboards for the 2026 Olympic tournaments | `pointsgained events --match OWG2026` |
-| `events/WMCC2026_ResultsBook.md`, `events/WWCC2026_ResultsBook.md` | The same for the 2026 World Championships | `pointsgained events --match WMCC2026 WWCC2026` |
-| `events/OWG2022_ResultsBook.md` | Beijing 2022, the tournament the design document uses for its worked examples | `pointsgained events --match OWG2022` |
+| `events/` (index in `events/README.md`) | Per-player leaderboards for every Tier 1 event since 2018: the Olympics of 2018, 2022 and 2026 and the men's and women's World Championships of 2018, 2019 and 2021 to 2026 (none were held in 2020), nineteen books | `pointsgained events --match OWG2018 OWG2022 OWG2026 WMCC2018 WMCC2019 WMCC2021 ... WWCC2026` (each book named) |
 | `games/..._Gold_Medal_Game_CAN-GBR.md`, `games/..._Gold_Medal_Game_SUI-SWE.md` | The two 2026 Olympic finals shot by shot | `pointsgained game --match OWG2026 Gold_Medal` |
 
 ## How a report is built
