@@ -1,8 +1,8 @@
-# Ten Open Problems in Curling Analytics
+# Ten Open Problems 
 
 This project reads the shot-by-shot pages of World Curling's results books into data: for 4,150 international games since 2013, where every stone was after every shot, who threw it, what was called and how it was graded, and how each end and game came out. On top of that data sits a way of valuing positions and shots, **Points Gained**: for any position it estimates what the end is likely to produce, given how teams at that level have played from similar positions, and it values each shot by how much it changed that expectation. The shot's value is split into the part that came from the call and the part that came from the execution.
 
-Working with the data has turned up questions we cannot answer yet. Some are about the game itself, some about how to measure it. We list ten here, roughly in the order we run into them, in the hope that curlers, coaches and analysts will tell us where our framing is wrong, what we are missing, and which of these matter most. The list will change as the data grows and the work moves on.
+Working with the data has turned up questions we cannot answer yet, or which expose limitations of the model (for a variety of reasons, including lack of enough data). We list ten here, roughly in the order we run into them, in the hope that curlers, coaches and analysts can participate in the discussion and contribute. The list will change as the data grows and the work moves on.
 
 The project, its data and its code are at https://github.com/mikecalc/curling-shot-metrics.
 
