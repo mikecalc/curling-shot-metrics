@@ -29,6 +29,8 @@ Gained (Part II), the studies (Part III), and how to contribute (Part IV).
   position, and the extraction tables. `src/pointsgained/model/frontend.py` is a worked example, and the strategic
   situations in Section 15 of the design document are open.
 
+For a wider view, `open_problems.md` sets out ten open problems in curling analytics in plain curling terms.
+
 Data comes from World Curling shot-by-shot Results Books produced by CURLIT
 (`https://curlit.com/results`). The per-shot diagrams in those PDFs are embedded 300x600
 indexed-colour images, which this package decodes directly; no page rendering is involved.
