@@ -90,6 +90,7 @@ def load_lives(parquet_root: str, rebuild: bool = False) -> pd.DataFrame:
 STONE_DIAMETER_IN = 11.4
 BANDS = [(0, 3), (4, 7), (8, 11), (12, 15)]
 ROLES = ["r_count", "r_cover", "r_backs_opp"]
+CB_ROLES = ["r_count", "r_cover_h", "r_cover_n", "r_back_h", "r_back_n"]     # colour-blind cover and backing
 ZONES = ["house front 4ft", "house front 8-12", "house back 4ft", "house back 8-12",
          "centre guard <6ft", "centre guard long", "corner guard <6ft", "corner guard long", "out"]
 
@@ -111,7 +112,14 @@ def final_roles(lives: pd.DataFrame) -> pd.DataFrame:
         same = o[:, None] == o[None, :]
         cover = (~cnt) & ((same & cnt[None, :] & (dy > STONE_DIAMETER_IN / 2) & (dx <= STONE_DIAMETER_IN)).any(axis=1))
         backs = ((~same) & cnt[None, :] & (dy < 0) & (np.hypot(dx, dy) <= 2 * STONE_DIAMETER_IN)).any(axis=1)
-        out.append(pd.DataFrame({"game_key": g, "end": e, "sid": sid, "r_count": cnt, "r_cover": cover, "r_backs_opp": backs}))
+        # colour-blind: a stone in front of a counter covers it, and a stone just behind a counter backs it,
+        # for whichever team the counter belongs to (a beaked shooter is cover for the other side)
+        in_front = (~cnt)[:, None] & cnt[None, :] & (dy > STONE_DIAMETER_IN / 2) & (dx <= STONE_DIAMETER_IN)
+        behind = (~cnt)[:, None] & cnt[None, :] & (dy < 0) & (np.hypot(dx, dy) <= 2 * STONE_DIAMETER_IN)
+        ham_counter = (o == 1)[None, :]
+        out.append(pd.DataFrame({"game_key": g, "end": e, "sid": sid, "r_count": cnt, "r_cover": cover, "r_backs_opp": backs,
+                                 "r_cover_h": (in_front & ham_counter).any(axis=1), "r_cover_n": (in_front & ~ham_counter).any(axis=1),
+                                 "r_back_h": (behind & ham_counter).any(axis=1), "r_back_n": (behind & ~ham_counter).any(axis=1)}))
     return pd.concat(out, ignore_index=True)
 
 
@@ -134,17 +142,17 @@ def cells(frame: pd.DataFrame) -> pd.DataFrame:
                          "cy": np.clip((y + 72) // 12, 0, 30).astype(int)}, index=frame.index)
 
 
-def role_tables(lives_roles: pd.DataFrame, prior: float = 100.0) -> tuple[pd.DataFrame, pd.DataFrame]:
+def role_tables(lives_roles: pd.DataFrame, prior: float = 100.0, roles: list[str] = ROLES) -> tuple[pd.DataFrame, pd.DataFrame]:
     """(zone table, cell table): the rate of each role by team, band and zone, and by 1-ft cell shrunk
     towards its zone's rate with `prior` pseudo-stones."""
-    c = cells(lives_roles).join(lives_roles[ROLES].astype(float))
-    z = c.groupby(["owner", "band", "zone"])[ROLES].mean()
-    cc = c.groupby(["owner", "band", "zone", "cx", "cy"])[ROLES].agg(["sum", "count"])
+    c = cells(lives_roles).join(lives_roles[roles].astype(float))
+    z = c.groupby(["owner", "band", "zone"])[roles].mean()
+    cc = c.groupby(["owner", "band", "zone", "cx", "cy"])[roles].agg(["sum", "count"])
     zr = z.reindex(cc.index.droplevel(["cx", "cy"])).to_numpy()
     n = cc.xs("count", axis=1, level=1).to_numpy()
     s = cc.xs("sum", axis=1, level=1).to_numpy()
     shrunk = (s + prior * zr) / (n + prior)
-    return z, pd.DataFrame(shrunk, index=cc.index, columns=ROLES)
+    return z, pd.DataFrame(shrunk, index=cc.index, columns=roles)
 
 
 STONE_FEATURES = ["own_ev_count", "own_ev_cover", "own_ev_backs_opp", "opp_ev_count", "opp_ev_cover", "opp_ev_backs_opp",
@@ -174,13 +182,23 @@ def position_features(lives: pd.DataFrame, n_groups: int = 5) -> pd.DataFrame:
     roles = final_roles(lives)
     # every stone of a complete end has a role row; a stone removed before the end did none of the three
     lr = lives[lives["end_complete"]].merge(roles, on=KEYS + ["sid"], how="left")
-    lr[ROLES] = lr[ROLES].fillna(False).astype(bool)
+    all_roles = sorted(set(ROLES) | set(CB_ROLES))
+    lr[all_roles] = lr[all_roles].fillna(False).astype(bool)
     vals = np.zeros((len(lives), len(ROLES)))
+    cb = np.zeros((len(lives), len(CB_ROLES)))
     for g in range(n_groups):
-        z, cell = role_tables(lr[lr["grp"] != g])
+        tr = lr[lr["grp"] != g]
         m = (lives["grp"] == g).to_numpy()
+        z, cell = role_tables(tr)
         vals[m] = _lookup(lives[m], z, cell)
+        z, cell = role_tables(tr, roles=CB_ROLES)
+        cb[m] = _lookup(lives[m], z, cell)
     lives[["v_count", "v_cover", "v_backs"]] = vals
+    ham = (lives["owner"] == 1).to_numpy()
+    # colour-blind potential: counting stays with the stone's colour, cover and backing go to the team whose
+    # counter the stone ends up protecting or supporting
+    lives["pot_h"] = np.where(ham, cb[:, 0], 0.0) + cb[:, 1] + cb[:, 3]
+    lives["pot_n"] = np.where(~ham, cb[:, 0], 0.0) + cb[:, 2] + cb[:, 4]
     # stones counting now, per position
     now = np.zeros(len(lives), dtype=bool)
     for _, idx in lives.groupby(KEYS + ["shot"], sort=False).indices.items():
@@ -194,6 +212,8 @@ def position_features(lives: pd.DataFrame, n_groups: int = 5) -> pd.DataFrame:
         for name, col in (("ev_count", "v_count"), ("ev_cover", "v_cover"), ("ev_backs_opp", "v_backs")):
             out[f"{who}_{name}"] = agg[(col, o)] if (col, o) in agg.columns else 0.0
         out[f"{who}_best_sleeper"] = agg[("sleeper", o)] if ("sleeper", o) in agg.columns else 0.0
+    pots = lives.groupby(KEYS + ["shot"])[["pot_h", "pot_n"]].sum()
+    out = out.join(pots)
     return out.reset_index()
 
 
@@ -207,13 +227,26 @@ def load_position_features(parquet_root: str, rebuild: bool = False) -> pd.DataF
     return feats
 
 
+POTENTIAL_FEATURES = ["own_pot", "opp_pot", "net_pot"]
+POTENTIAL_CB_FEATURES = ["h_pot_cb", "n_pot_cb", "net_pot_cb"]      # colour-blind cover and backing
+
+
 def attach_stones(rows: pd.DataFrame, feats: pd.DataFrame) -> pd.DataFrame:
-    """The `stones` design columns for training rows: the stone features of each row's pre-shot position
-    (the post position of `pre_source_shot`; zeros for the empty sheet)."""
+    """The `stones` and `potential` design columns for training rows, from each row's pre-shot position (the
+    post position of `pre_source_shot`; zeros for the empty sheet). Rock potential per team is the stones'
+    chance of counting or covering a counter of their own team, less their chance of backing up a counter
+    of the other team; `net_pot` is the hammer team's less the other team's."""
     t = feats.set_index(["game_key", "end", "shot"])[STONE_FEATURES]
     idx = pd.MultiIndex.from_arrays([rows["game_key"], rows["end"], rows["pre_source_shot"]])
     v = t.reindex(idx).fillna(0.0).to_numpy()
-    return rows.assign(**{c: v[:, i] for i, c in enumerate(STONE_FEATURES)})
+    out = rows.assign(**{c: v[:, i] for i, c in enumerate(STONE_FEATURES)})
+    own = out["own_ev_count"] + out["own_ev_cover"] - out["own_ev_backs_opp"]
+    opp = out["opp_ev_count"] + out["opp_ev_cover"] - out["opp_ev_backs_opp"]
+    out = out.assign(own_pot=own.to_numpy(), opp_pot=opp.to_numpy(), net_pot=(own - opp).to_numpy())
+    if "pot_h" in feats:
+        cbt = feats.set_index(["game_key", "end", "shot"])[["pot_h", "pot_n"]].reindex(idx).fillna(0.0).to_numpy()
+        out = out.assign(h_pot_cb=cbt[:, 0], n_pot_cb=cbt[:, 1], net_pot_cb=cbt[:, 0] - cbt[:, 1])
+    return out
 
 
 REGIME_FEATURES = ["reg_steal", "reg_single", "reg_deuce",

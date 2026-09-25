@@ -126,7 +126,7 @@ def _with_level(ds, sets, parquet_root, aliases_csv, event_strength_csv="data/ev
     if "config" in sets:
         from .model.config_features import attach_config, load_table
         ds.rows = attach_config(ds.rows, load_table(parquet_root))
-    if "stones" in sets or "regime" in sets:
+    if {"stones", "regime", "potential", "potential_cb"} & set(sets):
         from .model.stone_value import attach_stones, load_position_features
         ds.rows = attach_stones(ds.rows, load_position_features(parquet_root))
     if "regime" in sets:
@@ -173,9 +173,14 @@ def cmd_experiment(args):
     from .model.experiment import run_experiment
     sets = _feature_sets(args.features)
     ds = _with_level(load_or_build(args.parquet, rebuild=args.rebuild), sets, args.parquet, args.aliases)
+    if "net_pot" not in ds.rows:
+        # rock potential for the gates, whether or not the models use it
+        from .model.stone_value import attach_stones, load_position_features
+        ds.rows = attach_stones(ds.rows, load_position_features(args.parquet))
     name = args.name or f"{args.split}_{'+'.join(sets)}"
     rep = run_experiment(ds, name, sets, split=args.split, cutoff_year=args.cutoff_year, fold=args.fold,
-                         seed=args.seed, reports=args.reports, inventory_csv=args.inventory, target=args.target)
+                         seed=args.seed, reports=args.reports, inventory_csv=args.inventory, target=args.target,
+                         monotone=args.monotone)
     print(json.dumps({k: rep[k] for k in ("name", "split", "sets", "n_train", "n_test", "trivial_logloss", "f_logloss", "g_logloss", "seconds")}, indent=2))
     print("by rocks remaining:", {r: (v["f"], v["trivial"]) for r, v in rep["logloss_by_rocks_remaining"].items()})
     print("front-end gates:", {k: round(v, 3) for k, v in rep["frontend_gates"].items()})
@@ -220,7 +225,7 @@ def cmd_model(args):
                               for d, n, h in [(0, 10, 1), (0, 5, 1), (1, 5, 0), (-1, 5, 1), (2, 3, 0), (0, 1, 1), (0, 1, 0), (-2, 2, 1)]}
         rep["regimes"] = {f"d={d},n={n}": wpt.regime(d, n) for d, n in [(0, 10), (0, 1), (-1, 1), (1, 2), (-2, 3), (3, 4)]}
 
-    models = fit_models(ds.rows, ds.X, ds.y, seed=args.seed, sets=sets, target=args.target)
+    models = fit_models(ds.rows, ds.X, ds.y, seed=args.seed, sets=sets, target=args.target, monotone=args.monotone)
     rep["target"] = args.target
     rep["cv"] = models.cv_report
     logging.info("models fitted in %.0fs; f logloss %.4f vs trivial %.4f", time.time() - t0,
@@ -595,6 +600,7 @@ def main(argv=None):
     d.add_argument("--rebuild", action="store_true", help="rebuild the feature cache")
     d.add_argument("--aliases", default="data/player_aliases.csv")
     d.add_argument("--target", default="final", help="final, local:k or phase (model/targets.py)")
+    d.add_argument("--monotone", action="store_true", help="expectation must rise with the hammer team's rock potential")
     d.set_defaults(func=cmd_model)
     i = sub.add_parser("features", help="build or refresh the feature cache under the parquet root")
     i.add_argument("--parquet", default="data/parquet")
@@ -603,6 +609,7 @@ def main(argv=None):
     i.set_defaults(func=cmd_features)
     j = sub.add_parser("experiment", help="fit once on one split and score the held-out rows")
     j.add_argument("--target", default="final", help="final (the end's score) or local:k (early rows take the value k stones later)")
+    j.add_argument("--monotone", action="store_true", help="expectation must rise with the hammer team's rock potential and fall with the other team's")
     j.add_argument("--parquet", default="data/parquet")
     j.add_argument("--reports", default="reports")
     j.add_argument("--inventory", default="data/inventory.csv")

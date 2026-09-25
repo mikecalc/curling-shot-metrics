@@ -104,3 +104,23 @@ def test_mix_target_blends_final_and_local(monkeypatch):
     assert abs(wr[3] - (0.5 + 0.5 / 7)) < 1e-9 and abs(sum(wr.values()) - 1.0) < 1e-9
     i1, c1, w1 = ex.training_rows("mix:2:1.0", rows, X, y, tr)
     assert (c1 == 3).all() and np.allclose(w1, 1.0)
+
+
+def test_ordinal_monotone_model_is_monotone_and_normalised():
+    from pointsgained.model.train import OrdinalMonotone, make_model, monotone_cst
+    rng = np.random.default_rng(0)
+    n = 6000
+    X = np.column_stack([rng.uniform(-1, 1, n), rng.uniform(-1, 1, n)])
+    # outcome rises with column 0 on average, with noise and a local dip the constraint must iron out
+    latent = 1.5 * X[:, 0] - 0.8 * ((X[:, 0] > 0.2) & (X[:, 0] < 0.4)) + rng.normal(0, 1, n)
+    y = np.clip(np.round(latent) + 3, 0, 6).astype(int)
+    m = make_model(0, None, [1, 0])
+    assert isinstance(m, OrdinalMonotone)
+    m.fit(X, y)
+    grid = np.column_stack([np.linspace(-1, 1, 41), np.zeros(41)])
+    P = m.predict_proba(grid)
+    assert np.allclose(P.sum(axis=1), 1.0) and (P >= 0).all()
+    ev = P @ np.arange(7)
+    assert (np.diff(ev) >= -1e-9).all() and ev[-1] > ev[0] + 1.0
+    assert monotone_cst(["x", "own_pot", "opp_pot", "net_pot"]) == [0, 1, -1, 1]
+    assert not isinstance(make_model(0, None, [0, 0]), OrdinalMonotone)
