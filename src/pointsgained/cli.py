@@ -300,6 +300,11 @@ def cmd_events(args):
     """Per-event player leaderboards: one file per event under reports/events/, an index by year, one combined CSV."""
     from .model import aggregate as agg
     pg = pd.read_parquet(os.path.join(args.parquet, "points_gained.parquet"))
+    from .model.stone_value import style_table
+    led_path = os.path.join(args.parquet, "potential_ledger.parquet")
+    led = pd.read_parquet(led_path) if os.path.exists(led_path) else None
+    if led is not None:
+        pg = pg.merge(led, on=["game_key", "end", "shot"], how="left")
     books = args.books or None
     if args.match:
         books = sorted(b for b in pg["book"].unique() if any(m in b for m in args.match))
@@ -344,6 +349,14 @@ def cmd_events(args):
                 f.write("### Teams\n\nThe team-level view, in win probability: the record, and the summed effect of the team's own "
                         "stones on its chance of winning, per game, in percentage points (calls and throws together).\n\n"
                         + tt.round(1).to_markdown(index=False) + "\n\n")
+                if led is not None:
+                    st = style_table(pg[(pg["book"] == ev) & (pg["discipline"] == d)])
+                    f.write("### Build or address\n\nHow each team played the stones, in rock potential (descriptive, not a "
+                            "ranking): `build` is how much a stone added to the team's own potential and `address` how much it "
+                            "took from the other team's, per stone, relative to this field at the same stage of the end; "
+                            "`builds_share` the share of its stones that built more than they addressed; `temperature` the mean "
+                            "peak of both teams' potential together in its ends with and without hammer (high: aggressive ends, "
+                            "low: conservative ones).\n\n" + st.round(3).to_markdown(index=False) + "\n\n")
                 for pos in ("FOURTH", "THIRD", "SECOND", "LEAD"):
                     gp = gd[gd["position"] == pos].sort_values(["reliability", "avg_miss"], ascending=False)
                     if not len(gp):

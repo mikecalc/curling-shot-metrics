@@ -416,3 +416,24 @@ def potential_ledger(parquet_root: str) -> pd.DataFrame:
     led = ledger_frame(rows, load_position_features(parquet_root))
     led.to_parquet(os.path.join(parquet_root, "potential_ledger.parquet"), index=False)
     return led
+
+
+def style_table(df: pd.DataFrame) -> pd.DataFrame:
+    """Build or address, per team at one event (rows of one event and discipline, with the ledger columns):
+    the team's mean build and mean address per stone relative to the event's field at the same stage of the
+    end (rocks left 16-12, 11-8, 7-4, 3-1), the share of its stones that built more than they addressed,
+    and the mean peak temperature (both teams' potential together) of its ends with and without hammer."""
+    d = df[df["build"].notna()].copy()
+    stage = pd.cut(17 - d["shot"], [0, 3, 7, 11, 16])
+    for c in ("build", "address"):
+        d[c + "_rel"] = d[c] - d.groupby(stage, observed=True)[c].transform("mean")
+    d["builds"] = (d["build"] > d["address"]).astype(float)
+    peak = d.groupby(["game_key", "end"]).agg(peak=("total", "max"), hammer=("hammer_team", "first"))
+    rows = []
+    for team, g in d.groupby("team"):
+        ends = peak.loc[peak.index.isin(set(zip(g["game_key"], g["end"])))]
+        rows.append(dict(team=team, stones=len(g), build=g["build_rel"].mean(), address=g["address_rel"].mean(),
+                         builds_share=g["builds"].mean(),
+                         temperature_hammer=ends.loc[ends["hammer"] == team, "peak"].mean(),
+                         temperature_no_hammer=ends.loc[ends["hammer"] != team, "peak"].mean()))
+    return pd.DataFrame(rows).sort_values("build", ascending=False)
