@@ -1,4 +1,4 @@
-"""Command line interface: pointsgained ingest | validate | audit | model | features | experiment | events | frontend | inventory | download | batch."""
+"""Command line interface: pointsgained ingest | validate | audit | model | features | experiment | events | frontend | stones | inventory | download | batch."""
 from __future__ import annotations
 
 import argparse
@@ -126,6 +126,12 @@ def _with_level(ds, sets, parquet_root, aliases_csv, event_strength_csv="data/ev
     if "config" in sets:
         from .model.config_features import attach_config, load_table
         ds.rows = attach_config(ds.rows, load_table(parquet_root))
+    if "stones" in sets or "regime" in sets:
+        from .model.stone_value import attach_stones, load_position_features
+        ds.rows = attach_stones(ds.rows, load_position_features(parquet_root))
+    if "regime" in sets:
+        from .model.stone_value import attach_regime, load_wp_table
+        ds.rows = attach_regime(ds.rows, load_wp_table(parquet_root))
     return ds
 
 
@@ -397,6 +403,16 @@ def cmd_frontend(args):
     print(f"wrote {path} in {time.time() - t0:.0f}s")
 
 
+def cmd_stones(args):
+    """The stone study: every stone followed through the end, what stones end up doing, late risers, and
+    how flat the model's values are by stage of the end (reports/stones.md)."""
+    from .model.stone_value import load_lives, write_report
+    os.makedirs(args.reports, exist_ok=True)
+    t0 = time.time()
+    load_lives(args.parquet, rebuild=args.rebuild)
+    print(f"wrote {write_report(args.parquet, args.reports)} in {time.time() - t0:.0f}s")
+
+
 def cmd_difficulty(args):
     """Fit the shot-difficulty model: skill scalar per player and event effect per book (design 3.5, 8)."""
     import numpy as np
@@ -645,6 +661,11 @@ def main(argv=None):
     fe.add_argument("--parquet", default="data/parquet")
     fe.add_argument("--reports", default="reports")
     fe.set_defaults(func=cmd_frontend)
+    sn = sub.add_parser("stones", help="the stone study: stones tracked through the end, their roles, late risers")
+    sn.add_argument("--parquet", default="data/parquet")
+    sn.add_argument("--reports", default="reports")
+    sn.add_argument("--rebuild", action="store_true", help="re-track the stones")
+    sn.set_defaults(func=cmd_stones)
     n = sub.add_parser("intent", help="realised intent per shot from the delivered stone and prior rings")
     n.add_argument("--parquet", default="data/parquet")
     n.add_argument("--seed", type=int, default=0)

@@ -81,3 +81,26 @@ def test_local_targets_per_row_steps(monkeypatch):
     assert (T[setup.to_numpy()].argmax(1) == 6 % 7).all()          # the row for stone 6: the position after stone 5
     mid = rows["shot"].between(6, 8).to_numpy()
     assert (T[mid].argmax(1) == ((rows["shot"][mid] + 2) % 7)).all()
+
+
+def test_mix_target_blends_final_and_local(monkeypatch):
+    rows = pd.DataFrame({"book": np.repeat([f"b{i}" for i in range(10)], 16), "shot": np.tile(np.arange(1, 17), 10)})
+    rows["rocks_remaining"] = 17 - rows["shot"]
+    rows["is_last_shot"] = rows["shot"] == 16
+    rows["post_row"] = np.where(rows["is_last_shot"], -1, np.arange(len(rows)) + 1)
+    y = np.full(len(rows), 3)
+
+    class M:
+        def fit(self, X, y, sample_weight=None):
+            return self
+
+    monkeypatch.setattr(ex, "make_model", lambda seed=0, cat=None: M())
+    monkeypatch.setattr(ex, "_full_proba", lambda m, X: np.full((len(X), 7), 1 / 7))
+    X = np.zeros((len(rows), 1))
+    tr = np.arange(len(rows))
+    idx, cls, w = ex.training_rows("mix:2:0.5", rows, X, y, tr)
+    early = int(np.flatnonzero(rows["rocks_remaining"] >= ex.LOCAL_MIN_ROCKS)[0])
+    wr = {c: ww for i, c, ww in zip(idx, cls, w) if i == early}
+    assert abs(wr[3] - (0.5 + 0.5 / 7)) < 1e-9 and abs(sum(wr.values()) - 1.0) < 1e-9
+    i1, c1, w1 = ex.training_rows("mix:2:1.0", rows, X, y, tr)
+    assert (c1 == 3).all() and np.allclose(w1, 1.0)

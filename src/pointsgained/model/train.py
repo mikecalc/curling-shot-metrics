@@ -8,6 +8,8 @@ Feature sets (design Sections 5.4, 7.2, 13) are named so that experiments can to
   level_player  the expected grade at the thrower's skill (built, then rejected: the baseline is the field, not the player)
   intent     target of the called shot from the delivered stone (g only)
   config     configuration labels and pair measures of the position, as a skip reads it (f and g)
+  stones     each team's stones valued by what stones like them end up doing: count, cover, back up (f and g)
+  regime     the value of a steal, a single and a deuce in this game, and its products with the stones (f and g)
 """
 from __future__ import annotations
 
@@ -22,6 +24,7 @@ from sklearn.metrics import log_loss
 from sklearn.model_selection import GroupKFold
 
 from .config_features import CONFIG_COLUMNS
+from .stone_value import REGIME_FEATURES, STONE_FEATURES
 from .features import FEATURE_NAMES
 from .value import N_OUT
 
@@ -39,8 +42,10 @@ FEATURE_SETS = {
     "level_id": ["skill_thrower", "event_effect"],       # raw per-player / per-book effects (identity proxies; see experiments)
     "intent": ["target_x", "target_y", "target_owner", "target_ring", "target_is_shot_rock", "target_is_guard"],
     "config": CONFIG_COLUMNS,                            # configuration labels and pair measures (core/configurations.py)
+    "stones": STONE_FEATURES,                            # each team's stones by what they end up doing (model/stone_value.py)
+    "regime": REGIME_FEATURES,                           # what the game makes each result worth, and its products with the stones
 }
-F_SETS = ("base", "situation", "config")        # sets that enter f (and g)
+F_SETS = ("base", "situation", "config", "stones", "regime")        # sets that enter f (and g)
 G_ONLY_SETS = ("call", "level", "level_player", "level_id", "intent")       # sets that enter g only
 CATEGORICAL = {"shot_type_code"}
 

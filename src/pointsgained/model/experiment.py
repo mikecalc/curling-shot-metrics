@@ -89,6 +89,27 @@ def frontend_gates(rows: pd.DataFrame, Pf: np.ndarray, Pg: np.ndarray, y: np.nda
     te = d.groupby(["book", "team", "pos_code"])["rel"].mean().unstack()
     out["lead_second_team"] = _spearman(te[1], te[2]) if {1, 2} <= set(te.columns) else float("nan")
     out.update(setup_battle(rows, V_f))
+    out.update(spread_checks(rows, V_f, v[y]))
+    return out
+
+
+def spread_checks(rows: pd.DataFrame, V_f: np.ndarray, realised: np.ndarray) -> dict:
+    """Does the model carry the real spread between positions? The calibration slope of the end's realised
+    value on the model's value, by stage of the end (1 is right; under 1 the model is too flat), and the
+    lead's first rock: the model's value gap between a lone non-hammer stone behind the tee in the 8-12
+    ft and one in front of the tee in the 4-foot, against the realised gap."""
+    rr = rows["rocks_remaining"].to_numpy()
+    out = {}
+    for lo, hi, name in ((12, 16, "slope_12plus"), (8, 11, "slope_8_11"), (4, 7, "slope_4_7"), (1, 3, "slope_1_3")):
+        m = (rr >= lo) & (rr <= hi)
+        x, yv = V_f[m], realised[m]
+        out[name] = float(np.cov(x, yv)[0, 1] / np.var(x, ddof=1)) if m.sum() > 10 and np.var(x) > 0 else float("nan")
+    one = ((rows["shot"] == 2) & (rows["opp_in_house"] == 1) & (rows["own_in_house"] == 0) & (rows["stones_in_play"] == 1)).to_numpy()
+    back = one & (rows["opp_behind_tee"] == 1).to_numpy() & (rows["opp_min_dist"] > 29.7).to_numpy()
+    front = one & (rows["opp_behind_tee"] == 0).to_numpy() & (rows["opp_min_dist"] <= 29.7).to_numpy()
+    if back.sum() > 5 and front.sum() > 5:
+        out["first_rock_gap_model"] = float(V_f[back].mean() - V_f[front].mean())
+        out["first_rock_gap_real"] = float(realised[back].mean() - realised[front].mean())
     return out
 
 
@@ -166,7 +187,8 @@ def run_experiment(ds: Dataset, name: str, sets: tuple[str, ...], split: str = "
 
 GATE_COLUMNS = ["seesaw_1_4", "seesaw_5_8", "lead_opponent", "lead_opponent_grade", "second_opponent", "lead_second_team",
                 "lead_grade_player", "second_grade_player", "fourth_grade_player", "lead_grade_shot", "second_grade_shot",
-                "lead_repeatability", "second_repeatability", "lead_sd", "setup_repeatability", "setup_winrate"]
+                "lead_repeatability", "second_repeatability", "lead_sd", "setup_repeatability", "setup_winrate",
+                "slope_12plus", "slope_8_11", "slope_4_7", "slope_1_3", "first_rock_gap_model", "first_rock_gap_real"]
 
 
 def _append_gates(path: str, rep: dict):
@@ -178,7 +200,7 @@ def _append_gates(path: str, rep: dict):
     cols = ["name", "target", "f", "g", "f 12+", "f 5-11", "f 1-4"] + GATE_COLUMNS
     line = "| " + " | ".join([rep["name"], rep.get("target", "final"), f"{rep['f_logloss']:.4f}", f"{rep['g_logloss']:.4f}",
                               f"{band(12, 16, 'f'):.4f}", f"{band(5, 11, 'f'):.4f}", f"{band(1, 4, 'f'):.4f}"]
-                             + [f"{g[c]:.3f}" for c in GATE_COLUMNS]) + " |\n"
+                             + [f"{g.get(c, float('nan')):.3f}" for c in GATE_COLUMNS]) + " |\n"
     new = not os.path.exists(path)
     with open(path, "a") as f:
         if new:

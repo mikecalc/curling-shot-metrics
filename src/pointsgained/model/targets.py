@@ -5,6 +5,9 @@
              later instead: a soft label, the out-of-fold f distribution there (the end's result if the end
              finishes first). Positions are valued more locally, and the noise of everything after them
              is averaged by the model rather than carried in the label.
+  mix:k:l    the local:k soft target blended with the end's result, weight l on the result: the local
+             target alone inherits the stage-1 model's pull towards the mean, so early values come out
+             flatter than the field's results; the blend keeps part of the real spread in every label.
   phase      the end's structure: the setup (the free guard zone, stones 1-5, or 1-4 before 2018) is
              trained on the value of the position at the end of the setup; the middle game (to stone 8)
              on the value two stones later; the rest on the end's result. Tried and not adopted: it made
@@ -79,10 +82,19 @@ def training_rows(target: str, rows: pd.DataFrame, X_f: np.ndarray, y: np.ndarra
     """(row index, class, sample weight or None) to fit f and g on the training rows `tr` under `target`."""
     if target == "final":
         return tr, y[tr], None
+    lam = 0.0
     if target == "phase":
         k = phase_steps(rows)
     elif target.startswith("local:"):
         k = int(target.split(":")[1])
+    elif target.startswith("mix:"):
+        _, k, lam = target.split(":")
+        k, lam = int(k), float(lam)
     else:
         raise ValueError(f"unknown target {target!r}")
-    return expand_soft(tr, local_targets(rows, X_f, y, tr, k, seed))
+    T = local_targets(rows, X_f, y, tr, k, seed)
+    if lam:
+        onehot = np.zeros_like(T)
+        onehot[np.arange(len(y)), y] = 1.0
+        T = lam * onehot + (1.0 - lam) * T
+    return expand_soft(tr, T)
