@@ -372,6 +372,10 @@ def cmd_game(args):
     """One game shot by shot: ends, players, largest swings and every shot's values, under reports/games/."""
     from .model.report import game_report, game_file_name
     pg = pd.read_parquet(os.path.join(args.parquet, "points_gained.parquet"))
+    led_path = os.path.join(args.parquet, "potential_ledger.parquet")
+    if os.path.exists(led_path):
+        # the potential ledger (`pointsgained stones` writes it): each team's rock potential per stone
+        pg = pg.merge(pd.read_parquet(led_path), on=["game_key", "end", "shot"], how="left")
     keys = sorted(k for k in pg["game_key"].unique() if all(m in k for m in args.match))
     if not keys:
         raise SystemExit(f"no game key contains all of {args.match}")
@@ -417,6 +421,8 @@ def cmd_stones(args):
     os.makedirs(args.reports, exist_ok=True)
     t0 = time.time()
     load_lives(args.parquet, rebuild=args.rebuild)
+    from .model.stone_value import potential_ledger
+    potential_ledger(args.parquet)
     print(f"wrote {write_report(args.parquet, args.reports)} in {time.time() - t0:.0f}s")
 
 

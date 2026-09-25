@@ -376,3 +376,43 @@ def write_report(parquet_root: str, reports_dir: str) -> str:
     with open(path, "w") as f:
         f.write("\n".join(out))
     return path
+
+
+# ---- the potential ledger --------------------------------------------------------------------------
+
+LEDGER_COLUMNS = ["pot_h_before", "pot_n_before", "pot_h", "pot_n", "build", "address", "net_change", "total"]
+
+
+def ledger_frame(shots: pd.DataFrame, feats: pd.DataFrame) -> pd.DataFrame:
+    """Per stone: each team's rock potential (colour-blind) before and after it, and the thrower's view of
+    the change. `build` is the rise in the thrower's team's potential, `address` the fall in the other
+    team's, `net_change` their sum; `total` is both teams' potential after the stone, the end's temperature.
+    `shots` needs game_key, end, shot, pre_source_shot, has_post and thrower_has_hammer; a position absent
+    from `feats` is the empty sheet when the shot has a diagram, unknown otherwise."""
+    t = feats.set_index(["game_key", "end", "shot"])[["pot_h", "pot_n"]]
+    after = t.reindex(pd.MultiIndex.from_arrays([shots["game_key"], shots["end"], shots["shot"]])).to_numpy()
+    before = t.reindex(pd.MultiIndex.from_arrays([shots["game_key"], shots["end"], shots["pre_source_shot"]])).to_numpy()
+    before = np.nan_to_num(before)                                     # the empty sheet, or a position with no stones
+    has_post = shots["has_post"].fillna(False).to_numpy(dtype=bool)
+    after = np.where(np.isnan(after) & has_post[:, None], 0.0, after)
+    ham = shots["thrower_has_hammer"].to_numpy(dtype=bool)
+    own_b, opp_b = np.where(ham, before[:, 0], before[:, 1]), np.where(ham, before[:, 1], before[:, 0])
+    own_a, opp_a = np.where(ham, after[:, 0], after[:, 1]), np.where(ham, after[:, 1], after[:, 0])
+    out = shots[["game_key", "end", "shot"]].copy()
+    out["pot_h_before"], out["pot_n_before"] = before[:, 0], before[:, 1]
+    out["pot_h"], out["pot_n"] = after[:, 0], after[:, 1]
+    out["build"] = own_a - own_b
+    out["address"] = opp_b - opp_a
+    out["net_change"] = out["build"] + out["address"]
+    out["total"] = after[:, 0] + after[:, 1]
+    return out
+
+
+def potential_ledger(parquet_root: str) -> pd.DataFrame:
+    """The ledger for every stone of the corpus (`potential_ledger.parquet`)."""
+    rows = pd.read_parquet(os.path.join(parquet_root, "features.parquet"),
+                           columns=["game_key", "end", "shot", "mirror", "pre_source_shot", "has_post", "thrower_has_hammer"])
+    rows = rows[rows["mirror"] == 0].drop(columns="mirror")
+    led = ledger_frame(rows, load_position_features(parquet_root))
+    led.to_parquet(os.path.join(parquet_root, "potential_ledger.parquet"), index=False)
+    return led
