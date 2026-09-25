@@ -26,6 +26,26 @@ The team-level view, in win probability: the record, and the summed effect of th
 | ITA    |      12 | 2-10     |              -11   |
 | DEN    |      12 | 3-9      |              -30.3 |
 
+### Build or address
+
+How each team played the stones, in rock potential (descriptive, not a ranking): `build` is how much a stone added to the team's own potential and `address` how much it took from the other team's, per stone, relative to this field at the same stage of the end; `builds_share` the share of its stones that built more than they addressed; `temperature` the mean peak of both teams' potential together in its ends with and without hammer (high: aggressive ends, low: conservative ones).
+
+| team   |   stones |   build |   address |   builds_share |   temperature_hammer |   temperature_no_hammer |
+|:-------|---------:|--------:|----------:|---------------:|---------------------:|------------------------:|
+| USA    |     1032 |   0.018 |    -0.02  |          0.741 |                2.094 |                   2.415 |
+| SUI    |      821 |   0.01  |    -0.008 |          0.754 |                2.38  |                   2.52  |
+| ITA    |      907 |   0.01  |    -0.027 |          0.77  |                2.427 |                   2.441 |
+| CHN    |      780 |   0.007 |    -0.007 |          0.754 |                2.631 |                   2.373 |
+| KOR    |      970 |   0.006 |    -0.02  |          0.732 |                2.396 |                   2.823 |
+| DEN    |      862 |   0.002 |     0.005 |          0.723 |                2.781 |                   2.275 |
+| CZE    |      835 |  -0.005 |     0.019 |          0.713 |                2.484 |                   2.032 |
+| JPN    |      858 |  -0.005 |     0.001 |          0.734 |                2.086 |                   2.603 |
+| SWE    |      936 |  -0.006 |     0.008 |          0.707 |                2.228 |                   2.216 |
+| CAN    |      947 |  -0.006 |     0.032 |          0.672 |                3.116 |                   2.305 |
+| SCO    |      744 |  -0.009 |    -0.02  |          0.71  |                2.086 |                   2.744 |
+| RUS    |      986 |  -0.009 |     0.004 |          0.7   |                2.355 |                   2.575 |
+| GER    |      795 |  -0.018 |     0.036 |          0.655 |                2.135 |                   1.836 |
+
 ### Fourths
 
 | player       | team   |   shots |   games |   reliability |   avg_make |   avg_miss |   big_makes |   big_misses |   worst5 |    net |   big_makes_wp |   big_misses_wp |   best5_wp |   worst5_wp |   call |   grade |

@@ -23,6 +23,23 @@ The team-level view, in win probability: the record, and the summed effect of th
 | KOR    |       9 | 4-5      |               35.2 |
 | DEN    |       9 | 2-7      |               13.1 |
 
+### Build or address
+
+How each team played the stones, in rock potential (descriptive, not a ranking): `build` is how much a stone added to the team's own potential and `address` how much it took from the other team's, per stone, relative to this field at the same stage of the end; `builds_share` the share of its stones that built more than they addressed; `temperature` the mean peak of both teams' potential together in its ends with and without hammer (high: aggressive ends, low: conservative ones).
+
+| team   |   stones |   build |   address |   builds_share |   temperature_hammer |   temperature_no_hammer |
+|:-------|---------:|--------:|----------:|---------------:|---------------------:|------------------------:|
+| SUI    |      891 |   0.013 |    -0.019 |          0.76  |                2.638 |                   2.25  |
+| ITA    |      707 |   0.01  |    -0.025 |          0.774 |                2.199 |                   2.395 |
+| CAN    |      809 |   0.006 |    -0.005 |          0.712 |                2.309 |                   2.382 |
+| KOR    |      685 |   0.005 |    -0.001 |          0.743 |                2.101 |                   2.103 |
+| NOR    |      634 |  -0.001 |     0.01  |          0.681 |                2.346 |                   2.258 |
+| DEN    |      694 |  -0.002 |    -0.004 |          0.741 |                1.885 |                   2.236 |
+| USA    |      788 |  -0.004 |     0.007 |          0.689 |                2.362 |                   2.394 |
+| JPN    |      646 |  -0.006 |    -0.005 |          0.706 |                2.372 |                   2.315 |
+| GBR    |      745 |  -0.008 |     0.007 |          0.698 |                2.02  |                   2.297 |
+| SWE    |      729 |  -0.016 |     0.036 |          0.639 |                2.553 |                   2.173 |
+
 ### Fourths
 
 | player     | team   |   shots |   games |   reliability |   avg_make |   avg_miss |   big_makes |   big_misses |   worst5 |    net |   big_makes_wp |   big_misses_wp |   best5_wp |   worst5_wp |   call |   grade |
@@ -103,6 +120,23 @@ The team-level view, in win probability: the record, and the summed effect of th
 | CAN    |       9 | 4-5      |               29.7 |
 | OAR    |       9 | 2-7      |               24.9 |
 | DEN    |       9 | 1-8      |               13.1 |
+
+### Build or address
+
+How each team played the stones, in rock potential (descriptive, not a ranking): `build` is how much a stone added to the team's own potential and `address` how much it took from the other team's, per stone, relative to this field at the same stage of the end; `builds_share` the share of its stones that built more than they addressed; `temperature` the mean peak of both teams' potential together in its ends with and without hammer (high: aggressive ends, low: conservative ones).
+
+| team   |   stones |   build |   address |   builds_share |   temperature_hammer |   temperature_no_hammer |
+|:-------|---------:|--------:|----------:|---------------:|---------------------:|------------------------:|
+| USA    |      667 |   0.02  |    -0.011 |          0.774 |                2.945 |                   2.274 |
+| CHN    |      676 |   0.017 |    -0.021 |          0.775 |                2.204 |                   2.745 |
+| DEN    |      650 |   0.01  |    -0.005 |          0.766 |                2.144 |                   2.306 |
+| CAN    |      682 |   0.007 |    -0.014 |          0.74  |                2.383 |                   2.708 |
+| JPN    |      832 |   0.007 |    -0.022 |          0.754 |                2.384 |                   2.742 |
+| OAR    |      643 |   0.003 |    -0.017 |          0.748 |                2.708 |                   2.577 |
+| KOR    |      796 |  -0.006 |     0.018 |          0.668 |                2.983 |                   2.536 |
+| GBR    |      854 |  -0.009 |     0.017 |          0.704 |                2.306 |                   2.224 |
+| SWE    |      859 |  -0.019 |     0.022 |          0.643 |                2.04  |                   2.265 |
+| SUI    |      657 |  -0.024 |     0.025 |          0.674 |                2.603 |                   2.349 |
 
 ### Fourths
 
