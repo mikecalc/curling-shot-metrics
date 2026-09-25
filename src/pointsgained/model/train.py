@@ -12,6 +12,7 @@ Feature sets (design Sections 5.4, 7.2, 13) are named so that experiments can to
   regime     the value of a steal, a single and a deuce in this game, and its products with the stones (f and g)
   core       a minimal position description (rocks left, who throws, era, stones in play, count, discipline);
              with `nobase`, instead of the 26 base features
+  goals      the value of a steal, a single and a deuce in this game (from the win-probability table)
   potential_cb  rock potential with colour-blind cover and backing: a stone in front of or just behind a
              counter serves whichever team the counter belongs to
   potential  rock potential: per team, the stones' chance of counting or covering a counter, less their chance
@@ -53,8 +54,9 @@ FEATURE_SETS = {
     "potential": POTENTIAL_FEATURES,                     # each team's rock potential and the net (model/stone_value.py)
     "potential_cb": POTENTIAL_CB_FEATURES,               # rock potential with colour-blind cover and backing
     "core": ["rocks_remaining", "next_thrower_has_hammer", "fgz_rocks", "stones_in_play", "count", "is_women"],
+    "goals": ["reg_steal", "reg_single", "reg_deuce"],    # what a steal, a single and a deuce are worth in this game
 }
-F_SETS = ("base", "core", "situation", "config", "stones", "regime", "potential", "potential_cb")   # sets that enter f (and g)
+F_SETS = ("base", "core", "situation", "goals", "config", "stones", "regime", "potential", "potential_cb")   # sets that enter f (and g)
 G_ONLY_SETS = ("call", "level", "level_player", "level_id", "intent")       # sets that enter g only
 CATEGORICAL = {"shot_type_code"}
 

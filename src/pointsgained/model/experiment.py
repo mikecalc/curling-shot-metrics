@@ -129,30 +129,41 @@ def setup_battle(rows: pd.DataFrame, V_f: np.ndarray, min_half: int = 30) -> dic
     at = r["shot"].to_numpy() == fgz + 1                      # the row whose pre-position is the end of the setup
     vb = pd.Series(V_f[at], index=pd.MultiIndex.from_frame(r.loc[at, ["game_key", "end"]]))
     swing = (vb - v0.reindex(vb.index)).dropna()
-    ends = r[r["shot"] == 1].set_index(["game_key", "end"])[["book", "hammer_team"]].reindex(swing.index)
+    ends = r[r["shot"] == 1].set_index(["game_key", "end"])[["book", "hammer_team", "diff_hammer", "ends_remaining"]].reindex(swing.index)
+    # the part of the swing explained by the score and ends left alone: good teams lead more often, so an
+    # unadjusted setup battle partly measures leading; the gate also reports the swing within the situation
+    sit = ends["diff_hammer"].clip(-3, 3).astype(str) + "|" + ends["ends_remaining"].clip(1, 8).astype(str)
+    within = swing - swing.groupby(sit.to_numpy()).transform("mean")
     teams = r.groupby("game_key")["team"].agg(lambda x: sorted(set(x)))
     other = [t[1] if h == t[0] else t[0] for h, t in zip(ends["hammer_team"], teams.reindex(ends.index.get_level_values(0)))
              if len(t) == 2] if len(ends) else []
     keep = [len(t) == 2 for t in teams.reindex(ends.index.get_level_values(0))]
-    ends, swing = ends[keep], swing[keep]
+    ends, swing, within = ends[keep], swing[keep], within[keep]
     gk = ends.index.get_level_values(0)
-    view = pd.concat([pd.DataFrame({"book": ends["book"].to_numpy(), "team": ends["hammer_team"].to_numpy(), "game_key": gk, "s": swing.to_numpy()}),
-                      pd.DataFrame({"book": ends["book"].to_numpy(), "team": other, "game_key": gk, "s": -swing.to_numpy()})])
+    view = pd.concat([pd.DataFrame({"book": ends["book"].to_numpy(), "team": ends["hammer_team"].to_numpy(), "game_key": gk,
+                                    "s": swing.to_numpy(), "w": within.to_numpy()}),
+                      pd.DataFrame({"book": ends["book"].to_numpy(), "team": other, "game_key": gk,
+                                    "s": -swing.to_numpy(), "w": -within.to_numpy()})])
     view["half"] = view.groupby(["book", "team"])["game_key"].rank(method="dense").astype(int) % 2
     h = view.groupby(["book", "team", "half"])["s"].agg(["mean", "size"]).unstack()
     h = h[(h[("size", 0)] >= min_half) & (h[("size", 1)] >= min_half)]
     rec = _records(r, ["book", "team"])
     wr = pd.Series({k: v[0] / (v[0] + v[1]) for k, v in rec.items() if sum(v) >= 5}, dtype=float)
-    te = view.groupby(["book", "team"])["s"].mean()
-    j = pd.concat([te, wr.rename("wr")], axis=1).dropna() if len(wr) else pd.DataFrame(columns=["s", "wr"])
+    te = view.groupby(["book", "team"])[["s", "w"]].mean()
+    j = pd.concat([te, wr.rename("wr")], axis=1).dropna() if len(wr) else pd.DataFrame(columns=["s", "w", "wr"])
+    hw = view.groupby(["book", "team", "half"])["w"].agg(["mean", "size"]).unstack()
+    hw = hw[(hw[("size", 0)] >= min_half) & (hw[("size", 1)] >= min_half)]
     return {"setup_repeatability": _spearman(h[("mean", 0)], h[("mean", 1)]) if len(h) > 2 else float("nan"),
             "setup_winrate": _spearman(j["s"], j["wr"]) if len(j) > 2 else float("nan"),
+            "setup_repeatability_within": _spearman(hw[("mean", 0)], hw[("mean", 1)]) if len(hw) > 2 else float("nan"),
+            "setup_winrate_within": _spearman(j["w"], j["wr"]) if len(j) > 2 else float("nan"),
             "setup_sd": float(swing.std())}
 
 
 def run_experiment(ds: Dataset, name: str, sets: tuple[str, ...], split: str = "time", cutoff_year: int = 2024,
                    fold: int = 0, seed: int = 0, reports: str = "reports", inventory_csv: str | None = None,
-                   target: str = "final", monotone: bool = False) -> dict:
+                   target: str = "final", monotone: bool = False, split_model: str | None = None,
+                   early_sets: tuple = (), blend: tuple[int, int] | None = None) -> dict:
     t0 = time.time()
     rows = attach_tier(ds.rows, inventory_csv)
     tr, te = split_rows(rows, split, cutoff_year, fold)
@@ -160,12 +171,21 @@ def run_experiment(ds: Dataset, name: str, sets: tuple[str, ...], split: str = "
     tri_cols = TRIVIAL_FEATURES + (FEATURE_SETS["situation"] if "situation" in sets else [])
     X_t = np.column_stack([column(rows, ds.X, c) for c in tri_cols])
     y = ds.y
-    t1 = time.time()
-    fit_idx, fit_y, fit_w = training_rows(target, rows, X_f, y, tr, seed)
-    log.info("%s: %s targets in %.0fs, %d weighted rows from %d", name, target, time.time() - t1, len(fit_idx), len(tr))
     P = {}
+    if split_model:
+        from .split import fit_split
+        sm = fit_split(rows, ds.X, y, tr, tuple(early_sets), tuple(sets), seed, blend=blend)
+        P["f"], P["g"] = sm.predict(rows, ds.X, te)
+        m = make_model(seed).fit(X_t[tr], y[tr])
+        P["trivial"] = _full_proba(m, X_t[te])
+        P = {k: P[k] for k in ("trivial", "f", "g")}
+        target = f"split:{split_model}" + (f":blend{blend[0]}-{blend[1]}" if blend else "")
+    else:
+        t1 = time.time()
+        fit_idx, fit_y, fit_w = training_rows(target, rows, X_f, y, tr, seed)
+        log.info("%s: %s targets in %.0fs, %d weighted rows from %d", name, target, time.time() - t1, len(fit_idx), len(tr))
     mono = {"f": monotone_cst(f_cols) if monotone else None, "g": monotone_cst(g_cols) if monotone else None}
-    for mname, Xm, cat in (("trivial", X_t, None), ("f", X_f, None), ("g", X_g, _cat_index(g_cols))):
+    for mname, Xm, cat in (() if split_model else (("trivial", X_t, None), ("f", X_f, None), ("g", X_g, _cat_index(g_cols)))):
         t1 = time.time()
         if mname == "trivial":
             m = make_model(seed, cat).fit(Xm[tr], y[tr])       # the reference stays on final labels
@@ -174,7 +194,7 @@ def run_experiment(ds: Dataset, name: str, sets: tuple[str, ...], split: str = "
         P[mname] = _full_proba(m, Xm[te])
         log.info("%s: %s fitted in %.0fs", name, mname, time.time() - t1)
     unm = (rows["mirror"].to_numpy() == 0)[te]
-    rep = {"name": name, "sets": list(sets), "target": target, "monotone": monotone, "split": split, "cutoff_year": cutoff_year if split == "time" else None,
+    rep = {"name": name, "sets": list(sets), "early_sets": list(early_sets), "target": target, "monotone": monotone, "split": split, "cutoff_year": cutoff_year if split == "time" else None,
            "fold": fold if split == "book" else None, "n_train": int(len(tr)), "n_test": int(len(te)),
            "test_books": sorted(set(rows["book"].to_numpy()[te])), "f_cols": f_cols, "g_cols": g_cols,
            "seconds": round(time.time() - t0, 1)}
@@ -195,6 +215,7 @@ def run_experiment(ds: Dataset, name: str, sets: tuple[str, ...], split: str = "
 GATE_COLUMNS = ["seesaw_1_4", "seesaw_5_8", "lead_opponent", "lead_opponent_grade", "second_opponent", "lead_second_team",
                 "lead_grade_player", "second_grade_player", "fourth_grade_player", "lead_grade_shot", "second_grade_shot",
                 "lead_repeatability", "second_repeatability", "lead_sd", "setup_repeatability", "setup_winrate",
+                "setup_repeatability_within", "setup_winrate_within",
                 "slope_12plus", "slope_8_11", "slope_4_7", "slope_1_3", "first_rock_gap_model", "first_rock_gap_real",
                 "pot_resid_12plus", "pot_resid_8_11", "pot_resid_4_7", "pot_resid_1_3"]
 

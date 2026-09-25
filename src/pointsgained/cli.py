@@ -126,10 +126,10 @@ def _with_level(ds, sets, parquet_root, aliases_csv, event_strength_csv="data/ev
     if "config" in sets:
         from .model.config_features import attach_config, load_table
         ds.rows = attach_config(ds.rows, load_table(parquet_root))
-    if {"stones", "regime", "potential", "potential_cb"} & set(sets):
+    if {"stones", "regime", "goals", "potential", "potential_cb"} & set(sets):
         from .model.stone_value import attach_stones, load_position_features
         ds.rows = attach_stones(ds.rows, load_position_features(parquet_root))
-    if "regime" in sets:
+    if {"regime", "goals"} & set(sets):
         from .model.stone_value import attach_regime, load_wp_table
         ds.rows = attach_regime(ds.rows, load_wp_table(parquet_root))
     return ds
@@ -172,7 +172,8 @@ def cmd_experiment(args):
     from .model.cache import load_or_build
     from .model.experiment import run_experiment
     sets = _feature_sets(args.features)
-    ds = _with_level(load_or_build(args.parquet, rebuild=args.rebuild), sets, args.parquet, args.aliases)
+    early = _feature_sets(args.early_features) if args.split_model else ()
+    ds = _with_level(load_or_build(args.parquet, rebuild=args.rebuild), tuple(dict.fromkeys(sets + early)), args.parquet, args.aliases)
     if "net_pot" not in ds.rows:
         # rock potential for the gates, whether or not the models use it
         from .model.stone_value import attach_stones, load_position_features
@@ -180,7 +181,8 @@ def cmd_experiment(args):
     name = args.name or f"{args.split}_{'+'.join(sets)}"
     rep = run_experiment(ds, name, sets, split=args.split, cutoff_year=args.cutoff_year, fold=args.fold,
                          seed=args.seed, reports=args.reports, inventory_csv=args.inventory, target=args.target,
-                         monotone=args.monotone)
+                         monotone=args.monotone, split_model=args.split_model, early_sets=early,
+                         blend=tuple(int(v) for v in args.blend.split(",")) if args.blend else None)
     print(json.dumps({k: rep[k] for k in ("name", "split", "sets", "n_train", "n_test", "trivial_logloss", "f_logloss", "g_logloss", "seconds")}, indent=2))
     print("by rocks remaining:", {r: (v["f"], v["trivial"]) for r, v in rep["logloss_by_rocks_remaining"].items()})
     print("front-end gates:", {k: round(v, 3) for k, v in rep["frontend_gates"].items()})
@@ -610,6 +612,11 @@ def main(argv=None):
     j = sub.add_parser("experiment", help="fit once on one split and score the held-out rows")
     j.add_argument("--target", default="final", help="final (the end's score) or local:k (early rows take the value k stones later)")
     j.add_argument("--monotone", action="store_true", help="expectation must rise with the hammer team's rock potential and fall with the other team's")
+    j.add_argument("--split-model", choices=["fgz"], default=None,
+                   help="value the setup (the free guard zone) with its own models, taught by the endgame models at the handover")
+    j.add_argument("--early-features", default="nobase,core,situation,level,goals,potential_cb,intent",
+                   help="feature sets of the setup models (with --split-model); --features are the endgame models'")
+    j.add_argument("--blend", default=None, help="a,b: a gradual handover, the setup models' share falling from stone a to stone b")
     j.add_argument("--parquet", default="data/parquet")
     j.add_argument("--reports", default="reports")
     j.add_argument("--inventory", default="data/inventory.csv")
