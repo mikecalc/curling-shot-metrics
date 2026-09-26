@@ -59,3 +59,20 @@ def test_count_ids():
     assert list(idx) == [0, 1] and shot == 0
     idx, shot = count_ids(np.array([200.0]), np.array([0.0]), np.array([1]))
     assert len(idx) == 0 and shot == -1
+
+
+def test_unmarked_thrown_stone_is_inferred_from_the_throwers_colour():
+    f1 = F(1, [(0, 10, 0)])                                   # first diagram, no mark: the non-hammer stone
+    f2 = F(2, [(0, 10, 0), (20, 100, 1)])                     # no mark: the one new hammer stone
+    recs = track_end([f1, f2])
+    assert [r["status"] for r in recs if r["shot"] == 1] == ["thrown"]
+    s2 = {r["owner"]: r for r in recs if r["shot"] == 2}
+    assert s2[1]["status"] == "thrown" and not s2[1]["marked"] and s2[0]["status"] == "unmoved"
+
+
+def test_two_unmarked_new_stones_of_the_throwers_colour_stay_new():
+    # a missing diagram between: two new hammer stones, neither can be named the thrown one
+    f1 = F(1, [(0, 10, 0)], delivered=0)
+    f3 = F(4, [(0, 10, 0), (20, 100, 1), (-20, 90, 1)])
+    _, status = match(f1, f3)
+    assert status[1] == "new" and status[2] == "new"

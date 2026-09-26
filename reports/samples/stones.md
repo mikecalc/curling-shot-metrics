@@ -1,6 +1,6 @@
 # The life of a stone
 
-Every stone of every end followed through the diagrams: 2,435,437 stone positions over 37,623 ends, 36,024 of them with a final diagram. How each stone got to where it is after a shot: unmoved 71.6%, the thrown stone (marked) 11.9%, new without a mark 8.7% (almost all thrown stones whose marker is missing), moved 7.7%.
+Every stone of every end followed through the diagrams: 2,435,437 stone positions over 37,623 ends, 36,024 of them with a final diagram. How each stone got to where it is after a shot: unmoved 71.6%, the thrown stone 20.6% (62.3% of them marked on the diagram, the rest the one new stone of the thrower's colour), new 957 stones (origin unknown), moved 7.7%.
 
 ## What a stone ends up doing
 

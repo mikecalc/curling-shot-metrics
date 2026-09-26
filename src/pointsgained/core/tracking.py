@@ -10,7 +10,9 @@ them one, shot by shot:
 - **moved**: the remaining stones are matched to the previous diagram's unmatched stones of the same
   team by least total distance, preferring stones whose old position carries a prior-position ring;
 - anything left over in the new diagram is **new** (origin unknown), and anything left over in the old
-  one was **removed**.
+  one was **removed**. When the diagram marks no delivered stone and exactly one new stone is the
+  thrower's colour (non-hammer on odd stones, hammer on even), that stone is **thrown** too: many
+  templates and the first diagram of an end carry no mark. `marked` in the records says which.
 
 The result is a stone's life through the end: where it was after every shot, and whether it counted
 when the end was over. `count_ids` gives the counting stones of a final position.
@@ -88,7 +90,18 @@ def match(prev: Frame, cur: Frame) -> tuple[dict[int, int], dict[int, str]]:
                 status[free_c[c]] = "moved"
     for j in range(len(cur.x)):
         status.setdefault(j, "new")
-    return link, status
+    return link, _infer_thrown(cur, status)
+
+
+def _infer_thrown(cur: Frame, status: dict[int, str]) -> dict[int, str]:
+    """With no delivered stone found, the one new stone of the thrower's colour is the thrown stone."""
+    if "thrown" in status.values():
+        return status
+    thrower = 1 if cur.shot % 2 == 0 else 0
+    cand = [j for j, s in status.items() if s == "new" and cur.owner[j] == thrower]
+    if len(cand) == 1:
+        status[cand[0]] = "thrown"
+    return status
 
 
 def count_ids(x: np.ndarray, y: np.ndarray, owner: np.ndarray) -> tuple[np.ndarray, int]:
@@ -116,7 +129,7 @@ def track_end(frames: list[Frame]) -> list[dict]:
     for fr in frames:
         n = len(fr.x)
         cur_ids = np.full(n, -1, dtype=int)
-        status = {j: "new" for j in range(n)}
+        status = _infer_thrown(fr, {j: "new" for j in range(n)})
         if prev is not None and n:
             link, status = match(prev, fr)
             for j, i in link.items():
@@ -128,7 +141,8 @@ def track_end(frames: list[Frame]) -> list[dict]:
                 next_id += 1
         for j in range(n):
             records.append(dict(shot=fr.shot, sid=int(cur_ids[j]), owner=int(fr.owner[j]), x=float(fr.x[j]),
-                                y=float(fr.y[j]), status=status[j], born=born[int(cur_ids[j])]))
+                                y=float(fr.y[j]), status=status[j], marked=bool(fr.delivered[j]),
+                                born=born[int(cur_ids[j])]))
         ids, prev = cur_ids, fr
     if prev is None:
         return records

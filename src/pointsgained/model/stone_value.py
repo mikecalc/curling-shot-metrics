@@ -338,6 +338,8 @@ def write_report(parquet_root: str, reports_dir: str) -> str:
     riser_zones = (100 * risers[~risers["counting_then"]]["zone"].value_counts(normalize=True)).round(1).rename("share").reset_index()
 
     status = (100 * lives["status"].value_counts(normalize=True)).round(1)
+    thrown = lives[lives["status"] == "thrown"]
+    marked = round(100 * float(thrown["marked"].mean()), 1) if "marked" in lives and len(thrown) else 0.0
     cal_now = calibration_by_stage(pd.read_parquet(os.path.join(parquet_root, "points_gained.parquet"),
                                                    columns=KEYS + ["shot", "V_pre", "V_post", "is_last_shot"]))
     old_path = os.path.join(parquet_root, "points_gained_v1_final.parquet")
@@ -351,8 +353,8 @@ def write_report(parquet_root: str, reports_dir: str) -> str:
            f"Every stone of every end followed through the diagrams: {len(lives):,} stone positions over "
            f"{lives.groupby(KEYS).ngroups:,} ends, {comp.groupby(KEYS).ngroups:,} of them with a final diagram. "
            f"How each stone got to where it is after a shot: unmoved {status.get('unmoved', 0)}%, the thrown stone "
-           f"(marked) {status.get('thrown', 0)}%, new without a mark {status.get('new', 0)}% (almost all thrown stones "
-           f"whose marker is missing), moved {status.get('moved', 0)}%.\n",
+           f"{status.get('thrown', 0)}% ({marked}% of them marked on the diagram, the rest the one new stone of the "
+           f"thrower's colour), new {int((lives['status'] == 'new').sum()):,} stones (origin unknown), moved {status.get('moved', 0)}%.\n",
            "## What a stone ends up doing\n",
            "For a stone at a given place and stage of the end, the share that, when the end is over, **count**, "
            "**cover** a counting stone of their own team (in front of it within a stone's width, not counting "
