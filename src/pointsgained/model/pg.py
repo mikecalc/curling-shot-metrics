@@ -41,7 +41,7 @@ def wp_vectors(table: WinProbTable, diff_hammer: np.ndarray, ends_remaining: np.
 
 
 def compute_points_gained(ds: Dataset, models: FittedModels, vm: ValueMapping,
-                          wp_table: WinProbTable | None = None, skill_reference: np.ndarray | None = None) -> pd.DataFrame:
+                          wp_table: WinProbTable | None = None, skill_reference: np.ndarray | None = None, post_features: pd.DataFrame | None = None) -> pd.DataFrame:
     """One row per real shot with D(S), D(S|C), D(S'), and pg / pg_call / pg_throw (thrower's view)
     in hammer-adjusted points, plus the same in win probability (`_wp` columns) when a table is given.
 
@@ -87,6 +87,12 @@ def compute_points_gained(ds: Dataset, models: FittedModels, vm: ValueMapping,
             cols = [c for c in CONFIG_COLUMNS if c in sub]
             if cols:
                 sub[cols] = pd.DataFrame(cfg)[cols].to_numpy(dtype=float)
+            if post_features is not None:
+                # stone and potential columns of the rebuilt post position (keyed by this shot's post position)
+                pcols = [c for c in post_features.columns if c in sub]
+                if pcols:
+                    key = pd.MultiIndex.from_arrays([sub["game_key"], sub["end"], sub["shot"]])
+                    sub[pcols] = post_features[pcols].reindex(key).fillna(0.0).to_numpy(dtype=float)
             Xp_f, _ = models.design(sub, np.vstack(feats))
             D_post[keep] = models.predict_f(Xp_f, groups[keep] if groups is not None else None)
     D_post[is_last] = _point_masses(end_score[is_last])

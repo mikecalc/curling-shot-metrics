@@ -5,7 +5,7 @@ in them comes from the corpus and the fitted expectation models described in `sh
 
 | File | What it is | Produced by |
 |---|---|---|
-| `model_report.md` | The model's own report card: corpus counts, hammer values, held-out accuracy, conservation, whole-corpus leaderboards and strata | `pointsgained model --features base,situation,level,intent,config --target local:2` |
+| `model_report.md` | The model's own report card: corpus counts, hammer values, held-out accuracy, conservation, whole-corpus leaderboards and strata | `pointsgained model --features base,situation,level,intent,config,potential_cb --target local:2` |
 | `front_end.md` | The early-end study: what front-end execution values measure (repeatability, the see-saw, agreement with grades), configuration calibration and survival, the field's double and runback rates by geometry, runbacks by player, and scenario probes | `pointsgained frontend` |
 | `stones.md` | The stone study: every stone followed through the end, what stones end up doing (count, cover, back up the opponent), late risers, and how flat the model is by stage of the end | `pointsgained stones` (also writes the potential ledger used by `game` and `events`) |
 | `testset.md` | Six pinned last-rock shots from the 2026 Olympics, both currencies, used as a face-validity check whenever the model changes | `pointsgained testset` |

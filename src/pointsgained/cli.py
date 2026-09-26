@@ -240,7 +240,14 @@ def cmd_model(args):
         from .model.experiment import attach_tier
         tiers = attach_tier(ds.rows, args.inventory).get("tier")
         skill_ref = reference_skill(ds.rows, ds.rows["skill_thrower"].to_numpy(), tiers)
-    pg = compute_points_gained(ds, models, vm, wp_table=wpt, skill_reference=skill_ref)
+    post_features = None
+    if {"stones", "potential", "potential_cb"} & set(sets):
+        # a post position rebuilt from the stones needs its own stone and potential columns
+        from .model.stone_value import attach_stones, load_position_features
+        pf = load_position_features(args.parquet)
+        keyed = pf.assign(pre_source_shot=pf["shot"])
+        post_features = attach_stones(keyed, pf).set_index(["game_key", "end", "shot"])
+    pg = compute_points_gained(ds, models, vm, wp_table=wpt, skill_reference=skill_ref, post_features=post_features)
     cons = conservation_check(pg, vm)
     rep["conservation_max_abs_residual"] = float(cons["residual"].abs().max())
     rep["conservation_terminal_ok_rate"] = float(cons["terminal_is_actual"].mean())

@@ -65,7 +65,7 @@ pointsgained difficulty
 pointsgained intent
 
 # 6. models and Points Gained (reports/model_report.md, data/parquet/points_gained.parquet)
-pointsgained model --features base,situation,level,intent,config --target local:2
+pointsgained model --features base,situation,level,intent,config,potential_cb --target local:2
 
 # rewrite the model report's tables from the saved run, without refitting
 pointsgained model-report
@@ -84,7 +84,7 @@ pointsgained game --match OWG2026 Gold_Medal
 pointsgained frontend
 
 # one modelling experiment: fit once on a split, score held out (reports/experiments/log.md)
-pointsgained experiment --split time --features base,situation,level,intent,config --target local:2
+pointsgained experiment --split time --features base,situation,level,intent,config,potential_cb --target local:2
 
 # raw-geometry model (needs torch): time-split log-loss against the trees, subtlety probe, monotonicity
 pointsgained raster --features base,situation,level,intent --epochs 6
