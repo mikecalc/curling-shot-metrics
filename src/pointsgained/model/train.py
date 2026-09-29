@@ -21,6 +21,7 @@ Feature sets (design Sections 5.4, 7.2, 13) are named so that experiments can to
   shotdist   each team's stone nearest the pin
   slots      the rocks that matter, each whole: shot, second and third shot and each team's guard nearest the
              pin, with owner and traits (is the shot rock open?) (model/slot_features.py)
+  combo      doubles and runbacks for the thrower: whether one is on, its geometry and the count swing
   draw       the draw to beat for the thrower: the stone to beat, how many it counts, what a made draw leaves,
              whether the curled paths from either side are open, and whether a finishing point has backing
   potential  rock potential: per team, the stones' chance of counting or covering a counter, less their chance
@@ -43,6 +44,7 @@ from .stone_value import POTENTIAL_CB_FEATURES, POTENTIAL_FEATURES, REGIME_FEATU
 from .features import FEATURE_NAMES
 from .trait_features import TRAIT_COLUMNS
 from ..core.draw import DRAW_FEATURES
+from ..core.combos import COMBO_FEATURES
 from .slot_features import SLOT_COLUMNS
 from .value import N_OUT
 
@@ -71,9 +73,10 @@ FEATURE_SETS = {
     "margin": ["margin", "boundary_gap", "near_tie"],     # the count's margin: inches between the shot rock (last counter) and the first opposing stone
     "shotdist": ["own_min_dist", "opp_min_dist"],        # each team's stone nearest the pin: how close the rock to beat is
     "slots": SLOT_COLUMNS,                               # shot, second, third and each team's nearest guard, each with its traits
-    "draw": DRAW_FEATURES,                               # the draw to beat for the thrower: against n, open sides, backing (core/draw.py)       # each team's stones graded by additive trait weights (model/trait_study.py)
+    "draw": DRAW_FEATURES,
+    "combo": COMBO_FEATURES,                             # doubles and runbacks for the thrower: available, how good, what is at stake (core/combos.py)                               # the draw to beat for the thrower: against n, open sides, backing (core/draw.py)       # each team's stones graded by additive trait weights (model/trait_study.py)
 }
-F_SETS = ("base", "core", "situation", "goals", "config", "stones", "regime", "potential", "potential_cb", "traits", "grades", "margin", "shotdist", "draw", "slots")   # sets that enter f (and g)
+F_SETS = ("base", "core", "situation", "goals", "config", "stones", "regime", "potential", "potential_cb", "traits", "grades", "margin", "shotdist", "draw", "slots", "combo")   # sets that enter f (and g)
 G_ONLY_SETS = ("call", "level", "level_player", "level_id", "intent")       # sets that enter g only
 CATEGORICAL = {"shot_type_code"}
 

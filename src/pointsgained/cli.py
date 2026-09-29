@@ -132,9 +132,10 @@ def _with_level(ds, sets, parquet_root, aliases_csv, event_strength_csv="data/ev
     if "slots" in sets:
         from .model.slot_features import attach_slots
         ds.rows = attach_slots(ds.rows, parquet_root)
-    if "draw" in sets:
-        from .model.draw_features import attach_draw, load_table as load_draw_table
-        ds.rows = attach_draw(ds.rows, load_draw_table(parquet_root))
+    for rel in ("draw", "combo"):
+        if rel in sets:
+            from .model.draw_features import attach_draw, load_table as load_rel_table
+            ds.rows = attach_draw(ds.rows, load_rel_table(parquet_root, name=rel), name=rel)
     if "grades" in sets:
         from .model.trait_study import attach_grades
         ds.rows = attach_grades(ds.rows, parquet_root, fit_books=grade_books)
