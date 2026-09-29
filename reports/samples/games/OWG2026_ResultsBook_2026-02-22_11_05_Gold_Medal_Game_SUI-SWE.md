@@ -11,15 +11,15 @@ SUI's chance of winning before the first stone of the end and after the last, an
 |   end | hammer   | result       | score SUI-SWE   |   WP SUI before |   WP SUI after |   swing SUI |
 |------:|:---------|:-------------|:----------------|----------------:|---------------:|------------:|
 |     1 | SWE      | SWE 2        | 0-2             |            38.7 |           24.3 |       -14.4 |
-|     2 | SUI      | blank        | 0-2             |            25.3 |           24.5 |        -0.8 |
+|     2 | SUI      | blank        | 0-2             |            25.2 |           24.5 |        -0.7 |
 |     3 | SUI      | blank        | 0-2             |            24.8 |           26   |         1.2 |
-|     4 | SUI      | SUI 1        | 1-2             |            25.3 |           20.6 |        -4.7 |
-|     5 | SWE      | SWE 1        | 1-3             |            21.3 |           25.2 |         3.9 |
-|     6 | SUI      | SUI 2        | 3-3             |            22.8 |           36.9 |        14.1 |
-|     7 | SWE      | SWE 1        | 3-4             |            36   |           40.5 |         4.5 |
-|     8 | SUI      | SWE steals 1 | 3-5             |            40.4 |           12.9 |       -27.5 |
-|     9 | SUI      | SUI 2        | 5-5             |            13.3 |           20.4 |         7.2 |
-|    10 | SWE      | SWE 1        | 5-6             |            20.3 |            0   |       -20.3 |
+|     4 | SUI      | SUI 1        | 1-2             |            25.2 |           20.6 |        -4.6 |
+|     5 | SWE      | SWE 1        | 1-3             |            21.4 |           25.2 |         3.8 |
+|     6 | SUI      | SUI 2        | 3-3             |            22.7 |           36.9 |        14.2 |
+|     7 | SWE      | SWE 1        | 3-4             |            36.1 |           40.5 |         4.4 |
+|     8 | SUI      | SWE steals 1 | 3-5             |            40.3 |           12.9 |       -27.4 |
+|     9 | SUI      | SUI 2        | 5-5             |            13.2 |           20.4 |         7.2 |
+|    10 | SWE      | SWE 1        | 5-6             |            19.8 |            0   |       -19.8 |
 
 ## Players
 
@@ -27,14 +27,14 @@ Execution over the game: `PGAA` is the sum of what each stone did against the fi
 
 | team   | player         |   shots |   grade |   PGAA | worst stone              | best stone              |   WP gain |
 |:-------|:---------------|--------:|--------:|-------:|:-------------------------|:------------------------|----------:|
-| SUI    | PAETZ A        |      20 |    80   |   2.94 | -0.41 (end 4, stone 16)  | +1.00 (end 5, stone 15) |      48.1 |
-| SUI    | TIRINZONI S    |      20 |    78.8 |   1.72 | -0.15 (end 4, stone 10)  | +0.60 (end 9, stone 10) |      26.4 |
-| SUI    | HOWALD C       |      20 |    75   |   0.17 | -0.15 (end 6, stone 6)   | +0.25 (end 5, stone 7)  |      20.8 |
-| SUI    | WITSCHONKE S   |      20 |    97.5 |   0.31 | -0.04 (end 7, stone 3)   | +0.10 (end 6, stone 4)  |       7.5 |
-| SWE    | HASSELBORG A   |      20 |    83.8 |   2.81 | -0.61 (end 10, stone 16) | +0.60 (end 1, stone 14) |      84.3 |
-| SWE    | McMANUS S      |      20 |    80   |   0.54 | -0.23 (end 7, stone 12)  | +0.42 (end 5, stone 12) |      27.8 |
-| SWE    | KNOCHENHAUER A |      20 |    81.2 |   0.36 | -0.18 (end 1, stone 6)   | +0.13 (end 6, stone 5)  |      21.8 |
-| SWE    | SCHARBACK S    |      20 |    85   |   0.42 | -0.07 (end 7, stone 4)   | +0.08 (end 3, stone 3)  |       5.7 |
+| SUI    | PAETZ A        |      20 |    80   |   2.62 | -0.57 (end 8, stone 16)  | +1.00 (end 5, stone 15) |      36.4 |
+| SUI    | TIRINZONI S    |      20 |    78.8 |   2.1  | -0.11 (end 10, stone 11) | +0.55 (end 9, stone 10) |      35.7 |
+| SUI    | HOWALD C       |      20 |    75   |   0.68 | -0.17 (end 6, stone 6)   | +0.23 (end 5, stone 5)  |      26.4 |
+| SUI    | WITSCHONKE S   |      20 |    97.5 |   0.71 | -0.03 (end 3, stone 4)   | +0.11 (end 2, stone 4)  |      14.7 |
+| SWE    | HASSELBORG A   |      20 |    83.8 |   2.77 | -0.40 (end 10, stone 16) | +0.62 (end 1, stone 14) |      73.3 |
+| SWE    | McMANUS S      |      20 |    80   |   1.06 | -0.18 (end 7, stone 12)  | +0.56 (end 5, stone 12) |      39.1 |
+| SWE    | KNOCHENHAUER A |      20 |    81.2 |   0.8  | -0.20 (end 1, stone 6)   | +0.15 (end 1, stone 8)  |      28.9 |
+| SWE    | SCHARBACK S    |      20 |    85   |   0.69 | -0.08 (end 7, stone 4)   | +0.10 (end 1, stone 2)  |       8.1 |
 
 ## Largest swings
 
@@ -42,249 +42,249 @@ The ten stones that moved the chance of winning most, either way.
 
 |   end |   shot | team   | player         | type            | turn   |   grade |   WP before |   WP after |   WP gain |   PGAA |
 |------:|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-----------:|----------:|-------:|
-|     5 |     15 | SUI    | PAETZ A        | Double Take-out | cw     |     100 |        15   |       30.1 |      15.1 |   1    |
-|     1 |     14 | SWE    | HASSELBORG A   | Double Take-out | cw     |     100 |        58.3 |       68.7 |      10.5 |   0.6  |
-|     8 |     16 | SUI    | PAETZ A        | Double Take-out | ccw    |      25 |        23.2 |       12.9 |     -10.3 |  -0.25 |
-|     4 |     16 | SUI    | PAETZ A        | Draw            | ccw    |       0 |        30.5 |       20.6 |      -9.9 |  -0.41 |
-|    10 |      6 | SWE    | KNOCHENHAUER A | Double Take-out | ccw    |     100 |        71.4 |       81   |       9.5 |   0.03 |
-|     9 |     16 | SUI    | PAETZ A        | Raise           | ccw    |     100 |        10.9 |       20.4 |       9.5 |   0.51 |
-|     5 |     12 | SWE    | McMANUS S      | Take-out        | cw     |     100 |        73.2 |       82.4 |       9.2 |   0.42 |
-|    10 |     16 | SWE    | HASSELBORG A   | Take-out        | ccw    |     100 |        91.3 |      100   |       8.7 |  -0.61 |
-|     6 |     14 | SUI    | PAETZ A        | Draw            | cw     |     100 |        23.7 |       31.8 |       8.1 |   0.38 |
-|     9 |     15 | SWE    | HASSELBORG A   | Hit and Roll    | cw     |      75 |        81.6 |       89.1 |       7.5 |   0.51 |
+|     8 |     16 | SUI    | PAETZ A        | Double Take-out | ccw    |      25 |        28.9 |       12.9 |     -16   |  -0.57 |
+|     5 |     15 | SUI    | PAETZ A        | Double Take-out | cw     |     100 |        15.7 |       30.9 |      15.2 |   1    |
+|    10 |     16 | SWE    | HASSELBORG A   | Take-out        | ccw    |     100 |        87   |      100   |      13   |  -0.4  |
+|    10 |      6 | SWE    | KNOCHENHAUER A | Double Take-out | ccw    |     100 |        71.4 |       83.1 |      11.7 |   0.11 |
+|     6 |     16 | SUI    | PAETZ A        | Draw            | ccw    |     100 |        26   |       36.9 |      10.8 |   0.6  |
+|     4 |     16 | SUI    | PAETZ A        | Draw            | ccw    |       0 |        30.9 |       20.6 |     -10.3 |  -0.52 |
+|     1 |     14 | SWE    | HASSELBORG A   | Double Take-out | cw     |     100 |        58   |       68.3 |      10.3 |   0.62 |
+|     5 |     12 | SWE    | McMANUS S      | Take-out        | cw     |     100 |        73.1 |       83.2 |      10.1 |   0.56 |
+|    10 |     10 | SWE    | McMANUS S      | Clearing        | ccw    |     100 |        76.7 |       85.3 |       8.6 |   0.06 |
+|     6 |     14 | SUI    | PAETZ A        | Draw            | cw     |     100 |        21.8 |       29.6 |       7.8 |   0.41 |
 
 ## Shots
 
 Per stone: the situation (the end header and `WP before`), the shot (type, turn and the book's grade), its execution (`PGAA` and `call`, hammer-adjusted points) and its effect (`WP after`, `WP gain`).
 
-Then the position's **rock potential** after the stone, for each team (`pot SUI`, `pot SWE`): its stones' chance of counting or covering a counter when the end is over, from where stones like them sit at that stage of the end, with a stone in front of or just behind a counter credited to whichever team the counter belongs to. `build` is how much the stone added to its own team's potential, `address` how much it took from the other team's. Potential describes the position; it is not a value and does not add up to the result. Under each end header: each team's potential after the free guard zone, after stone 12 and before the last stone, and the end's peak temperature (both teams' potential together: high in an aggressive end, low in a conservative one).
+Then the **rock ledger** after the stone: each team's rock grade (`rocks SUI`, `rocks SWE`), the sum of its rocks' grades as they sit after the stone, every rock read afresh by its traits (in the 4-foot, behind cover, frozen, ...) in hammer-adjusted points from that team's side. `build` is how much the stone added to its own team's grade, `address` how much it took from the other team's; a stone is graded before and after with the weights of its own stage of the end. The ledger describes the rocks; it is not the model's value and does not add up to the result. Under each end header: each team's grade after the free guard zone, after stone 12 and before the last stone, and the end's peak temperature (both teams' grades together: high in an aggressive end, low in a conservative one).
 
 ### End 1: SWE hammer, tied, 10 ends left; result SWE 2
 
-Potential after the free guard zone: SUI 0.32, SWE 0.69; after stone 12: SUI 0.42, SWE 0.95; before the last stone: SUI 0.48, SWE 0.90. Peak temperature 2.26.
+Rock grades after the free guard zone: SUI 0.13, SWE 0.71; after stone 12: SUI 0.69, SWE 1.34; before the last stone: SUI 0.45, SWE 0.94. Peak temperature 2.34.
 
-|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   pot SUI |   pot SWE |   build |   address |
-|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|----------:|----------:|--------:|----------:|
-|      1 | SUI    | WITSCHONKE S   | Front           | ccw    |     100 |        38.7 |   0.01 |  -0.01 |       39   |       0.3 |      0.04 |      0.09 |    0.04 |     -0.09 |
-|      2 | SWE    | SCHARBACK S    | Draw            | cw     |     100 |        61   |   0.06 |   0    |       61.9 |       0.9 |      0.07 |      0.25 |    0.16 |     -0.03 |
-|      3 | SUI    | WITSCHONKE S   | Draw            | ccw    |     100 |        38.1 |   0.02 |   0.01 |       38.7 |       0.6 |      0.15 |      0.28 |    0.09 |     -0.03 |
-|      4 | SWE    | SCHARBACK S    | Draw            | cw     |     100 |        61.3 |  -0.03 |   0.02 |       61   |      -0.3 |      0.17 |      0.41 |    0.13 |     -0.02 |
-|      5 | SUI    | HOWALD C       | Draw            | ccw    |      50 |        39   |  -0.12 |   0.04 |       37.9 |      -1.1 |      0.32 |      0.69 |    0.14 |     -0.27 |
-|      6 | SWE    | KNOCHENHAUER A | Draw            | cw     |       0 |        62.1 |  -0.18 |  -0.01 |       59   |      -3.1 |      0.39 |      0.84 |    0.15 |     -0.08 |
-|      7 | SUI    | HOWALD C       | Draw            | cw     |     100 |        41   |  -0.07 |   0    |       40   |      -1   |      0.46 |      0.91 |    0.07 |     -0.07 |
-|      8 | SWE    | KNOCHENHAUER A | Clearing        | ccw    |      50 |        60   |   0.11 |  -0.01 |       61.6 |       1.6 |      0.38 |      0.84 |   -0.07 |      0.08 |
-|      9 | SUI    | TIRINZONI S    | Double Take-out | ccw    |      50 |        38.4 |   0.02 |  -0.06 |       37.7 |      -0.8 |      0.66 |      1.22 |    0.28 |     -0.38 |
-|     10 | SWE    | McMANUS S      | Draw            | cw     |     100 |        62.3 |  -0.17 |  -0.01 |       59.4 |      -3   |      0.77 |      1.49 |    0.27 |     -0.1  |
-|     11 | SUI    | TIRINZONI S    | Double Take-out | cw     |     100 |        40.6 |   0.15 |  -0.14 |       40.5 |      -0.1 |      0.57 |      0.94 |   -0.2  |      0.56 |
-|     12 | SWE    | McMANUS S      | Take-out        | ccw    |      75 |        59.5 |  -0.14 |   0.12 |       58.8 |      -0.7 |      0.42 |      0.95 |    0.02 |      0.15 |
-|     13 | SUI    | PAETZ A        | Take-out        | cw     |     100 |        41.2 |   0.14 |  -0.08 |       41.7 |       0.5 |      0.6  |      1    |    0.18 |     -0.05 |
-|     14 | SWE    | HASSELBORG A   | Double Take-out | cw     |     100 |        58.3 |   0.6  |   0    |       68.7 |      10.5 |      0.38 |      1.32 |    0.33 |      0.22 |
-|     15 | SUI    | PAETZ A        | Double Take-out | cw     |      50 |        31.3 |   0.03 |   0    |       31.2 |       0   |      0.48 |      0.9  |    0.1  |      0.43 |
-|     16 | SWE    | HASSELBORG A   | Take-out        | ccw    |     100 |        68.8 |   0.28 |   0.1  |       75.7 |       6.9 |      0.43 |      1.54 |    0.64 |      0.05 |
+|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   rocks SUI |   rocks SWE |   build |   address |
+|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|------------:|------------:|--------:|----------:|
+|      1 | SUI    | WITSCHONKE S   | Front           | ccw    |     100 |        38.7 |   0.05 |  -0.01 |       39.5 |       0.8 |        0    |        0    |    0    |      0    |
+|      2 | SWE    | SCHARBACK S    | Draw            | cw     |     100 |        60.5 |   0.1  |   0    |       62.1 |       1.5 |       -0.03 |        0.35 |    0.35 |      0.03 |
+|      3 | SUI    | WITSCHONKE S   | Draw            | ccw    |     100 |        37.9 |   0.09 |   0.01 |       39.6 |       1.7 |        0.13 |        0.24 |    0.16 |      0.11 |
+|      4 | SWE    | SCHARBACK S    | Draw            | cw     |     100 |        60.4 |   0    |   0.04 |       60.9 |       0.5 |        0.11 |        0.71 |    0.47 |      0.02 |
+|      5 | SUI    | HOWALD C       | Draw            | ccw    |      50 |        39.1 |  -0.07 |   0.01 |       38.2 |      -0.9 |        0.13 |        0.71 |    0.02 |      0    |
+|      6 | SWE    | KNOCHENHAUER A | Draw            | cw     |       0 |        61.8 |  -0.2  |   0.06 |       59.5 |      -2.3 |        0.56 |        0.9  |    0.11 |     -0.23 |
+|      7 | SUI    | HOWALD C       | Draw            | cw     |     100 |        40.5 |  -0.06 |   0.01 |       39.7 |      -0.8 |        0.84 |        0.93 |    0.29 |     -0.04 |
+|      8 | SWE    | KNOCHENHAUER A | Clearing        | ccw    |      50 |        60.3 |   0.15 |  -0.03 |       62.3 |       2   |        0.44 |        1.17 |    0.24 |      0.4  |
+|      9 | SUI    | TIRINZONI S    | Double Take-out | ccw    |      50 |        37.7 |   0.1  |  -0.03 |       38.7 |       1   |        0.68 |        0.88 |    0.24 |      0.3  |
+|     10 | SWE    | McMANUS S      | Draw            | cw     |     100 |        61.3 |  -0.15 |   0.01 |       58.8 |      -2.5 |        0.79 |        1.18 |    0.3  |     -0.11 |
+|     11 | SUI    | TIRINZONI S    | Double Take-out | cw     |     100 |        41.2 |   0.25 |  -0.06 |       44.3 |       3.1 |        1.27 |        1.07 |    0.15 |      0.59 |
+|     12 | SWE    | McMANUS S      | Take-out        | ccw    |      75 |        55.7 |  -0.01 |   0.13 |       57.5 |       1.8 |        0.69 |        1.34 |    0.27 |      0.58 |
+|     13 | SUI    | PAETZ A        | Take-out        | cw     |     100 |        42.5 |   0.09 |  -0.1  |       42   |      -0.5 |        0.43 |        0.43 |   -0.26 |      0.9  |
+|     14 | SWE    | HASSELBORG A   | Double Take-out | cw     |     100 |        58   |   0.62 |  -0.02 |       68.3 |      10.3 |        0.12 |        1.78 |    1.35 |      0.3  |
+|     15 | SUI    | PAETZ A        | Double Take-out | cw     |      50 |        31.7 |  -0.04 |   0.03 |       30.9 |      -0.8 |        0.45 |        0.94 |    0.33 |      0.84 |
+|     16 | SWE    | HASSELBORG A   | Take-out        | ccw    |     100 |        69.1 |   0.35 |   0.01 |       75.7 |       6.6 |        0.22 |        1.68 |    0.73 |      0.23 |
 
 ### End 2: SUI hammer, down 2, 9 ends left; result blank
 
-Potential after the free guard zone: SUI 0.35, SWE 0.15; after stone 12: SUI 0.66, SWE 0.17; before the last stone: SUI 0.73, SWE 0.35. Peak temperature 1.16.
+Rock grades after the free guard zone: SUI 0.29, SWE 0.02; after stone 12: SUI 0.79, SWE 0.04; before the last stone: SUI 0.01, SWE 0.27. Peak temperature 0.94.
 
-|   shot | team   | player         | type         | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   pot SUI |   pot SWE |   build |   address |
-|-------:|:-------|:---------------|:-------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|----------:|----------:|--------:|----------:|
-|      1 | SWE    | SCHARBACK S    | Front        | ccw    |     100 |        74.7 |  -0.01 |  -0.02 |       74.2 |      -0.5 |      0.12 |      0.04 |    0.04 |     -0.12 |
-|      2 | SUI    | WITSCHONKE S   | Front        | ccw    |     100 |        25.8 |  -0.01 |  -0.01 |       25.5 |      -0.3 |      0.21 |      0.06 |    0.09 |     -0.01 |
-|      3 | SWE    | SCHARBACK S    | Draw         | ccw    |      75 |        74.5 |   0.06 |  -0.01 |       75.2 |       0.7 |      0.25 |      0.12 |    0.06 |     -0.03 |
-|      4 | SUI    | WITSCHONKE S   | Take-out     | ccw    |     100 |        24.8 |   0.07 |   0.08 |       26.4 |       1.7 |      0.29 |      0.08 |    0.04 |      0.04 |
-|      5 | SWE    | KNOCHENHAUER A | Hit and Roll | ccw    |      75 |        73.6 |   0.05 |   0.03 |       74.6 |       1.1 |      0.35 |      0.15 |    0.07 |     -0.06 |
-|      6 | SUI    | HOWALD C       | Hit and Roll | ccw    |      50 |        25.4 |  -0.08 |   0.08 |       25.1 |      -0.3 |      0.28 |      0.08 |   -0.07 |      0.07 |
-|      7 | SWE    | KNOCHENHAUER A | Draw         | ccw    |      75 |        74.9 |   0.07 |   0    |       75.5 |       0.6 |      0.34 |      0.15 |    0.07 |     -0.06 |
-|      8 | SUI    | HOWALD C       | Hit and Roll | cw     |      75 |        24.5 |   0.14 |   0.08 |       27.3 |       2.8 |      0.45 |      0.12 |    0.11 |      0.03 |
-|      9 | SWE    | McMANUS S      | Hit and Roll | cw     |      75 |        72.7 |   0.15 |   0.07 |       75.9 |       3.3 |      0.6  |      0.27 |    0.14 |     -0.15 |
-|     10 | SUI    | TIRINZONI S    | Hit and Roll | cw     |      75 |        24.1 |   0.06 |   0.06 |       25.7 |       1.6 |      0.71 |      0.15 |    0.11 |      0.11 |
-|     11 | SWE    | McMANUS S      | Take-out     | cw     |      50 |        74.3 |  -0.07 |   0.02 |       74.3 |       0   |      0.45 |      0.15 |   -0.01 |      0.26 |
-|     12 | SUI    | TIRINZONI S    | Draw         | ccw    |      75 |        25.7 |   0.1  |  -0.02 |       27.4 |       1.7 |      0.66 |      0.17 |    0.21 |     -0.02 |
-|     13 | SWE    | HASSELBORG A   | Take-out     | ccw    |     100 |        72.6 |   0.07 |   0.13 |       76.2 |       3.6 |      0.65 |      0.27 |    0.1  |      0.01 |
-|     14 | SUI    | PAETZ A        | Hit and Roll | cw     |      75 |        23.8 |   0.12 |   0.05 |       26.1 |       2.3 |      0.9  |      0.27 |    0.25 |      0    |
-|     15 | SWE    | HASSELBORG A   | Hit and Roll | cw     |      75 |        73.9 |   0.11 |   0.19 |       78.9 |       4.9 |      0.73 |      0.35 |    0.09 |      0.17 |
-|     16 | SUI    | PAETZ A        | Clearing     | cw     |     100 |        21.1 |   0.17 |   0.1  |       24.5 |       3.3 |      0.59 |      0.22 |   -0.14 |      0.13 |
+|   shot | team   | player         | type         | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   rocks SUI |   rocks SWE |   build |   address |
+|-------:|:-------|:---------------|:-------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|------------:|------------:|--------:|----------:|
+|      1 | SWE    | SCHARBACK S    | Front        | ccw    |     100 |        74.8 |   0.07 |  -0.01 |       75.4 |       0.6 |        0    |        0    |    0    |      0    |
+|      2 | SUI    | WITSCHONKE S   | Front        | ccw    |     100 |        24.6 |   0.03 |   0.01 |       25.2 |       0.6 |        0.29 |        0    |    0.29 |      0    |
+|      3 | SWE    | SCHARBACK S    | Draw         | ccw    |      75 |        74.8 |   0.02 |   0    |       75   |       0.3 |        0.29 |        0.15 |    0.15 |      0    |
+|      4 | SUI    | WITSCHONKE S   | Take-out     | ccw    |     100 |        25   |   0.11 |   0.06 |       26.8 |       1.8 |        0.65 |        0    |    0.37 |      0.15 |
+|      5 | SWE    | KNOCHENHAUER A | Hit and Roll | ccw    |      75 |        73.2 |   0.05 |   0.05 |       74.4 |       1.2 |        0.29 |        0.02 |    0.02 |      0.37 |
+|      6 | SUI    | HOWALD C       | Hit and Roll | ccw    |      50 |        25.6 |  -0.08 |   0.05 |       24.9 |      -0.7 |        0.1  |        0.02 |    0    |      0.19 |
+|      7 | SWE    | KNOCHENHAUER A | Draw         | ccw    |      75 |        75.1 |   0.13 |   0.02 |       76.9 |       1.9 |        0.1  |        0.35 |    0.32 |      0    |
+|      8 | SUI    | HOWALD C       | Hit and Roll | cw     |      75 |        23.1 |   0.2  |   0.07 |       26.7 |       3.7 |        0.43 |        0.06 |    0.33 |      0.29 |
+|      9 | SWE    | McMANUS S      | Hit and Roll | cw     |      75 |        73.3 |   0.2  |   0.06 |       76.9 |       3.7 |        0.1  |        0.35 |    0.29 |      0.33 |
+|     10 | SUI    | TIRINZONI S    | Hit and Roll | cw     |      75 |        23.1 |   0.12 |   0.08 |       25.4 |       2.4 |        0.45 |        0.02 |    0.35 |      0.32 |
+|     11 | SWE    | McMANUS S      | Take-out     | cw     |      50 |        74.6 |  -0.03 |   0.03 |       75.1 |       0.5 |        0.01 |        0.04 |    0    |      0.76 |
+|     12 | SUI    | TIRINZONI S    | Draw         | ccw    |      75 |        24.9 |   0.16 |   0.02 |       28.1 |       3.1 |        0.79 |        0.04 |    0.78 |      0    |
+|     13 | SWE    | HASSELBORG A   | Take-out     | ccw    |     100 |        71.9 |   0.13 |   0.18 |       76.9 |       5   |        0.01 |        0.27 |    0.24 |      0.77 |
+|     14 | SUI    | PAETZ A        | Hit and Roll | cw     |      75 |        23.1 |   0.03 |   0.06 |       24.1 |       1   |        0.8  |        0.14 |    0.79 |      0.13 |
+|     15 | SWE    | HASSELBORG A   | Hit and Roll | cw     |      75 |        75.9 |   0.05 |   0.08 |       78.4 |       2.4 |        0.01 |        0.27 |    0.13 |      0.79 |
+|     16 | SUI    | PAETZ A        | Clearing     | cw     |     100 |        21.6 |   0.11 |   0.12 |       24.5 |       2.8 |        0.01 |        0.04 |   -0.01 |      0.24 |
 
 ### End 3: SUI hammer, down 2, 8 ends left; result blank
 
-Potential after the free guard zone: SUI 0.42, SWE 0.25; after stone 12: SUI 0.72, SWE 0.15; before the last stone: SUI 0.73, SWE 0.31. Peak temperature 1.21.
+Rock grades after the free guard zone: SUI 0.29, SWE 0.23; after stone 12: SUI 0.76, SWE -0.02; before the last stone: SUI 0.01, SWE 0.22. Peak temperature 0.83.
 
-|   shot | team   | player         | type         | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   pot SUI |   pot SWE |   build |   address |
-|-------:|:-------|:---------------|:-------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|----------:|----------:|--------:|----------:|
-|      1 | SWE    | SCHARBACK S    | Front        | cw     |     100 |        75.2 |  -0.01 |  -0.02 |       74.8 |      -0.4 |      0.14 |      0.03 |    0.03 |     -0.14 |
-|      2 | SUI    | WITSCHONKE S   | Front        | ccw    |     100 |        25.2 |  -0.01 |  -0.01 |       24.9 |      -0.3 |      0.23 |      0.05 |    0.09 |     -0.01 |
-|      3 | SWE    | SCHARBACK S    | Draw         | cw     |     100 |        75.1 |   0.08 |   0    |       76.1 |       1   |      0.26 |      0.12 |    0.07 |     -0.03 |
-|      4 | SUI    | WITSCHONKE S   | Draw         | ccw    |      75 |        23.9 |   0.01 |   0.02 |       24.2 |       0.4 |      0.41 |      0.14 |    0.16 |     -0.02 |
-|      5 | SWE    | KNOCHENHAUER A | Take-out     | cw     |     100 |        75.8 |   0.07 |   0.01 |       76.8 |       1   |      0.42 |      0.25 |    0.11 |     -0.01 |
-|      6 | SUI    | HOWALD C       | Hit and Roll | cw     |      50 |        23.2 |   0.06 |   0.07 |       24.6 |       1.3 |      0.33 |      0.08 |   -0.09 |      0.16 |
-|      7 | SWE    | KNOCHENHAUER A | Draw         | cw     |      75 |        75.4 |   0.06 |   0    |       76.2 |       0.8 |      0.4  |      0.15 |    0.07 |     -0.07 |
-|      8 | SUI    | HOWALD C       | Take-out     | ccw    |     100 |        23.8 |   0.07 |   0.07 |       25.5 |       1.7 |      0.44 |      0.09 |    0.05 |      0.06 |
-|      9 | SWE    | McMANUS S      | Take-out     | ccw    |     100 |        74.5 |   0    |   0.03 |       75.1 |       0.6 |      0.58 |      0.2  |    0.11 |     -0.14 |
-|     10 | SUI    | TIRINZONI S    | Draw         | ccw    |     100 |        24.9 |   0.09 |   0.02 |       26.7 |       1.7 |      0.8  |      0.21 |    0.22 |     -0.01 |
-|     11 | SWE    | McMANUS S      | Take-out     | ccw    |      50 |        73.3 |   0.04 |   0.12 |       75.9 |       2.6 |      0.6  |      0.2  |   -0.01 |      0.19 |
-|     12 | SUI    | TIRINZONI S    | Take-out     | cw     |     100 |        24.1 |   0.08 |  -0.01 |       25   |       1   |      0.72 |      0.15 |    0.12 |      0.05 |
-|     13 | SWE    | HASSELBORG A   | Take-out     | ccw    |     100 |        75   |   0.06 |   0.06 |       76.7 |       1.8 |      0.74 |      0.29 |    0.14 |     -0.02 |
-|     14 | SUI    | PAETZ A        | Take-out     | cw     |     100 |        23.3 |  -0.01 |   0.01 |       23.2 |      -0.1 |      0.99 |      0.22 |    0.25 |      0.07 |
-|     15 | SWE    | HASSELBORG A   | Take-out     | ccw    |     100 |        76.8 |   0.14 |  -0.01 |       78.8 |       2   |      0.73 |      0.31 |    0.08 |      0.26 |
-|     16 | SUI    | PAETZ A        | Clearing     | ccw    |     100 |        21.2 |   0.18 |   0.11 |       26   |       4.8 |      0.65 |      0.2  |   -0.08 |      0.11 |
+|   shot | team   | player         | type         | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   rocks SUI |   rocks SWE |   build |   address |
+|-------:|:-------|:---------------|:-------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|------------:|------------:|--------:|----------:|
+|      1 | SWE    | SCHARBACK S    | Front        | cw     |     100 |        75.2 |   0.06 |  -0.01 |       75.8 |       0.6 |        0    |        0    |    0    |      0    |
+|      2 | SUI    | WITSCHONKE S   | Front        | ccw    |     100 |        24.2 |   0.03 |   0    |       24.7 |       0.5 |        0.29 |        0    |    0.29 |      0    |
+|      3 | SWE    | SCHARBACK S    | Draw         | cw     |     100 |        75.3 |   0.04 |   0    |       75.8 |       0.5 |        0.29 |        0.19 |    0.19 |      0    |
+|      4 | SUI    | WITSCHONKE S   | Draw         | ccw    |      75 |        24.2 |  -0.03 |   0.01 |       23.8 |      -0.4 |        0.65 |        0.19 |    0.36 |      0    |
+|      5 | SWE    | KNOCHENHAUER A | Take-out     | cw     |     100 |        76.2 |   0    |   0.05 |       76.7 |       0.5 |        0.29 |        0.23 |    0.04 |      0.36 |
+|      6 | SUI    | HOWALD C       | Hit and Roll | cw     |      50 |        23.3 |   0.07 |   0.04 |       24.4 |       1.1 |        0.1  |       -0.05 |    0    |      0.52 |
+|      7 | SWE    | KNOCHENHAUER A | Draw         | cw     |      75 |        75.6 |   0.07 |   0.01 |       76.8 |       1.2 |        0.1  |        0.23 |    0.29 |      0    |
+|      8 | SUI    | HOWALD C       | Take-out     | ccw    |     100 |        23.2 |   0.07 |   0.06 |       24.8 |       1.6 |        0.34 |       -0.05 |    0.23 |      0.29 |
+|      9 | SWE    | McMANUS S      | Take-out     | ccw    |     100 |        75.2 |  -0.03 |   0.01 |       74.9 |      -0.3 |        0.1  |       -0.02 |    0.04 |      0.23 |
+|     10 | SUI    | TIRINZONI S    | Draw         | ccw    |     100 |        25.1 |   0.11 |  -0.02 |       26.4 |       1.3 |        0.65 |       -0.2  |    0.55 |      0.18 |
+|     11 | SWE    | McMANUS S      | Take-out     | ccw    |      50 |        73.6 |   0.1  |   0.12 |       76.9 |       3.3 |        0.01 |        0.14 |    0.45 |      0.94 |
+|     12 | SUI    | TIRINZONI S    | Take-out     | cw     |     100 |        23.1 |   0.08 |   0.04 |       24.5 |       1.4 |        0.76 |       -0.02 |    0.75 |      0.16 |
+|     13 | SWE    | HASSELBORG A   | Take-out     | ccw    |     100 |        75.5 |   0.12 |   0.04 |       77.6 |       2.1 |        0.01 |        0.22 |    0.24 |      0.75 |
+|     14 | SUI    | PAETZ A        | Take-out     | cw     |     100 |        22.4 |   0.05 |   0.02 |       23.3 |       0.9 |        0.76 |       -0.02 |    0.75 |      0.24 |
+|     15 | SWE    | HASSELBORG A   | Take-out     | ccw    |     100 |        76.7 |   0.13 |   0    |       78.6 |       1.8 |        0.01 |        0.22 |    0.24 |      0.75 |
+|     16 | SUI    | PAETZ A        | Clearing     | ccw    |     100 |        21.4 |   0.15 |   0.13 |       26   |       4.6 |        0.01 |       -0.02 |    0    |      0.24 |
 
 ### End 4: SUI hammer, down 2, 7 ends left; result SUI 1
 
-Potential after the free guard zone: SUI 0.53, SWE 0.27; after stone 12: SUI 1.33, SWE 0.34; before the last stone: SUI 2.98, SWE 0.89. Peak temperature 4.36.
+Rock grades after the free guard zone: SUI 0.76, SWE 0.23; after stone 12: SUI 1.58, SWE 0.42; before the last stone: SUI 1.55, SWE 0.98. Peak temperature 3.50.
 
-|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   pot SUI |   pot SWE |   build |   address |
-|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|----------:|----------:|--------:|----------:|
-|      1 | SWE    | SCHARBACK S    | Front           | ccw    |     100 |        74.7 |  -0.01 |  -0.01 |       74.2 |      -0.5 |      0.12 |      0.04 |    0.04 |     -0.12 |
-|      2 | SUI    | WITSCHONKE S   | Front           | cw     |     100 |        25.8 |   0    |  -0.02 |       25.6 |      -0.2 |      0.2  |      0.05 |    0.08 |     -0.01 |
-|      3 | SWE    | SCHARBACK S    | Draw            | ccw    |     100 |        74.4 |   0.08 |   0.01 |       75.5 |       1.1 |      0.24 |      0.13 |    0.08 |     -0.03 |
-|      4 | SUI    | WITSCHONKE S   | Draw            | ccw    |     100 |        24.5 |   0.01 |   0.02 |       24.9 |       0.4 |      0.4  |      0.15 |    0.16 |     -0.02 |
-|      5 | SWE    | KNOCHENHAUER A | Draw            | ccw    |      75 |        75.1 |  -0.05 |   0.03 |       74.7 |      -0.4 |      0.53 |      0.27 |    0.13 |     -0.13 |
-|      6 | SUI    | HOWALD C       | Double Take-out | ccw    |     100 |        25.3 |   0.15 |   0.06 |       27.9 |       2.6 |      0.48 |      0.09 |   -0.05 |      0.18 |
-|      7 | SWE    | KNOCHENHAUER A | Draw            | ccw    |     100 |        72.1 |   0    |  -0.02 |       71.6 |      -0.5 |      0.54 |      0.17 |    0.07 |     -0.06 |
-|      8 | SUI    | HOWALD C       | Draw            | cw     |     100 |        28.4 |  -0.08 |   0.03 |       27.7 |      -0.8 |      0.7  |      0.22 |    0.16 |     -0.05 |
-|      9 | SWE    | McMANUS S      | Draw            | cw     |     100 |        72.3 |  -0.01 |   0    |       72.1 |      -0.2 |      1.31 |      0.55 |    0.33 |     -0.61 |
-|     10 | SUI    | TIRINZONI S    | Raise           | ccw    |     100 |        27.9 |  -0.15 |   0.14 |       27.7 |      -0.1 |      1.65 |      0.6  |    0.34 |     -0.05 |
-|     11 | SWE    | McMANUS S      | Double Take-out | ccw    |      50 |        72.3 |   0.11 |  -0.09 |       72.5 |       0.2 |      1.3  |      0.45 |   -0.14 |      0.35 |
-|     12 | SUI    | TIRINZONI S    | Take-out        | cw     |     100 |        27.5 |   0.02 |   0.13 |       29.8 |       2.3 |      1.33 |      0.34 |    0.03 |      0.11 |
-|     13 | SWE    | HASSELBORG A   | Draw            | ccw    |     100 |        70.2 |  -0.13 |   0    |       68.1 |      -2.1 |      2.69 |      0.85 |    0.5  |     -1.35 |
-|     14 | SUI    | PAETZ A        | Draw            | ccw    |     100 |        31.9 |   0.21 |   0.03 |       36.1 |       4.2 |      3.47 |      0.89 |    0.78 |     -0.04 |
-|     15 | SWE    | HASSELBORG A   | Raise           | cw     |      50 |        63.9 |   0.34 |  -0.06 |       69.5 |       5.6 |      2.98 |      0.89 |    0    |      0.49 |
-|     16 | SUI    | PAETZ A        | Draw            | ccw    |       0 |        30.5 |  -0.41 |  -0.05 |       20.6 |      -9.9 |      3.24 |      0.91 |    0.27 |     -0.02 |
+|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   rocks SUI |   rocks SWE |   build |   address |
+|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|------------:|------------:|--------:|----------:|
+|      1 | SWE    | SCHARBACK S    | Front           | ccw    |     100 |        74.8 |   0.06 |  -0.01 |       75.4 |       0.5 |        0    |        0    |    0    |      0    |
+|      2 | SUI    | WITSCHONKE S   | Front           | cw     |     100 |        24.6 |   0.03 |   0    |       25.4 |       0.7 |        0.29 |        0    |    0.29 |      0    |
+|      3 | SWE    | SCHARBACK S    | Draw            | ccw    |     100 |        74.6 |   0.03 |   0.02 |       75.2 |       0.5 |        0.29 |        0.19 |    0.19 |      0    |
+|      4 | SUI    | WITSCHONKE S   | Draw            | ccw    |     100 |        24.8 |   0.03 |   0.01 |       25.4 |       0.6 |        0.76 |        0.19 |    0.47 |      0    |
+|      5 | SWE    | KNOCHENHAUER A | Draw            | ccw    |      75 |        74.6 |  -0.02 |   0.02 |       74.5 |      -0.1 |        0.76 |        0.23 |    0.05 |      0    |
+|      6 | SUI    | HOWALD C       | Double Take-out | ccw    |     100 |        25.5 |   0.12 |   0.07 |       27.9 |       2.4 |        0.62 |        0.06 |   -0.14 |      0.51 |
+|      7 | SWE    | KNOCHENHAUER A | Draw            | ccw    |     100 |        72.1 |   0.08 |   0.01 |       73.2 |       1.1 |        0.62 |        0.26 |    0.2  |      0    |
+|      8 | SUI    | HOWALD C       | Draw            | cw     |     100 |        26.8 |   0.09 |   0.03 |       28.7 |       1.9 |        1.07 |        0.28 |    0.45 |     -0.02 |
+|      9 | SWE    | McMANUS S      | Draw            | cw     |     100 |        71.3 |   0.04 |   0.01 |       72.1 |       0.8 |        1.11 |        0.62 |    0.34 |     -0.04 |
+|     10 | SUI    | TIRINZONI S    | Raise           | ccw    |     100 |        27.9 |   0.06 |   0.04 |       29.4 |       1.5 |        1.34 |        0.51 |    0.23 |      0.11 |
+|     11 | SWE    | McMANUS S      | Double Take-out | ccw    |      50 |        70.6 |   0.06 |   0.03 |       72.1 |       1.5 |        1.1  |        0.77 |    0.01 |      0.57 |
+|     12 | SUI    | TIRINZONI S    | Take-out        | cw     |     100 |        27.9 |   0.17 |   0.05 |       31.4 |       3.5 |        1.58 |        0.42 |    0.47 |      0.34 |
+|     13 | SWE    | HASSELBORG A   | Draw            | ccw    |     100 |        68.6 |   0.04 |  -0.02 |       69.2 |       0.6 |        1.34 |        0.85 |    0.43 |      0.24 |
+|     14 | SUI    | PAETZ A        | Draw            | ccw    |     100 |        30.8 |   0.29 |  -0.02 |       35.4 |       4.6 |        2.44 |        1.06 |    1.1  |     -0.21 |
+|     15 | SWE    | HASSELBORG A   | Raise           | cw     |      50 |        64.6 |   0.34 |  -0.13 |       69.1 |       4.5 |        1.55 |        0.98 |   -0.08 |      0.89 |
+|     16 | SUI    | PAETZ A        | Draw            | ccw    |       0 |        30.9 |  -0.52 |   0.03 |       20.6 |     -10.3 |        1.79 |        0.98 |    0.24 |      0    |
 
 ### End 5: SWE hammer, up 1, 6 ends left; result SWE 1
 
-Potential after the free guard zone: SUI 0.38, SWE 0.68; after stone 12: SUI 0.36, SWE 1.20; before the last stone: SUI 0.56, SWE 1.18. Peak temperature 2.99.
+Rock grades after the free guard zone: SUI 0.40, SWE 0.62; after stone 12: SUI 0.48, SWE 2.00; before the last stone: SUI 0.55, SWE 0.12. Peak temperature 2.81.
 
-|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   pot SUI |   pot SWE |   build |   address |
-|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|----------:|----------:|--------:|----------:|
-|      1 | SUI    | WITSCHONKE S   | Front           | ccw    |     100 |        21.3 |  -0.01 |  -0.01 |       21.4 |       0.1 |      0.04 |      0.12 |    0.04 |     -0.12 |
-|      2 | SWE    | SCHARBACK S    | Draw            | ccw    |      75 |        78.6 |   0.04 |   0    |       79.2 |       0.5 |      0.07 |      0.25 |    0.13 |     -0.03 |
-|      3 | SUI    | WITSCHONKE S   | Draw            | cw     |      75 |        20.8 |   0.08 |   0    |       22   |       1.2 |      0.13 |      0.31 |    0.06 |     -0.06 |
-|      4 | SWE    | SCHARBACK S    | Draw            | ccw    |     100 |        78   |   0.03 |   0.01 |       78.4 |       0.4 |      0.18 |      0.47 |    0.16 |     -0.04 |
-|      5 | SUI    | HOWALD C       | Draw            | ccw    |     100 |        21.6 |   0.15 |   0.03 |       24.3 |       2.7 |      0.38 |      0.68 |    0.2  |     -0.22 |
-|      6 | SWE    | KNOCHENHAUER A | Double Take-out | ccw    |      50 |        75.7 |  -0.01 |   0.22 |       78.7 |       3   |      0.15 |      0.51 |   -0.17 |      0.22 |
-|      7 | SUI    | HOWALD C       | Draw            | cw     |     100 |        21.3 |   0.25 |   0.01 |       25.2 |       3.9 |      0.26 |      0.55 |    0.11 |     -0.04 |
-|      8 | SWE    | KNOCHENHAUER A | Clearing        | ccw    |     100 |        74.8 |   0.06 |  -0.04 |       75.2 |       0.4 |      0.21 |      0.38 |   -0.17 |      0.06 |
-|      9 | SUI    | TIRINZONI S    | Guard           | ccw    |     100 |        24.8 |   0.05 |   0.04 |       26.3 |       1.5 |      0.46 |      0.98 |    0.25 |     -0.6  |
-|     10 | SWE    | McMANUS S      | Raise           | cw     |      50 |        73.7 |   0.05 |  -0.05 |       73.3 |      -0.4 |      0.44 |      1.09 |    0.11 |      0.01 |
-|     11 | SUI    | TIRINZONI S    | Hit and Roll    | ccw    |      75 |        26.7 |   0.11 |  -0.08 |       26.8 |       0.1 |      0.5  |      0.95 |    0.06 |      0.14 |
-|     12 | SWE    | McMANUS S      | Take-out        | cw     |     100 |        73.2 |   0.42 |   0.27 |       82.4 |       9.2 |      0.36 |      1.2  |    0.25 |      0.14 |
-|     13 | SUI    | PAETZ A        | Hit and Roll    | cw     |      75 |        17.6 |   0.07 |   0.08 |       19.1 |       1.5 |      0.6  |      1.56 |    0.25 |     -0.37 |
-|     14 | SWE    | HASSELBORG A   | Draw            | cw     |      75 |        80.9 |   0.35 |   0    |       85   |       4.1 |      0.65 |      2.35 |    0.78 |     -0.04 |
-|     15 | SUI    | PAETZ A        | Double Take-out | cw     |     100 |        15   |   1    |   0.14 |       30.1 |      15.1 |      0.56 |      1.18 |   -0.08 |      1.17 |
-|     16 | SWE    | HASSELBORG A   | Draw            | cw     |     100 |        69.9 |   0.31 |  -0.01 |       74.8 |       4.9 |      0.6  |      1.48 |    0.31 |     -0.04 |
+|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   rocks SUI |   rocks SWE |   build |   address |
+|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|------------:|------------:|--------:|----------:|
+|      1 | SUI    | WITSCHONKE S   | Front           | ccw    |     100 |        21.4 |   0.06 |  -0.01 |       22.2 |       0.8 |        0    |        0    |    0    |      0    |
+|      2 | SWE    | SCHARBACK S    | Draw            | ccw    |      75 |        77.8 |   0.08 |   0.01 |       78.9 |       1   |       -0.03 |        0.26 |    0.26 |      0.03 |
+|      3 | SUI    | WITSCHONKE S   | Draw            | cw     |      75 |        21.1 |   0.03 |  -0.02 |       21.4 |       0.3 |        0.1  |        0.37 |    0.13 |     -0.11 |
+|      4 | SWE    | SCHARBACK S    | Draw            | ccw    |     100 |        78.6 |  -0.01 |   0    |       78.2 |      -0.4 |        0.08 |        0.64 |    0.27 |      0.01 |
+|      5 | SUI    | HOWALD C       | Draw            | ccw    |     100 |        21.8 |   0.23 |  -0.01 |       24.9 |       3.1 |        0.4  |        0.62 |    0.32 |      0.03 |
+|      6 | SWE    | KNOCHENHAUER A | Double Take-out | ccw    |      50 |        75.1 |   0.04 |   0.21 |       78.6 |       3.5 |        0.2  |        0.79 |   -0.05 |      0.57 |
+|      7 | SUI    | HOWALD C       | Draw            | cw     |     100 |        21.4 |   0.15 |   0.06 |       24.5 |       3.1 |        0.38 |        0.6  |    0.18 |      0.19 |
+|      8 | SWE    | KNOCHENHAUER A | Clearing        | ccw    |     100 |        75.5 |   0.02 |  -0.06 |       75.2 |      -0.3 |        0.32 |        0.58 |   -0.02 |      0.06 |
+|      9 | SUI    | TIRINZONI S    | Guard           | ccw    |     100 |        24.8 |  -0.09 |   0.03 |       24.3 |      -0.5 |        0.38 |        0.65 |    0.06 |     -0.07 |
+|     10 | SWE    | McMANUS S      | Raise           | cw     |      50 |        75.7 |  -0.03 |  -0.03 |       74.3 |      -1.4 |        0.47 |        0.97 |    0.32 |     -0.09 |
+|     11 | SUI    | TIRINZONI S    | Hit and Roll    | ccw    |      75 |        25.7 |   0.14 |  -0.02 |       26.9 |       1.2 |        1.11 |        1.1  |    0.25 |      0.36 |
+|     12 | SWE    | McMANUS S      | Take-out        | cw     |     100 |        73.1 |   0.56 |   0.21 |       83.2 |      10.1 |        0.48 |        2    |    0.9  |      0.63 |
+|     13 | SUI    | PAETZ A        | Hit and Roll    | cw     |      75 |        16.8 |   0.24 |   0.07 |       20.4 |       3.5 |        0.6  |        0.9  |    0.12 |      1.1  |
+|     14 | SWE    | HASSELBORG A   | Draw            | cw     |      75 |        79.6 |   0.45 |  -0.06 |       84.3 |       4.7 |        0.81 |        2    |    1.1  |     -0.21 |
+|     15 | SUI    | PAETZ A        | Double Take-out | cw     |     100 |        15.7 |   1    |   0.14 |       30.9 |      15.2 |        0.55 |        0.12 |   -0.26 |      1.87 |
+|     16 | SWE    | HASSELBORG A   | Draw            | cw     |     100 |        69.1 |   0.42 |  -0.07 |       74.8 |       5.7 |        0.31 |        0.91 |    0.79 |      0.24 |
 
 ### End 6: SUI hammer, down 2, 5 ends left; result SUI 2
 
-Potential after the free guard zone: SUI 0.63, SWE 0.24; after stone 12: SUI 1.74, SWE 0.74; before the last stone: SUI 2.91, SWE 1.17. Peak temperature 5.44.
+Rock grades after the free guard zone: SUI 0.70, SWE 0.25; after stone 12: SUI 1.74, SWE 1.08; before the last stone: SUI 1.28, SWE 1.10. Peak temperature 4.65.
 
-|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   pot SUI |   pot SWE |   build |   address |
-|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|----------:|----------:|--------:|----------:|
-|      1 | SWE    | SCHARBACK S    | Front           | ccw    |       0 |        77.2 |   0.02 |  -0.01 |       77.5 |       0.3 |      0.06 |      0.03 |    0.03 |     -0.06 |
-|      2 | SUI    | WITSCHONKE S   | Front           | cw     |     100 |        22.5 |   0    |   0    |       22.6 |       0.1 |      0.16 |      0.05 |    0.1  |     -0.02 |
-|      3 | SWE    | SCHARBACK S    | Guard           | ccw    |     100 |        77.4 |   0.02 |  -0.01 |       77.3 |      -0.1 |      0.29 |      0.08 |    0.03 |     -0.13 |
-|      4 | SUI    | WITSCHONKE S   | Draw            | cw     |     100 |        22.7 |   0.1  |   0.03 |       24.5 |       1.8 |      0.35 |      0.09 |    0.07 |     -0.01 |
-|      5 | SWE    | KNOCHENHAUER A | Draw            | cw     |     100 |        75.5 |   0.13 |  -0.02 |       76.9 |       1.4 |      0.63 |      0.24 |    0.15 |     -0.27 |
-|      6 | SUI    | HOWALD C       | Take-out        | cw     |       0 |        23.1 |  -0.15 |   0.14 |       22.9 |      -0.3 |      0.62 |      0.21 |   -0.01 |      0.03 |
-|      7 | SWE    | KNOCHENHAUER A | Draw            | cw     |     100 |        77.1 |   0.05 |   0.06 |       78.6 |       1.4 |      0.66 |      0.3  |    0.09 |     -0.04 |
-|      8 | SUI    | HOWALD C       | Double Take-out | ccw    |      50 |        21.4 |  -0.1  |  -0.03 |       20.2 |      -1.2 |      0.63 |      0.27 |   -0.03 |      0.03 |
-|      9 | SWE    | McMANUS S      | Draw            | ccw    |      75 |        79.8 |  -0.06 |  -0.01 |       79.1 |      -0.6 |      1.05 |      0.52 |    0.25 |     -0.42 |
-|     10 | SUI    | TIRINZONI S    | Draw            | ccw    |      75 |        20.9 |   0.25 |   0.02 |       24.7 |       3.8 |      1.27 |      0.56 |    0.22 |     -0.04 |
-|     11 | SWE    | McMANUS S      | Draw            | ccw    |     100 |        75.3 |   0.24 |  -0.02 |       78.8 |       3.5 |      1.39 |      0.7  |    0.14 |     -0.11 |
-|     12 | SUI    | TIRINZONI S    | Draw            | ccw    |     100 |        21.2 |   0.37 |  -0.03 |       26.5 |       5.3 |      1.74 |      0.74 |    0.36 |     -0.03 |
-|     13 | SWE    | HASSELBORG A   | Draw            | ccw    |     100 |        73.5 |   0.15 |  -0.09 |       76.3 |       2.8 |      3.19 |      1.43 |    0.69 |     -1.45 |
-|     14 | SUI    | PAETZ A        | Draw            | cw     |     100 |        23.7 |   0.38 |   0.05 |       31.8 |       8.1 |      3.97 |      1.47 |    0.78 |     -0.04 |
-|     15 | SWE    | HASSELBORG A   | Double Take-out | cw     |      50 |        68.2 |   0.16 |  -0.07 |       70.6 |       2.4 |      2.91 |      1.17 |   -0.3  |      1.06 |
-|     16 | SUI    | PAETZ A        | Draw            | ccw    |     100 |        29.4 |   0.49 |  -0.03 |       36.9 |       7.5 |      3.65 |      1.27 |    0.74 |     -0.1  |
+|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   rocks SUI |   rocks SWE |   build |   address |
+|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|------------:|------------:|--------:|----------:|
+|      1 | SWE    | SCHARBACK S    | Front           | ccw    |       0 |        77.3 |   0.04 |  -0.01 |       77.8 |       0.4 |        0    |        0.03 |    0.03 |      0    |
+|      2 | SUI    | WITSCHONKE S   | Front           | cw     |     100 |        22.2 |   0.01 |  -0.01 |       22.5 |       0.3 |        0.29 |        0.03 |    0.29 |      0    |
+|      3 | SWE    | SCHARBACK S    | Guard           | ccw    |     100 |        77.5 |   0.02 |  -0.02 |       77.3 |      -0.2 |        0.29 |        0.12 |    0.1  |      0    |
+|      4 | SUI    | WITSCHONKE S   | Draw            | cw     |     100 |        22.7 |   0.06 |   0.03 |       23.7 |       1   |        0.64 |        0.1  |    0.36 |      0.03 |
+|      5 | SWE    | KNOCHENHAUER A | Draw            | cw     |     100 |        76.3 |   0.06 |   0    |       76.7 |       0.4 |        0.7  |        0.25 |    0.15 |     -0.06 |
+|      6 | SUI    | HOWALD C       | Take-out        | cw     |       0 |        23.3 |  -0.17 |   0.1  |       21.9 |      -1.3 |        0.73 |        0.45 |    0.06 |      0.16 |
+|      7 | SWE    | KNOCHENHAUER A | Draw            | cw     |     100 |        78.1 |   0.1  |   0.07 |       80.1 |       2.1 |        0.59 |        0.68 |    0.22 |      0.14 |
+|      8 | SUI    | HOWALD C       | Double Take-out | ccw    |      50 |        19.9 |  -0.01 |  -0.02 |       19.9 |       0   |        0.61 |        0.42 |    0.01 |      0.26 |
+|      9 | SWE    | McMANUS S      | Draw            | ccw    |      75 |        80.1 |  -0.07 |   0.02 |       79.8 |      -0.3 |        0.5  |        0.54 |    0.12 |      0.1  |
+|     10 | SUI    | TIRINZONI S    | Draw            | ccw    |      75 |        20.2 |   0.18 |   0.08 |       24.2 |       4   |        0.96 |        0.45 |    0.45 |      0.09 |
+|     11 | SWE    | McMANUS S      | Draw            | ccw    |     100 |        75.8 |   0.31 |  -0.04 |       80.8 |       5   |        1.34 |        1.54 |    0.99 |     -0.23 |
+|     12 | SUI    | TIRINZONI S    | Draw            | ccw    |     100 |        19.2 |   0.25 |   0.1  |       23.8 |       4.6 |        1.74 |        1.08 |    0.4  |      0.46 |
+|     13 | SWE    | HASSELBORG A   | Draw            | ccw    |     100 |        76.2 |   0.09 |   0.02 |       78.2 |       2   |        1.5  |        1.72 |    0.64 |      0.24 |
+|     14 | SUI    | PAETZ A        | Draw            | cw     |     100 |        21.8 |   0.41 |   0.01 |       29.6 |       7.8 |        2.72 |        1.93 |    1.22 |     -0.21 |
+|     15 | SWE    | HASSELBORG A   | Double Take-out | cw     |      50 |        70.4 |   0.24 |  -0.08 |       74   |       3.6 |        1.28 |        1.1  |   -0.83 |      1.44 |
+|     16 | SUI    | PAETZ A        | Draw            | ccw    |     100 |        26   |   0.6  |   0.04 |       36.9 |      10.8 |        2.42 |        1.3  |    1.14 |     -0.21 |
 
 ### End 7: SWE hammer, tied, 4 ends left; result SWE 1
 
-Potential after the free guard zone: SUI 0.24, SWE 0.44; after stone 12: SUI 0.17, SWE 0.30; before the last stone: SUI 0.46, SWE 0.35. Peak temperature 1.05.
+Rock grades after the free guard zone: SUI 0.28, SWE 0.35; after stone 12: SUI 0.45, SWE 0.96; before the last stone: SUI 0.15, SWE 0.01. Peak temperature 1.44.
 
-|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   pot SUI |   pot SWE |   build |   address |
-|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|----------:|----------:|--------:|----------:|
-|      1 | SUI    | WITSCHONKE S   | Front           | ccw    |     100 |        36   |   0.01 |   0    |       36.3 |       0.4 |      0.03 |      0.11 |    0.03 |     -0.11 |
-|      2 | SWE    | SCHARBACK S    | Draw            | cw     |     100 |        63.7 |   0.06 |   0    |       64.6 |       1   |      0.05 |      0.27 |    0.16 |     -0.02 |
-|      3 | SUI    | WITSCHONKE S   | Draw            | ccw    |     100 |        35.4 |  -0.04 |   0.01 |       35   |      -0.4 |      0.11 |      0.3  |    0.06 |     -0.03 |
-|      4 | SWE    | SCHARBACK S    | Draw            | cw     |      75 |        65   |  -0.07 |   0.01 |       63.8 |      -1.2 |      0.13 |      0.39 |    0.09 |     -0.03 |
-|      5 | SUI    | HOWALD C       | Hit and Roll    | cw     |      75 |        36.2 |   0.02 |  -0.01 |       36.5 |       0.3 |      0.24 |      0.44 |    0.1  |     -0.05 |
-|      6 | SWE    | KNOCHENHAUER A | Hit and Roll    | cw     |      75 |        63.5 |  -0.01 |   0.05 |       64.1 |       0.6 |      0.19 |      0.53 |    0.1  |      0.05 |
-|      7 | SUI    | HOWALD C       | Hit and Roll    | cw     |      75 |        35.9 |   0.05 |  -0.01 |       36.6 |       0.7 |      0.22 |      0.45 |    0.03 |      0.08 |
-|      8 | SWE    | KNOCHENHAUER A | Double Take-out | ccw    |     100 |        63.4 |  -0.04 |  -0.05 |       63.2 |      -0.1 |      0.12 |      0.25 |   -0.21 |      0.1  |
-|      9 | SUI    | TIRINZONI S    | Guard           | ccw    |     100 |        36.8 |  -0.09 |  -0.06 |       35.4 |      -1.3 |      0.34 |      0.72 |    0.22 |     -0.47 |
-|     10 | SWE    | McMANUS S      | Clearing        | ccw    |     100 |        64.6 |  -0.09 |  -0.07 |       62.9 |      -1.6 |      0.22 |      0.4  |   -0.32 |      0.12 |
-|     11 | SUI    | TIRINZONI S    | Guard           | ccw    |       0 |        37.1 |  -0.07 |  -0.08 |       35.1 |      -2   |      0.34 |      0.62 |    0.12 |     -0.22 |
-|     12 | SWE    | McMANUS S      | Double Take-out | ccw    |      50 |        64.9 |  -0.23 |   0.02 |       61.7 |      -3.3 |      0.17 |      0.3  |   -0.32 |      0.17 |
-|     13 | SUI    | PAETZ A        | Take-out        | ccw    |     100 |        38.3 |   0.25 |  -0.06 |       42.6 |       4.3 |      0.37 |      0.41 |    0.2  |     -0.11 |
-|     14 | SWE    | HASSELBORG A   | Hit and Roll    | cw     |      75 |        57.4 |   0.21 |   0.08 |       63.6 |       6.2 |      0.11 |      0.66 |    0.24 |      0.26 |
-|     15 | SUI    | PAETZ A        | Take-out        | ccw    |     100 |        36.4 |   0.28 |   0.04 |       43.9 |       7.5 |      0.46 |      0.35 |    0.35 |      0.31 |
-|     16 | SWE    | HASSELBORG A   | Take-out        | cw     |     100 |        56.1 |   0.1  |   0.06 |       59.5 |       3.4 |      0.1  |      0.92 |    0.58 |      0.36 |
+|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   rocks SUI |   rocks SWE |   build |   address |
+|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|------------:|------------:|--------:|----------:|
+|      1 | SUI    | WITSCHONKE S   | Front           | ccw    |     100 |        36.1 |   0.05 |  -0.01 |       36.9 |       0.9 |        0    |        0    |    0    |      0    |
+|      2 | SWE    | SCHARBACK S    | Draw            | cw     |     100 |        63.1 |   0.1  |   0.01 |       64.8 |       1.7 |       -0.03 |        0.35 |    0.35 |      0.03 |
+|      3 | SUI    | WITSCHONKE S   | Draw            | ccw    |     100 |        35.2 |   0.02 |   0.01 |       35.8 |       0.6 |        0.11 |        0.35 |    0.14 |      0    |
+|      4 | SWE    | SCHARBACK S    | Draw            | cw     |      75 |        64.2 |  -0.08 |   0.04 |       63.4 |      -0.8 |        0.25 |        0.71 |    0.36 |     -0.15 |
+|      5 | SUI    | HOWALD C       | Hit and Roll    | cw     |      75 |        36.6 |   0.05 |  -0.01 |       37.4 |       0.8 |        0.28 |        0.35 |    0.03 |      0.36 |
+|      6 | SWE    | KNOCHENHAUER A | Hit and Roll    | cw     |      75 |        62.6 |   0.03 |   0.02 |       63.3 |       0.7 |        0.34 |        0.74 |    0.32 |      0.13 |
+|      7 | SUI    | HOWALD C       | Hit and Roll    | cw     |      75 |        36.7 |   0.02 |   0    |       36.9 |       0.3 |        0.4  |        0.42 |    0.06 |      0.32 |
+|      8 | SWE    | KNOCHENHAUER A | Double Take-out | ccw    |     100 |        63.1 |   0.01 |  -0.03 |       64.1 |       1   |        0.14 |        0.37 |   -0.05 |      0.26 |
+|      9 | SUI    | TIRINZONI S    | Guard           | ccw    |     100 |        35.9 |   0.01 |  -0.02 |       37   |       1.1 |        0.31 |        0.42 |    0.17 |     -0.05 |
+|     10 | SWE    | McMANUS S      | Clearing        | ccw    |     100 |        63   |   0    |  -0.06 |       63.2 |       0.2 |        0.14 |        0.37 |   -0.05 |      0.17 |
+|     11 | SUI    | TIRINZONI S    | Guard           | ccw    |       0 |        36.8 |  -0.09 |  -0.02 |       35.6 |      -1.2 |        0.51 |        0.93 |    0.27 |     -0.02 |
+|     12 | SWE    | McMANUS S      | Double Take-out | ccw    |      50 |        64.4 |  -0.18 |  -0.01 |       61.6 |      -2.8 |        0.45 |        0.96 |    0.03 |      0.06 |
+|     13 | SUI    | PAETZ A        | Take-out        | ccw    |     100 |        38.4 |   0.18 |  -0.07 |       40.7 |       2.3 |        0.25 |        0    |   -0.2  |      0.96 |
+|     14 | SWE    | HASSELBORG A   | Hit and Roll    | cw     |      75 |        59.3 |   0.14 |   0.03 |       62.5 |       3.2 |       -0.16 |        0.9  |    0.9  |      0.4  |
+|     15 | SUI    | PAETZ A        | Take-out        | ccw    |     100 |        37.5 |   0.19 |   0.06 |       43.4 |       5.9 |        0.15 |        0.01 |    0.31 |      0.89 |
+|     16 | SWE    | HASSELBORG A   | Take-out        | cw     |     100 |        56.6 |   0.09 |   0.05 |       59.5 |       2.9 |       -0.26 |        0.86 |    0.85 |      0.41 |
 
 ### End 8: SUI hammer, down 1, 3 ends left; result SWE steals 1
 
-Potential after the free guard zone: SUI 0.64, SWE 0.26; after stone 12: SUI 1.28, SWE 0.51; before the last stone: SUI 2.17, SWE 1.04. Peak temperature 3.21.
+Rock grades after the free guard zone: SUI 0.73, SWE 0.28; after stone 12: SUI 1.24, SWE 0.54; before the last stone: SUI 0.67, SWE 0.59. Peak temperature 2.05.
 
-|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   pot SUI |   pot SWE |   build |   address |
-|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|----------:|----------:|--------:|----------:|
-|      1 | SWE    | SCHARBACK S    | Front           | ccw    |     100 |        59.6 |   0    |   0    |       59.4 |      -0.2 |      0.11 |      0.04 |    0.04 |     -0.11 |
-|      2 | SUI    | WITSCHONKE S   | Front           | cw     |     100 |        40.6 |   0.01 |  -0.03 |       40.2 |      -0.4 |      0.19 |      0.06 |    0.08 |     -0.02 |
-|      3 | SWE    | SCHARBACK S    | Draw            | ccw    |     100 |        59.8 |   0.07 |   0.02 |       61.6 |       1.8 |      0.21 |      0.13 |    0.07 |     -0.03 |
-|      4 | SUI    | WITSCHONKE S   | Draw            | cw     |     100 |        38.4 |   0    |   0    |       38.4 |       0   |      0.3  |      0.15 |    0.09 |     -0.02 |
-|      5 | SWE    | KNOCHENHAUER A | Guard           | ccw    |      50 |        61.6 |  -0.02 |  -0.01 |       60.9 |      -0.7 |      0.64 |      0.26 |    0.11 |     -0.34 |
-|      6 | SUI    | HOWALD C       | Double Take-out | ccw    |      50 |        39.1 |   0.04 |  -0.03 |       39.1 |       0   |      0.7  |      0.29 |    0.06 |     -0.03 |
-|      7 | SWE    | KNOCHENHAUER A | Guard           | ccw    |     100 |        60.9 |   0.07 |   0.02 |       62.5 |       1.6 |      0.87 |      0.34 |    0.05 |     -0.17 |
-|      8 | SUI    | HOWALD C       | Double Take-out | ccw    |      50 |        37.5 |   0.11 |  -0.02 |       39.2 |       1.6 |      0.78 |      0.29 |   -0.09 |      0.05 |
-|      9 | SWE    | McMANUS S      | Guard           | ccw    |     100 |        60.8 |   0.12 |   0.02 |       63.9 |       3.1 |      1.52 |      0.59 |    0.3  |     -0.74 |
-|     10 | SUI    | TIRINZONI S    | Double Take-out | ccw    |      50 |        36.1 |   0.13 |  -0.08 |       36.9 |       0.8 |      1.15 |      0.48 |   -0.37 |      0.11 |
-|     11 | SWE    | McMANUS S      | Guard           | ccw    |     100 |        63.1 |   0.1  |  -0.01 |       65   |       1.8 |      1.47 |      0.59 |    0.11 |     -0.32 |
-|     12 | SUI    | TIRINZONI S    | Double Take-out | ccw    |      50 |        35   |   0.07 |  -0.08 |       34.3 |      -0.8 |      1.28 |      0.51 |   -0.18 |      0.08 |
-|     13 | SWE    | HASSELBORG A   | Guard           | ccw    |     100 |        65.7 |   0.13 |   0.01 |       69.4 |       3.7 |      2.12 |      0.99 |    0.48 |     -0.84 |
-|     14 | SUI    | PAETZ A        | Double Take-out | ccw    |      50 |        30.6 |  -0.03 |  -0.07 |       28.1 |      -2.5 |      1.79 |      0.81 |   -0.33 |      0.18 |
-|     15 | SWE    | HASSELBORG A   | Guard           | ccw    |      25 |        71.9 |   0.29 |  -0.03 |       76.8 |       4.8 |      2.17 |      1.04 |    0.23 |     -0.38 |
-|     16 | SUI    | PAETZ A        | Double Take-out | ccw    |      25 |        23.2 |  -0.25 |   0    |       12.9 |     -10.3 |      2.04 |      0.68 |   -0.13 |      0.36 |
+|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   rocks SUI |   rocks SWE |   build |   address |
+|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|------------:|------------:|--------:|----------:|
+|      1 | SWE    | SCHARBACK S    | Front           | ccw    |     100 |        59.7 |   0.04 |  -0.01 |       60.6 |       0.9 |        0    |        0    |    0    |      0    |
+|      2 | SUI    | WITSCHONKE S   | Front           | cw     |     100 |        39.4 |   0.04 |  -0.01 |       40.4 |       1   |        0.29 |        0    |    0.29 |      0    |
+|      3 | SWE    | SCHARBACK S    | Draw            | ccw    |     100 |        59.6 |   0.02 |   0.02 |       60.4 |       0.8 |        0.29 |        0.19 |    0.19 |      0    |
+|      4 | SUI    | WITSCHONKE S   | Draw            | cw     |     100 |        39.6 |   0.02 |   0    |       39.9 |       0.3 |        0.73 |        0.19 |    0.45 |      0    |
+|      5 | SWE    | KNOCHENHAUER A | Guard           | ccw    |      50 |        60.1 |  -0.05 |   0.01 |       59   |      -1   |        0.73 |        0.28 |    0.1  |      0    |
+|      6 | SUI    | HOWALD C       | Double Take-out | ccw    |      50 |        41   |   0.01 |  -0.05 |       39.8 |      -1.1 |        0.74 |        0.27 |    0.01 |      0.33 |
+|      7 | SWE    | KNOCHENHAUER A | Guard           | ccw    |     100 |        60.2 |   0.02 |   0.04 |       61.3 |       1.1 |        0.74 |        0.44 |    0.17 |      0    |
+|      8 | SUI    | HOWALD C       | Double Take-out | ccw    |      50 |        38.7 |   0.1  |   0    |       40.5 |       1.9 |        0.92 |        0.27 |    0.18 |      0.17 |
+|      9 | SWE    | McMANUS S      | Guard           | ccw    |     100 |        59.5 |  -0.06 |   0.06 |       59.4 |      -0.1 |        0.92 |        0.39 |    0.12 |      0    |
+|     10 | SUI    | TIRINZONI S    | Double Take-out | ccw    |      50 |        40.6 |   0.06 |  -0.09 |       39.8 |      -0.8 |        0.92 |        0.27 |    0    |      0.12 |
+|     11 | SWE    | McMANUS S      | Guard           | ccw    |     100 |        60.2 |   0.05 |   0.06 |       63.2 |       3   |        1.08 |        0.81 |    0.27 |      0    |
+|     12 | SUI    | TIRINZONI S    | Double Take-out | ccw    |      50 |        36.8 |  -0.02 |  -0.07 |       34.2 |      -2.6 |        1.24 |        0.54 |    0.16 |      0.27 |
+|     13 | SWE    | HASSELBORG A   | Guard           | ccw    |     100 |        65.8 |  -0.02 |   0    |       65.5 |      -0.3 |        1.24 |        0.81 |    0.27 |      0    |
+|     14 | SUI    | PAETZ A        | Double Take-out | ccw    |      50 |        34.5 |  -0.15 |  -0.08 |       28.7 |      -5.8 |        1.24 |        0.54 |    0    |      0.27 |
+|     15 | SWE    | HASSELBORG A   | Guard           | ccw    |      25 |        71.3 |  -0.01 |   0.02 |       71.1 |      -0.2 |        0.67 |        0.59 |    0.05 |      0.56 |
+|     16 | SUI    | PAETZ A        | Double Take-out | ccw    |      25 |        28.9 |  -0.57 |   0.06 |       12.9 |     -16   |        1.55 |        0.32 |    0.88 |      0.27 |
 
 ### End 9: SUI hammer, down 2, 2 ends left; result SUI 2
 
-Potential after the free guard zone: SUI 0.39, SWE 0.29; after stone 12: SUI 0.97, SWE 0.26; before the last stone: SUI 0.89, SWE 0.33. Peak temperature 1.69.
+Rock grades after the free guard zone: SUI 0.29, SWE 0.31; after stone 12: SUI 1.68, SWE 0.44; before the last stone: SUI 0.97, SWE 0.35. Peak temperature 2.12.
 
-|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   pot SUI |   pot SWE |   build |   address |
-|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|----------:|----------:|--------:|----------:|
-|      1 | SWE    | SCHARBACK S    | Front           | cw     |     100 |        86.7 |   0    |  -0.01 |       86.3 |      -0.4 |      0.12 |      0.04 |    0.04 |     -0.12 |
-|      2 | SUI    | WITSCHONKE S   | Front           | ccw    |     100 |        13.7 |   0    |  -0.02 |       13.4 |      -0.2 |      0.19 |      0.05 |    0.08 |     -0.02 |
-|      3 | SWE    | SCHARBACK S    | Draw            | cw     |      75 |        86.6 |   0.06 |   0    |       87.4 |       0.8 |      0.23 |      0.13 |    0.08 |     -0.03 |
-|      4 | SUI    | WITSCHONKE S   | Draw            | ccw    |     100 |        12.6 |   0.01 |   0.01 |       12.9 |       0.3 |      0.3  |      0.14 |    0.07 |     -0.01 |
-|      5 | SWE    | KNOCHENHAUER A | Take-out        | ccw    |     100 |        87.1 |   0.09 |   0.03 |       88.5 |       1.4 |      0.39 |      0.29 |    0.15 |     -0.09 |
-|      6 | SUI    | HOWALD C       | Draw            | ccw    |     100 |        11.5 |  -0.11 |   0.01 |       11.2 |      -0.3 |      0.51 |      0.3  |    0.12 |     -0.01 |
-|      7 | SWE    | KNOCHENHAUER A | Take-out        | ccw    |     100 |        88.8 |  -0.02 |   0    |       89.4 |       0.6 |      0.42 |      0.32 |    0.02 |      0.09 |
-|      8 | SUI    | HOWALD C       | Draw            | ccw    |     100 |        10.6 |  -0.15 |  -0.03 |        9.9 |      -0.7 |      0.56 |      0.32 |    0.14 |      0    |
-|      9 | SWE    | McMANUS S      | Draw            | cw     |      75 |        90.1 |   0.25 |   0.03 |       91.9 |       1.8 |      0.97 |      0.73 |    0.4  |     -0.41 |
-|     10 | SUI    | TIRINZONI S    | Double Take-out | ccw    |      50 |         8.1 |   0.6  |   0.12 |       13.1 |       5   |      1.12 |      0.37 |    0.15 |      0.36 |
-|     11 | SWE    | McMANUS S      | Double Take-out | cw     |      50 |        86.9 |  -0.05 |   0.02 |       86.9 |      -0.1 |      0.8  |      0.32 |   -0.05 |      0.32 |
-|     12 | SUI    | TIRINZONI S    | Hit and Roll    | ccw    |      75 |        13.1 |  -0.05 |   0.14 |       14.5 |       1.4 |      0.97 |      0.26 |    0.18 |      0.06 |
-|     13 | SWE    | HASSELBORG A   | Double Take-out | ccw    |      50 |        85.5 |  -0.16 |   0    |       84.9 |      -0.6 |      0.92 |      0.39 |    0.12 |      0.05 |
-|     14 | SUI    | PAETZ A        | Take-out        | cw     |     100 |        15.1 |   0.23 |   0.06 |       18.4 |       3.3 |      1.36 |      0.31 |    0.44 |      0.07 |
-|     15 | SWE    | HASSELBORG A   | Hit and Roll    | cw     |      75 |        81.6 |   0.51 |   0.01 |       89.1 |       7.5 |      0.89 |      0.33 |    0.02 |      0.47 |
-|     16 | SUI    | PAETZ A        | Raise           | ccw    |     100 |        10.9 |   0.51 |   0.38 |       20.4 |       9.5 |      1.23 |      0.3  |    0.34 |      0.03 |
+|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   rocks SUI |   rocks SWE |   build |   address |
+|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|------------:|------------:|--------:|----------:|
+|      1 | SWE    | SCHARBACK S    | Front           | cw     |     100 |        86.8 |   0.07 |  -0.02 |       87.3 |       0.5 |        0    |        0    |    0    |      0    |
+|      2 | SUI    | WITSCHONKE S   | Front           | ccw    |     100 |        12.7 |   0.03 |   0.01 |       13.3 |       0.6 |        0.29 |        0    |    0.29 |      0    |
+|      3 | SWE    | SCHARBACK S    | Draw            | cw     |      75 |        86.7 |   0    |   0.02 |       86.9 |       0.2 |        0.29 |        0.17 |    0.17 |      0    |
+|      4 | SUI    | WITSCHONKE S   | Draw            | ccw    |     100 |        13.1 |   0.03 |   0.01 |       13.8 |       0.7 |        0.73 |        0.17 |    0.45 |      0    |
+|      5 | SWE    | KNOCHENHAUER A | Take-out        | ccw    |     100 |        86.2 |   0.15 |   0.04 |       88.7 |       2.5 |        0.29 |        0.31 |    0.14 |      0.45 |
+|      6 | SUI    | HOWALD C       | Draw            | ccw    |     100 |        11.3 |  -0.05 |  -0.02 |       11.7 |       0.4 |        0.65 |        0.53 |    0.55 |      0    |
+|      7 | SWE    | KNOCHENHAUER A | Take-out        | ccw    |     100 |        88.3 |   0.11 |  -0.02 |       90.8 |       2.5 |        0.1  |        0.47 |   -0.06 |      0.55 |
+|      8 | SUI    | HOWALD C       | Draw            | ccw    |     100 |         9.2 |  -0.03 |  -0.03 |       10.5 |       1.3 |        0.65 |        0.48 |    0.55 |     -0.01 |
+|      9 | SWE    | McMANUS S      | Draw            | cw     |      75 |        89.5 |   0.19 |  -0.01 |       92   |       2.5 |        0.55 |        0.78 |    0.3  |      0.1  |
+|     10 | SUI    | TIRINZONI S    | Double Take-out | ccw    |      50 |         8   |   0.55 |   0.2  |       15.5 |       7.5 |        0.96 |        0.13 |    0.41 |      0.65 |
+|     11 | SWE    | McMANUS S      | Double Take-out | cw     |      50 |        84.5 |   0.12 |   0.08 |       88.1 |       3.6 |        0.59 |        0.52 |    0.4  |      0.64 |
+|     12 | SUI    | TIRINZONI S    | Hit and Roll    | ccw    |      75 |        11.9 |   0.17 |   0.1  |       15.7 |       3.8 |        1.68 |        0.44 |    1.09 |      0.08 |
+|     13 | SWE    | HASSELBORG A   | Double Take-out | ccw    |      50 |        84.3 |  -0.05 |   0.08 |       86   |       1.8 |        0.94 |        0.55 |    0.11 |      0.75 |
+|     14 | SUI    | PAETZ A        | Take-out        | cw     |     100 |        14   |   0.29 |   0.07 |       18.7 |       4.8 |        1.81 |        0.12 |    0.87 |      0.43 |
+|     15 | SWE    | HASSELBORG A   | Hit and Roll    | cw     |      75 |        81.3 |   0.13 |   0    |       84.9 |       3.6 |        0.97 |        0.35 |    0.23 |      0.84 |
+|     16 | SUI    | PAETZ A        | Raise           | ccw    |     100 |        15.1 |   0.33 |   0.16 |       20.4 |       5.3 |        1.77 |        0.14 |    0.8  |      0.21 |
 
 ### End 10: SWE hammer, tied, 1 end left; result SWE 1
 
-Potential after the free guard zone: SUI 0.32, SWE 0.79; after stone 12: SUI 0.12, SWE 0.48; before the last stone: SUI 0.40, SWE 0.99. Peak temperature 1.50.
+Rock grades after the free guard zone: SUI 0.21, SWE 0.44; after stone 12: SUI -0.06, SWE 0.77; before the last stone: SUI 0.60, SWE 1.02. Peak temperature 1.62.
 
-|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   pot SUI |   pot SWE |   build |   address |
-|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|----------:|----------:|--------:|----------:|
-|      1 | SUI    | WITSCHONKE S   | Front           | ccw    |     100 |        20.3 |   0.03 |  -0.01 |       22.2 |       1.9 |      0.04 |      0.11 |    0.04 |     -0.11 |
-|      2 | SWE    | SCHARBACK S    | Draw            | ccw    |       0 |        77.8 |  -0.04 |   0.02 |       76.7 |      -1.1 |      0.08 |      0.23 |    0.12 |     -0.04 |
-|      3 | SUI    | WITSCHONKE S   | Front           | ccw    |     100 |        23.3 |   0.03 |  -0.02 |       23.5 |       0.2 |      0.12 |      0.36 |    0.03 |     -0.13 |
-|      4 | SWE    | SCHARBACK S    | Draw            | cw     |     100 |        76.5 |   0.03 |   0.03 |       78.4 |       1.9 |      0.13 |      0.51 |    0.16 |     -0.02 |
-|      5 | SUI    | HOWALD C       | Raise           | cw     |     100 |        21.6 |   0    |   0.05 |       28.6 |       7   |      0.32 |      0.79 |    0.19 |     -0.28 |
-|      6 | SWE    | KNOCHENHAUER A | Double Take-out | ccw    |     100 |        71.4 |   0.03 |   0.02 |       81   |       9.5 |      0.13 |      0.48 |   -0.31 |      0.19 |
-|      7 | SUI    | HOWALD C       | Front           | cw     |      75 |        19   |  -0.01 |  -0.07 |       20.7 |       1.7 |      0.19 |      0.74 |    0.06 |     -0.26 |
-|      8 | SWE    | KNOCHENHAUER A | Clearing        | cw     |     100 |        79.3 |  -0.09 |  -0.01 |       81   |       1.7 |      0.15 |      0.58 |   -0.17 |      0.04 |
-|      9 | SUI    | TIRINZONI S    | Front           | cw     |     100 |        19   |   0.01 |  -0.1  |       20.6 |       1.6 |      0.32 |      0.97 |    0.17 |     -0.39 |
-|     10 | SWE    | McMANUS S      | Clearing        | ccw    |     100 |        79.4 |  -0.01 |  -0.03 |       86.4 |       7   |      0.12 |      0.48 |   -0.48 |      0.2  |
-|     11 | SUI    | TIRINZONI S    | Front           | ccw    |     100 |        13.6 |  -0.04 |  -0.08 |       17.3 |       3.8 |      0.23 |      0.77 |    0.11 |     -0.29 |
-|     12 | SWE    | McMANUS S      | Clearing        | ccw    |     100 |        82.7 |  -0.11 |  -0.04 |       87.2 |       4.6 |      0.12 |      0.48 |   -0.29 |      0.11 |
-|     13 | SUI    | PAETZ A        | Front           | ccw    |     100 |        12.8 |  -0.12 |  -0.11 |       15.8 |       3   |      0.35 |      1.15 |    0.24 |     -0.66 |
-|     14 | SWE    | HASSELBORG A   | Clearing        | ccw    |     100 |        84.2 |  -0.1  |  -0.16 |       87.3 |       3.1 |      0.15 |      0.69 |   -0.46 |      0.2  |
-|     15 | SUI    | PAETZ A        | Freeze          | ccw    |      25 |        12.7 |  -0.31 |  -0.13 |        8.7 |      -4   |      0.4  |      0.99 |    0.25 |     -0.3  |
-|     16 | SWE    | HASSELBORG A   | Take-out        | ccw    |     100 |        91.3 |  -0.61 |   0.16 |      100   |       8.7 |      0.11 |      0.69 |   -0.3  |      0.29 |
+|   shot | team   | player         | type            | turn   |   grade |   WP before |   PGAA |   call |   WP after |   WP gain |   rocks SUI |   rocks SWE |   build |   address |
+|-------:|:-------|:---------------|:----------------|:-------|--------:|------------:|-------:|-------:|-----------:|----------:|------------:|------------:|--------:|----------:|
+|      1 | SUI    | WITSCHONKE S   | Front           | ccw    |     100 |        19.8 |   0.03 |   0.01 |       22.4 |       2.6 |        0    |        0    |    0    |      0    |
+|      2 | SWE    | SCHARBACK S    | Draw            | ccw    |       0 |        77.6 |  -0.01 |   0    |       76   |      -1.6 |        0    |        0.18 |    0.18 |      0    |
+|      3 | SUI    | WITSCHONKE S   | Front           | ccw    |     100 |        24   |  -0.01 |   0    |       23.4 |      -0.6 |        0.11 |        0.19 |    0.11 |     -0.02 |
+|      4 | SWE    | SCHARBACK S    | Draw            | cw     |     100 |        76.6 |   0.03 |   0    |       77.1 |       0.5 |        0.05 |        0.55 |    0.35 |      0.06 |
+|      5 | SUI    | HOWALD C       | Raise           | cw     |     100 |        22.9 |   0.03 |   0.04 |       28.6 |       5.7 |        0.21 |        0.44 |    0.16 |      0.11 |
+|      6 | SWE    | KNOCHENHAUER A | Double Take-out | ccw    |     100 |        71.4 |   0.11 |   0    |       83.1 |      11.7 |       -0.08 |        0.35 |    0.01 |      0.48 |
+|      7 | SUI    | HOWALD C       | Front           | cw     |      75 |        16.9 |   0.01 |  -0.04 |       21   |       4.1 |       -0.05 |        0.42 |    0.02 |     -0.07 |
+|      8 | SWE    | KNOCHENHAUER A | Clearing        | cw     |     100 |        79   |  -0.06 |  -0.06 |       78.1 |      -0.9 |       -0.05 |        0.34 |   -0.08 |      0    |
+|      9 | SUI    | TIRINZONI S    | Front           | cw     |     100 |        21.9 |   0    |  -0.07 |       23.3 |       1.4 |        0.08 |        0.34 |    0.14 |      0    |
+|     10 | SWE    | McMANUS S      | Clearing        | ccw    |     100 |        76.7 |   0.06 |  -0.03 |       85.3 |       8.6 |       -0.08 |        0.44 |    0.1  |      0.16 |
+|     11 | SUI    | TIRINZONI S    | Front           | ccw    |     100 |        14.7 |  -0.11 |  -0.06 |       14.6 |      -0.2 |        0.08 |        0.85 |    0.14 |     -0.08 |
+|     12 | SWE    | McMANUS S      | Clearing        | ccw    |     100 |        85.4 |  -0.08 |  -0.11 |       87.3 |       1.9 |       -0.06 |        0.77 |   -0.08 |      0.14 |
+|     13 | SUI    | PAETZ A        | Front           | ccw    |     100 |        12.7 |  -0.11 |  -0.14 |       11.9 |      -0.8 |        0.08 |        0.83 |    0.14 |     -0.05 |
+|     14 | SWE    | HASSELBORG A   | Clearing        | ccw    |     100 |        88.1 |  -0.1  |  -0.2  |       88.1 |      -0.1 |       -0.06 |        0.77 |   -0.05 |      0.14 |
+|     15 | SUI    | PAETZ A        | Freeze          | ccw    |      25 |        11.9 |   0.03 |  -0.2  |       13   |       1.1 |        0.6  |        1.02 |    0.65 |     -0.25 |
+|     16 | SWE    | HASSELBORG A   | Take-out        | ccw    |     100 |        87   |  -0.4  |   0.23 |      100   |      13   |       -0.06 |        0.76 |   -0.26 |      0.65 |
