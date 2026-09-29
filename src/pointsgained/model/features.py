@@ -1,6 +1,10 @@
-"""Baseline hand-built position features (design Section 5.4), canonical hammer frame.
+"""Position descriptors cached with every row (features.parquet), canonical hammer frame.
 
-'own' means the hammer team, 'opp' the non-hammer team.
+'own' means the hammer team, 'opp' the non-hammer team. These 26 numbers were once the model's position
+input (the `base` set); the model now reads rocks by their traits and relations, and takes only a few of
+these directly: rocks remaining, who throws next, the free-guard-zone rule, stones in play and the count
+(`core`), the count's margins (`margin`) and each team's nearest stone (`shotdist`). Studies and reports
+use the rest to select positions.
 """
 from __future__ import annotations
 

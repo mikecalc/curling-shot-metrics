@@ -112,39 +112,34 @@ def _feature_sets(spec: str) -> tuple[str, ...]:
     return tuple(s.strip() for s in spec.split(",") if s.strip())
 
 
-def _with_level(ds, sets, parquet_root, aliases_csv, event_strength_csv="data/event_strength.csv", grade_books=None):
-    """Attach the level columns (event rating; or the per-player skill sets) and the intent columns when requested."""
-    if "level" in sets:
-        es = pd.read_csv(event_strength_csv).set_index("book")["rating"] if os.path.exists(event_strength_csv) else pd.Series(dtype=float)
-        ds.rows = ds.rows.assign(event_rating=es.reindex(ds.rows["book"].to_numpy()).fillna(float(es.median()) if len(es) else 85.0).to_numpy(dtype=float))
-    if "level_player" in sets or "level_id" in sets:
-        from .model.difficulty import load_level
-        ds.rows = load_level(parquet_root, ds.rows, aliases_csv)
-    if "intent" in sets:
-        from .model.intent import attach_intent
-        ds.rows = attach_intent(ds.rows, pd.read_parquet(os.path.join(parquet_root, "intent.parquet")))
-    if "config" in sets:
-        from .model.config_features import attach_config, load_table
-        ds.rows = attach_config(ds.rows, load_table(parquet_root))
+def attach_position_sets(rows, sets, parquet_root, grade_books=None, grade_groups=None):
+    """The position sets of the rows' pre-shot positions: rock traits, slots, the draw to beat, doubles and
+    runbacks, and trait grades (fitted on `grade_books`, or cross-fitted over `grade_groups`)."""
     if "traits" in sets:
         from .model.trait_features import attach_traits, load_tables as load_trait_tables
-        ds.rows = attach_traits(ds.rows, load_trait_tables(parquet_root)[1])
+        rows = attach_traits(rows, load_trait_tables(parquet_root)[1])
     if "slots" in sets:
         from .model.slot_features import attach_slots
-        ds.rows = attach_slots(ds.rows, parquet_root)
+        rows = attach_slots(rows, parquet_root)
     for rel in ("draw", "combo"):
         if rel in sets:
             from .model.draw_features import attach_draw, load_table as load_rel_table
-            ds.rows = attach_draw(ds.rows, load_rel_table(parquet_root, name=rel), name=rel)
+            rows = attach_draw(rows, load_rel_table(parquet_root, name=rel), name=rel)
     if "grades" in sets:
         from .model.trait_study import attach_grades
-        ds.rows = attach_grades(ds.rows, parquet_root, fit_books=grade_books)
-    if {"stones", "regime", "goals", "potential", "potential_cb"} & set(sets):
-        from .model.stone_value import attach_stones, load_position_features
-        ds.rows = attach_stones(ds.rows, load_position_features(parquet_root))
-    if {"regime", "goals"} & set(sets):
-        from .model.stone_value import attach_regime, load_wp_table
-        ds.rows = attach_regime(ds.rows, load_wp_table(parquet_root))
+        rows = attach_grades(rows, parquet_root, fit_books=grade_books, groups=grade_groups)
+    return rows
+
+
+def _with_level(ds, sets, parquet_root, event_strength_csv="data/event_strength.csv", grade_books=None, grade_groups=None):
+    """Attach the level column (the event's rating), the intent columns and the position sets requested."""
+    if "level" in sets:
+        es = pd.read_csv(event_strength_csv).set_index("book")["rating"] if os.path.exists(event_strength_csv) else pd.Series(dtype=float)
+        ds.rows = ds.rows.assign(event_rating=es.reindex(ds.rows["book"].to_numpy()).fillna(float(es.median()) if len(es) else 85.0).to_numpy(dtype=float))
+    if "intent" in sets:
+        from .model.intent import attach_intent
+        ds.rows = attach_intent(ds.rows, pd.read_parquet(os.path.join(parquet_root, "intent.parquet")))
+    ds.rows = attach_position_sets(ds.rows, sets, parquet_root, grade_books, grade_groups)
     return ds
 
 
@@ -183,23 +178,15 @@ def cmd_intent(args):
 def cmd_experiment(args):
     """Fit f, g and the trivial model once on one split and score the held-out rows."""
     from .model.cache import load_or_build
-    from .model.experiment import run_experiment
+    from .model.experiment import run_experiment, split_rows
     sets = _feature_sets(args.features)
-    early = _feature_sets(args.early_features) if args.split_model else ()
     ds = load_or_build(args.parquet, rebuild=args.rebuild)
     # trait grades are fitted on the split's training books only, so the held-out rows are graded honestly
-    from .model.experiment import split_rows
     grade_books = set(ds.rows["book"].to_numpy()[split_rows(ds.rows, args.split, args.cutoff_year, args.fold)[0]])
-    ds = _with_level(ds, tuple(dict.fromkeys(sets + early)), args.parquet, args.aliases, grade_books=grade_books)
-    if "net_pot" not in ds.rows:
-        # rock potential for the gates, whether or not the models use it
-        from .model.stone_value import attach_stones, load_position_features
-        ds.rows = attach_stones(ds.rows, load_position_features(args.parquet))
+    ds = _with_level(ds, sets, args.parquet, grade_books=grade_books)
     name = args.name or f"{args.split}_{'+'.join(sets)}"
     rep = run_experiment(ds, name, sets, split=args.split, cutoff_year=args.cutoff_year, fold=args.fold,
                          seed=args.seed, reports=args.reports, inventory_csv=args.inventory, target=args.target,
-                         monotone=args.monotone, split_model=args.split_model, early_sets=early,
-                         blend=tuple(int(v) for v in args.blend.split(",")) if args.blend else None,
                          save_predictions=os.path.join(args.parquet, "experiments") if args.save_predictions else None)
     print(json.dumps({k: rep[k] for k in ("name", "split", "sets", "n_train", "n_test", "trivial_logloss", "f_logloss", "g_logloss", "seconds")}, indent=2))
     print("by rocks remaining:", {r: (v["f"], v["trivial"]) for r, v in rep["logloss_by_rocks_remaining"].items()})
@@ -220,7 +207,15 @@ def cmd_model(args):
     os.makedirs(args.reports, exist_ok=True)
     t0 = time.time()
     sets = _feature_sets(args.features)
-    ds = _with_level(load_or_build(args.parquet, mirror=not args.no_mirror, rebuild=args.rebuild), sets, args.parquet, args.aliases)
+    ds = load_or_build(args.parquet, mirror=not args.no_mirror, rebuild=args.rebuild)
+    # trait grades cross-fitted on the same book folds as the models: a held-out book is graded by weights
+    # fitted without it
+    from sklearn.model_selection import GroupKFold
+    books = ds.rows["book"].to_numpy()
+    grade_groups = {}
+    for k, (_, te) in enumerate(GroupKFold(n_splits=5).split(books, groups=books)):
+        grade_groups.update({b: k for b in set(books[te])})
+    ds = _with_level(ds, sets, args.parquet, grade_groups=grade_groups)
     rep = {"n_games": int(ds.rows["game_key"].nunique()), "n_ends": int(ds.rows.groupby(["game_key", "end"]).ngroups),
            "n_shots": int((ds.rows["mirror"] == 0).sum()), "n_rows": int(len(ds.rows)), "feature_sets": list(sets)}
     logging.info("dataset: %d rows (%d shots) in %.0fs", rep["n_rows"], rep["n_shots"], time.time() - t0)
@@ -245,27 +240,15 @@ def cmd_model(args):
                               for d, n, h in [(0, 10, 1), (0, 5, 1), (1, 5, 0), (-1, 5, 1), (2, 3, 0), (0, 1, 1), (0, 1, 0), (-2, 2, 1)]}
         rep["regimes"] = {f"d={d},n={n}": wpt.regime(d, n) for d, n in [(0, 10), (0, 1), (-1, 1), (1, 2), (-2, 3), (3, 4)]}
 
-    models = fit_models(ds.rows, ds.X, ds.y, seed=args.seed, sets=sets, target=args.target, monotone=args.monotone)
+    models = fit_models(ds.rows, ds.X, ds.y, seed=args.seed, sets=sets, target=args.target)
     rep["target"] = args.target
     rep["cv"] = models.cv_report
     logging.info("models fitted in %.0fs; f logloss %.4f vs trivial %.4f", time.time() - t0,
                  models.cv_report["f_logloss"], models.cv_report["trivial_logloss"])
 
     vm = HammerAdjustedPoints(vs_all.H)
-    skill_ref = None
-    if "level_player" in sets:
-        from .model.difficulty import reference_skill
-        from .model.experiment import attach_tier
-        tiers = attach_tier(ds.rows, args.inventory).get("tier")
-        skill_ref = reference_skill(ds.rows, ds.rows["skill_thrower"].to_numpy(), tiers)
-    post_features = None
-    if {"stones", "potential", "potential_cb"} & set(sets):
-        # a post position rebuilt from the stones needs its own stone and potential columns
-        from .model.stone_value import attach_stones, load_position_features
-        pf = load_position_features(args.parquet)
-        keyed = pf.assign(pre_source_shot=pf["shot"])
-        post_features = attach_stones(keyed, pf).set_index(["game_key", "end", "shot"])
-    pg = compute_points_gained(ds, models, vm, wp_table=wpt, skill_reference=skill_ref, post_features=post_features)
+    pg = compute_points_gained(ds, models, vm, wp_table=wpt,
+                               attach_position=lambda sub: attach_position_sets(sub, sets, args.parquet, grade_groups=grade_groups))
     cons = conservation_check(pg, vm)
     rep["conservation_max_abs_residual"] = float(cons["residual"].abs().max())
     rep["conservation_terminal_ok_rate"] = float(cons["terminal_is_actual"].mean())
@@ -325,8 +308,8 @@ def cmd_events(args):
     """Per-event player leaderboards: one file per event under reports/events/, an index by year, one combined CSV."""
     from .model import aggregate as agg
     pg = pd.read_parquet(os.path.join(args.parquet, "points_gained.parquet"))
-    from .model.stone_value import style_table
-    led_path = os.path.join(args.parquet, "potential_ledger.parquet")
+    from .model.ledger import style_table
+    led_path = os.path.join(args.parquet, "rock_ledger.parquet")
     led = pd.read_parquet(led_path) if os.path.exists(led_path) else None
     if led is not None:
         pg = pg.merge(led, on=["game_key", "end", "shot"], how="left")
@@ -376,11 +359,11 @@ def cmd_events(args):
                         + tt.round(1).to_markdown(index=False) + "\n\n")
                 if led is not None:
                     st = style_table(pg[(pg["book"] == ev) & (pg["discipline"] == d)])
-                    f.write("### Build or address\n\nHow each team played the stones, in rock potential (descriptive, not a "
-                            "ranking): `build` is how much a stone added to the team's own potential and `address` how much it "
-                            "took from the other team's, per stone, relative to this field at the same stage of the end; "
+                    f.write("### Build or address\n\nHow each team played the stones, in rock grades (descriptive, not a "
+                            "ranking): `build` is how much a stone added to the grade of the team's own rocks and `address` how "
+                            "much it took from the other team's, per stone, relative to this field at the same stage of the end; "
                             "`builds_share` the share of its stones that built more than they addressed; `temperature` the mean "
-                            "peak of both teams' potential together in its ends with and without hammer (high: aggressive ends, "
+                            "peak of both teams' grades together in its ends with and without hammer (high: aggressive ends, "
                             "low: conservative ones).\n\n" + st.round(3).to_markdown(index=False) + "\n\n")
                 for pos in ("FOURTH", "THIRD", "SECOND", "LEAD"):
                     gp = gd[gd["position"] == pos].sort_values(["reliability", "avg_miss"], ascending=False)
@@ -410,9 +393,9 @@ def cmd_game(args):
     """One game shot by shot: ends, players, largest swings and every shot's values, under reports/games/."""
     from .model.report import game_report, game_file_name
     pg = pd.read_parquet(os.path.join(args.parquet, "points_gained.parquet"))
-    led_path = os.path.join(args.parquet, "potential_ledger.parquet")
+    led_path = os.path.join(args.parquet, "rock_ledger.parquet")
     if os.path.exists(led_path):
-        # the potential ledger (`pointsgained stones` writes it): each team's rock potential per stone
+        # the rock ledger (`pointsgained traits` writes it): each team's rock grade per stone
         pg = pg.merge(pd.read_parquet(led_path), on=["game_key", "end", "shot"], how="left")
     keys = sorted(k for k in pg["game_key"].unique() if all(m in k for m in args.match))
     if not keys:
@@ -459,18 +442,19 @@ def cmd_stones(args):
     os.makedirs(args.reports, exist_ok=True)
     t0 = time.time()
     load_lives(args.parquet, rebuild=args.rebuild)
-    from .model.stone_value import potential_ledger
-    potential_ledger(args.parquet)
     print(f"wrote {write_report(args.parquet, args.reports)} in {time.time() - t0:.0f}s")
 
 
 def cmd_traits(args):
     """The rock-trait study: what positions whose stones carry each trait have been worth, by team and
-    stage, stone types, and additive stone grades (reports/traits.md)."""
+    stage, stone types, and additive stone grades (reports/traits.md); and the rock ledger for every
+    stone (rock_ledger.parquet: each team's grade before and after, build and address)."""
     from .model.trait_features import load_tables
     from .model.trait_study import write_report
+    from .model.ledger import rock_ledger
     t0 = time.time()
     load_tables(args.parquet, rebuild=args.rebuild)
+    rock_ledger(args.parquet)
     print(f"wrote {write_report(args.parquet, args.reports, args.inventory, args.tier1)} in {time.time() - t0:.0f}s")
 
 
@@ -532,97 +516,6 @@ def cmd_difficulty(args):
     print(f"wrote {args.reports}/difficulty_report.md in {time.time() - t0:.0f}s")
 
 
-def cmd_raster(args):
-    """Raw-geometry f (and g) on one split: time-split log-loss against the trees, the subtlety probe
-    and the monotonicity checks (design Sections 5.2, 7.5). Writes reports/raster_<name>.json."""
-    import numpy as np
-    from .model.cache import load_or_build
-    from .model.experiment import split_rows, attach_tier
-    from .model.train import design_matrices, make_model, _cat_index, _full_proba, evaluate, FittedModels, design_columns
-    from .model.raster import pre_position_arrays, scalar_matrix, fit_raster, target_xy_from_rows, arrays_subset
-    from .model import probe as PR
-    from .model.value import HammerAdjustedPoints
-    t0 = time.time()
-    sets = _feature_sets(args.features)
-    ds = _with_level(load_or_build(args.parquet), sets, args.parquet, args.aliases)
-    rows_all = attach_tier(ds.rows, args.inventory)
-    unm = (rows_all["mirror"] == 0).to_numpy()
-    keep_cols = [c for c in rows_all.columns if c not in ("player", "team", "hammer_team")]   # memory: drop strings not needed here
-    rows = rows_all[unm][keep_cols].reset_index(drop=True); X = ds.X[unm]; y = ds.y[unm]
-    del rows_all
-    tr, te = split_rows(rows, args.split, args.cutoff_year, args.fold)
-    if args.max_train and len(tr) > args.max_train:
-        tr = np.random.default_rng(args.seed).choice(tr, args.max_train, replace=False)
-    val = np.random.default_rng(args.seed + 1).choice(te, min(len(te), 40000), replace=False)   # early-stopping subset
-    logging.info("raster: %d train, %d test rows; building stone arrays", len(tr), len(te))
-    arrays = pre_position_arrays(ds)
-    rep = {"name": args.name, "split": args.split, "sets": list(sets), "n_train": int(len(tr)), "n_test": int(len(te)), "device": None}
-    from .model.raster import device_name
-    rep["device"] = device_name()
-    P = {}
-    # trees on the same split for a like-for-like comparison
-    X_f, f_cols, X_g, g_cols = design_matrices(rows, X, sets)
-    mf = make_model(args.seed).fit(X_f[tr], y[tr]); P["f_tree"] = _full_proba(mf, X_f[te])
-    mg = make_model(args.seed, _cat_index(g_cols)).fit(X_g[tr], y[tr]); P["g_tree"] = _full_proba(mg, X_g[te])
-    logging.info("trees fitted in %.0fs", time.time() - t0)
-    del X_f, X_g
-    ds.rows = ds.rows[(ds.rows["mirror"] == 0).to_numpy()].reset_index(drop=True)   # the probe reads unmirrored rows only
-    import gc; gc.collect()
-    fits = {}
-    for kind in (["f", "g"] if not args.f_only else ["f"]):
-        S, cols = scalar_matrix(rows, X, kind, hybrid=args.hybrid)
-        txy = target_xy_from_rows(rows) if (kind == "g" and "intent" in sets) else None
-        fit = fit_raster(kind, arrays, S, y, txy, tr, val, epochs=args.epochs, batch=args.batch, lr=args.lr, seed=args.seed)
-        fits[kind] = (fit, S, txy)
-        P[f"{kind}_raster"] = fit.predict(arrays_subset(arrays, te), S[te], None if txy is None else txy[te])
-        rep[f"{kind}_history"] = fit.history
-        logging.info("raster %s done in %.0fs", kind, time.time() - t0)
-    ev = evaluate(P, y[te], rows.iloc[te], X[te])
-    rep.update({k: v for k, v in ev.items() if k != "calibration_f"})
-    # probe on made doubles with a known struck stone, and monotonicity
-    vm = HammerAdjustedPoints(0.58); v = PR.v_points(vm)
-    if "g" in fits and os.path.exists(os.path.join(args.parquet, "intent.parquet")):
-        it = pd.read_parquet(os.path.join(args.parquet, "intent.parquet"))
-        probes = PR.probe_positions(ds, it, n=args.n_probe, seed=args.seed)
-        if len(probes):
-            models = FittedModels(mf, mg, mf, f_cols, g_cols, tuple(sets), {}, [], "book")
-            tc = PR.tree_curve(models, ds, probes, v)
-            fit, S, txy = fits["g"]
-            pr = probes["row"].to_numpy()
-            rc = PR.raster_curve(fit, ds, probes, v, S[pr], None if txy is None else txy[pr])
-            rep["probe"] = {"n": int(len(probes)), "offsets": PR.OFFSETS.tolist(), "tree": PR.curve_summary(tc), "raster": PR.curve_summary(rc),
-                            "tree_mean_curve": np.round(tc.mean(0), 4).tolist(), "raster_mean_curve": np.round(rc.mean(0), 4).tolist()}
-            np.save(os.path.join(args.reports, f"probe_{args.name}.npy"), np.stack([tc, rc]))
-    if "f" in fits:
-        fit, S, _ = fits["f"]
-        from .model.raster import StoneArrays, MAX_STONES
-        def raster_value(positions):
-            n = len(positions)
-            x = np.zeros((n, MAX_STONES), np.float32); yy = np.zeros_like(x); o = np.zeros_like(x); valid = np.zeros((n, MAX_STONES), bool)
-            feats = []
-            for i, p in enumerate(positions):
-                m = min(p.n, MAX_STONES)
-                x[i, :m], yy[i, :m], o[i, :m], valid[i, :m] = p.x[:m], p.y[:m], p.owner[:m], True
-                feats.append(np.hstack([position_features_row(p), ]))
-            Xp = np.vstack(feats)
-            sub = pd.DataFrame({"discipline": "M", "diff_hammer": 0, "ends_remaining": 5, "is_extra_end": False, "turn": "cw", "shot_type_code": 0}, index=range(n))
-            Sp, _ = scalar_matrix(sub, Xp, "f", hybrid=args.hybrid)
-            return fit.predict(StoneArrays(x, yy, o, valid), Sp, None) @ v
-        def tree_value(positions):
-            from .model.train import column as _col
-            Xp = np.vstack([position_features_row(p) for p in positions])
-            sub = pd.DataFrame({"discipline": "M", "diff_hammer": 0, "ends_remaining": 5, "is_extra_end": False, "turn": "cw", "shot_type_code": 0}, index=range(len(positions)))
-            Xf = np.column_stack([_col(sub, Xp, c) for c in f_cols])       # f columns only: no level or intent needed
-            return _full_proba(mf, Xf) @ v
-        from .model.features import position_features as position_features_row
-        rep["monotonicity"] = {"raster": PR.monotonicity_report(raster_value), "tree": PR.monotonicity_report(tree_value)}
-    rep["seconds"] = round(time.time() - t0, 1)
-    os.makedirs(args.reports, exist_ok=True)
-    with open(os.path.join(args.reports, f"raster_{args.name}.json"), "w") as f:
-        json.dump(rep, f, indent=1, default=str)
-    print(json.dumps({k: rep[k] for k in rep if k.endswith("_logloss") or k in ("n_train", "n_test", "device", "seconds", "probe", "monotonicity")}, indent=1, default=str))
-
-
 def cmd_testset(args):
     """The six-shot face-validity table from the current Points Gained table."""
     from .model.testset import write_testset_report
@@ -633,6 +526,7 @@ def cmd_testset(args):
 
 
 def main(argv=None):
+    from .model.train import ADOPTED
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     p = argparse.ArgumentParser(prog="pointsgained")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -658,11 +552,9 @@ def main(argv=None):
     d.add_argument("--min-shots", type=int, default=40)
     d.add_argument("--no-mirror", action="store_true")
     d.add_argument("--inventory", default="data/inventory.csv", help="for tier and event family strata")
-    d.add_argument("--features", default="base", help="comma list of feature sets: base,situation,level,intent")
+    d.add_argument("--features", default=",".join(ADOPTED), help="comma list of feature sets (model/train.py)")
     d.add_argument("--rebuild", action="store_true", help="rebuild the feature cache")
-    d.add_argument("--aliases", default="data/player_aliases.csv")
-    d.add_argument("--target", default="final", help="final, local:k or phase (model/targets.py)")
-    d.add_argument("--monotone", action="store_true", help="expectation must rise with the hammer team's rock potential")
+    d.add_argument("--target", default="local:2", help="final or local:k (model/targets.py)")
     d.set_defaults(func=cmd_model)
     i = sub.add_parser("features", help="build or refresh the feature cache under the parquet root")
     i.add_argument("--parquet", default="data/parquet")
@@ -670,24 +562,17 @@ def main(argv=None):
     i.add_argument("--rebuild", action="store_true")
     i.set_defaults(func=cmd_features)
     j = sub.add_parser("experiment", help="fit once on one split and score the held-out rows")
-    j.add_argument("--target", default="final", help="final (the end's score) or local:k (early rows take the value k stones later)")
-    j.add_argument("--monotone", action="store_true", help="expectation must rise with the hammer team's rock potential and fall with the other team's")
-    j.add_argument("--split-model", choices=["fgz"], default=None,
-                   help="value the setup (the free guard zone) with its own models, taught by the endgame models at the handover")
-    j.add_argument("--early-features", default="nobase,core,situation,level,goals,potential_cb,intent",
-                   help="feature sets of the setup models (with --split-model); --features are the endgame models'")
-    j.add_argument("--blend", default=None, help="a,b: a gradual handover, the setup models' share falling from stone a to stone b")
+    j.add_argument("--target", default="local:2", help="final (the end's score) or local:k (early rows take the value k stones later)")
     j.add_argument("--parquet", default="data/parquet")
     j.add_argument("--reports", default="reports")
     j.add_argument("--inventory", default="data/inventory.csv")
-    j.add_argument("--features", default="base", help="comma list of feature sets")
+    j.add_argument("--features", default=",".join(ADOPTED), help="comma list of feature sets (model/train.py)")
     j.add_argument("--split", choices=["time", "book"], default="time")
     j.add_argument("--cutoff-year", type=int, default=2024, help="time split: last training year")
     j.add_argument("--fold", type=int, default=0, help="book split: which of the five folds")
     j.add_argument("--name", default=None)
     j.add_argument("--seed", type=int, default=0)
     j.add_argument("--rebuild", action="store_true")
-    j.add_argument("--aliases", default="data/player_aliases.csv")
     j.add_argument("--save-predictions", action="store_true", help="write the held-out predictions to <parquet>/experiments/<name>.parquet")
     j.set_defaults(func=cmd_experiment)
     e = sub.add_parser("inventory", help="build the inventory of the curlit results directory")
@@ -769,25 +654,6 @@ def main(argv=None):
     m.add_argument("--seed", type=int, default=0)
     m.add_argument("--no-leave-out", action="store_true", help="team strength from all books including the row's own")
     m.set_defaults(func=cmd_difficulty)
-    o = sub.add_parser("raster", help="raw-geometry f/g on one split with the subtlety probe and monotonicity gates")
-    o.add_argument("--parquet", default="data/parquet")
-    o.add_argument("--reports", default="reports")
-    o.add_argument("--inventory", default="data/inventory.csv")
-    o.add_argument("--aliases", default="data/player_aliases.csv")
-    o.add_argument("--features", default="base,situation,level,intent")
-    o.add_argument("--split", choices=["time", "book"], default="time")
-    o.add_argument("--cutoff-year", type=int, default=2024)
-    o.add_argument("--fold", type=int, default=0)
-    o.add_argument("--name", default="raster")
-    o.add_argument("--epochs", type=int, default=6)
-    o.add_argument("--batch", type=int, default=256)
-    o.add_argument("--lr", type=float, default=1e-3)
-    o.add_argument("--max-train", type=int, default=None, help="subsample the training rows")
-    o.add_argument("--n-probe", type=int, default=300)
-    o.add_argument("--f-only", action="store_true")
-    o.add_argument("--hybrid", action="store_true", help="also feed the 28 hand-built features to the dense layer")
-    o.add_argument("--seed", type=int, default=0)
-    o.set_defaults(func=cmd_raster)
     k = sub.add_parser("testset", help="face-validity table for the six pinned 2026 Olympic shots")
     k.add_argument("--parquet", default="data/parquet")
     k.add_argument("--reports", default="reports")

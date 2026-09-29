@@ -248,8 +248,8 @@ def grade_card(rows: pd.DataFrame, long: pd.DataFrame, w: pd.DataFrame, top: int
 
 def position_grades(counts: pd.DataFrame, shot: np.ndarray, w: pd.DataFrame) -> pd.DataFrame:
     """h_grade, n_grade, net_grade (hammer points) of positions from their trait counts, with the weights of
-    the stage the position's stone number falls in (the empty sheet grades 0)."""
-    stage = stage_of(np.maximum(shot, 1))
+    the stage the position's stone number falls in (stone 16 with the late weights; the empty sheet grades 0)."""
+    stage = stage_of(np.clip(shot, 1, 15))                 # the last stone is graded with the late weights
     X = term_matrix(counts)
     k = len(TERMS)
     h, n = np.zeros(len(counts)), np.zeros(len(counts))
@@ -264,12 +264,14 @@ def position_grades(counts: pd.DataFrame, shot: np.ndarray, w: pd.DataFrame) -> 
 GRADE_COLUMNS = ["h_grade", "n_grade", "net_grade"]
 
 
-def attach_grades(train_rows: pd.DataFrame, parquet_root: str, n_groups: int = 5, fit_books: set | None = None) -> pd.DataFrame:
+def attach_grades(train_rows: pd.DataFrame, parquet_root: str, n_groups: int = 5, fit_books: set | None = None,
+                  groups: dict | None = None) -> pd.DataFrame:
     """The `grades` design columns: each row's pre-shot position graded with additive trait weights (hammer
     points). With `fit_books` (an experiment's training books) the weights are fitted once on those books and
-    applied to every row, so held-out rows are graded by weights that never saw them. Without, cross-fitted:
-    each book is graded with weights fitted on the other groups of books (book index mod n_groups, as for
-    rock potential). net_grade is the sum of the two teams' grades, both from the hammer team's side."""
+    applied to every row, so held-out rows are graded by weights that never saw them. Otherwise cross-fitted:
+    each book is graded with weights fitted on the other groups of books, `groups` (book -> group, the
+    model's cross-validation folds) or book index mod n_groups. net_grade is the sum of the two teams'
+    grades, both from the hammer team's side."""
     study = load_rows(parquet_root)
     _, wide = load_tables(parquet_root)
     counts = counts_at(train_rows, wide, "pre_source_shot")
@@ -280,31 +282,15 @@ def attach_grades(train_rows: pd.DataFrame, parquet_root: str, n_groups: int = 5
         out[:] = position_grades(counts, pre_stones, w).to_numpy()
     else:
         books = sorted(set(study["book"]) | set(train_rows["book"]))
-        group = {b: i % n_groups for i, b in enumerate(books)}
+        group = groups if groups is not None else {b: i % n_groups for i, b in enumerate(books)}
         tg = train_rows["book"].map(group).to_numpy()
         sg = study["book"].map(group).to_numpy()
-        for g in range(n_groups):
+        for g in sorted(set(group.values())):
             m = tg == g
             if m.any():
                 w = fit_weights(study[sg != g], targets=("pts",))
                 out.loc[m] = position_grades(counts[m], pre_stones[m], w).to_numpy()
     return train_rows.assign(**{c: out[c].to_numpy() for c in GRADE_COLUMNS})
-
-
-def potential_agreement(rows: pd.DataFrame, parquet_root: str, w: pd.DataFrame) -> pd.DataFrame:
-    """Spearman between each team's trait grade and its tracked rock potential (potential_cb) by stage."""
-    p = os.path.join(parquet_root, "stone_features.parquet")
-    if not os.path.exists(p):
-        return pd.DataFrame()
-    pot = pd.read_parquet(p, columns=KEYS + ["pot_h", "pot_n"])
-    g = position_grades(rows[TRAIT_COLUMNS], rows["shot"].to_numpy(), w)
-    d = pd.concat([rows[KEYS + ["stage"]], g], axis=1).merge(pot, on=KEYS, how="left").fillna({"pot_h": 0.0, "pot_n": 0.0})
-    out = []
-    for _, _, st in STAGES:
-        s = d[d["stage"] == st]
-        out.append({"stage": st, "hammer": s["h_grade"].corr(s["pot_h"], method="spearman"),
-                    "non-hammer (grade sign flipped)": (-s["n_grade"]).corr(s["pot_n"], method="spearman")})
-    return pd.DataFrame(out)
 
 
 # ---- the report ------------------------------------------------------------------------------------
@@ -340,7 +326,6 @@ def write_report(parquet_root: str, reports_dir: str, inventory_csv: str | None 
     cov = type_coverage(rows, long)
     w = fit_weights(rows)
     card = grade_card(rows, long, w)
-    agree = potential_agreement(rows, parquet_root, w)
 
     eff.to_csv(os.path.join(reports_dir, f"traits_effects{suffix}.csv"), index=False)
     eff_disc.to_csv(os.path.join(reports_dir, f"traits_effects_by_discipline{suffix}.csv"), index=False)
@@ -395,11 +380,6 @@ def write_report(parquet_root: str, reports_dir: str, inventory_csv: str | None 
             "### Grade card\n",
             "The most common stone types per stage and team with their grades (hammer points; two-or-more and steal in "
             "percentage points; always from the hammer team's side).\n", _md(card) + "\n"]
-    if len(agree):
-        out += ["### Agreement with tracked rock potential\n",
-                "Spearman between each team's summed trait grade and its rock potential (potential_cb, from stone "
-                "tracking) for the same positions. The non-hammer grade is flipped so that both read as 'good for "
-                "that team'.\n", _md(agree, 3) + "\n"]
     path = os.path.join(reports_dir, f"traits{suffix}.md")
     with open(path, "w") as f:
         f.write("\n".join(out))

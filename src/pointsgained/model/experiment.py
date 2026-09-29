@@ -4,7 +4,7 @@ Splits:
   time   train on events dated through `cutoff_year`, test on later events (design 12.7)
   book   one GroupKFold fold by book (the same held-out books every time, for comparability)
 
-Targets (model/targets.py): final, local:k or phase.
+Targets (model/targets.py): final or local:k.
 
 Every experiment is scored against the final end outcome on the held-out rows, and also by the
 front-end gates: Points Gained on the held-out rows from the fitted f and g, and whether early
@@ -27,7 +27,7 @@ from sklearn.model_selection import GroupKFold
 from .aggregate import _records, normalise_player
 from .dataset import Dataset
 from .frontend import next_stone, opponent_same_game, split_half, _spearman
-from .train import design_matrices, make_model, monotone_cst, _cat_index, column, evaluate, _full_proba, TRIVIAL_FEATURES, FEATURE_SETS
+from .train import design_matrices, make_model, _cat_index, column, evaluate, _full_proba, TRIVIAL_FEATURES, FEATURE_SETS
 from .targets import training_rows
 from .value import HammerAdjustedPoints, ValueSet
 
@@ -104,12 +104,6 @@ def spread_checks(rows: pd.DataFrame, V_f: np.ndarray, realised: np.ndarray) -> 
         m = (rr >= lo) & (rr <= hi)
         x, yv = V_f[m], realised[m]
         out[name] = float(np.cov(x, yv)[0, 1] / np.var(x, ddof=1)) if m.sum() > 10 and np.var(x) > 0 else float("nan")
-    if "net_pot" in rows:
-        # the model's error along net rock potential: flat when expectation uses potential fully
-        resid = realised - V_f
-        for lo, hi, name in ((12, 16, "pot_resid_12plus"), (8, 11, "pot_resid_8_11"), (4, 7, "pot_resid_4_7"), (1, 3, "pot_resid_1_3")):
-            m = (rr >= lo) & (rr <= hi)
-            out[name] = _spearman(pd.Series(resid[m]), pd.Series(rows["net_pot"].to_numpy()[m])) if m.sum() > 10 else float("nan")
     one = ((rows["shot"] == 2) & (rows["opp_in_house"] == 1) & (rows["own_in_house"] == 0) & (rows["stones_in_play"] == 1)).to_numpy()
     back = one & (rows["opp_behind_tee"] == 1).to_numpy() & (rows["opp_min_dist"] > 29.7).to_numpy()
     front = one & (rows["opp_behind_tee"] == 0).to_numpy() & (rows["opp_min_dist"] <= 29.7).to_numpy()
@@ -162,8 +156,7 @@ def setup_battle(rows: pd.DataFrame, V_f: np.ndarray, min_half: int = 30) -> dic
 
 def run_experiment(ds: Dataset, name: str, sets: tuple[str, ...], split: str = "time", cutoff_year: int = 2024,
                    fold: int = 0, seed: int = 0, reports: str = "reports", inventory_csv: str | None = None,
-                   target: str = "final", monotone: bool = False, split_model: str | None = None,
-                   early_sets: tuple = (), blend: tuple[int, int] | None = None, save_predictions: str | None = None) -> dict:
+                   target: str = "final", save_predictions: str | None = None) -> dict:
     t0 = time.time()
     rows = attach_tier(ds.rows, inventory_csv)
     tr, te = split_rows(rows, split, cutoff_year, fold)
@@ -172,29 +165,19 @@ def run_experiment(ds: Dataset, name: str, sets: tuple[str, ...], split: str = "
     X_t = np.column_stack([column(rows, ds.X, c) for c in tri_cols])
     y = ds.y
     P = {}
-    if split_model:
-        from .split import fit_split
-        sm = fit_split(rows, ds.X, y, tr, tuple(early_sets), tuple(sets), seed, blend=blend)
-        P["f"], P["g"] = sm.predict(rows, ds.X, te)
-        m = make_model(seed).fit(X_t[tr], y[tr])
-        P["trivial"] = _full_proba(m, X_t[te])
-        P = {k: P[k] for k in ("trivial", "f", "g")}
-        target = f"split:{split_model}" + (f":blend{blend[0]}-{blend[1]}" if blend else "")
-    else:
-        t1 = time.time()
-        fit_idx, fit_y, fit_w = training_rows(target, rows, X_f, y, tr, seed)
-        log.info("%s: %s targets in %.0fs, %d weighted rows from %d", name, target, time.time() - t1, len(fit_idx), len(tr))
-    mono = {"f": monotone_cst(f_cols) if monotone else None, "g": monotone_cst(g_cols) if monotone else None}
-    for mname, Xm, cat in (() if split_model else (("trivial", X_t, None), ("f", X_f, None), ("g", X_g, _cat_index(g_cols)))):
+    t1 = time.time()
+    fit_idx, fit_y, fit_w = training_rows(target, rows, X_f, y, tr, seed)
+    log.info("%s: %s targets in %.0fs, %d weighted rows from %d", name, target, time.time() - t1, len(fit_idx), len(tr))
+    for mname, Xm, cat in (("trivial", X_t, None), ("f", X_f, None), ("g", X_g, _cat_index(g_cols))):
         t1 = time.time()
         if mname == "trivial":
             m = make_model(seed, cat).fit(Xm[tr], y[tr])       # the reference stays on final labels
         else:
-            m = make_model(seed, cat, mono[mname]).fit(Xm[fit_idx], fit_y, sample_weight=fit_w)
+            m = make_model(seed, cat).fit(Xm[fit_idx], fit_y, sample_weight=fit_w)
         P[mname] = _full_proba(m, Xm[te])
         log.info("%s: %s fitted in %.0fs", name, mname, time.time() - t1)
     unm = (rows["mirror"].to_numpy() == 0)[te]
-    rep = {"name": name, "sets": list(sets), "early_sets": list(early_sets), "target": target, "monotone": monotone, "split": split, "cutoff_year": cutoff_year if split == "time" else None,
+    rep = {"name": name, "sets": list(sets), "target": target, "split": split, "cutoff_year": cutoff_year if split == "time" else None,
            "fold": fold if split == "book" else None, "n_train": int(len(tr)), "n_test": int(len(te)),
            "test_books": sorted(set(rows["book"].to_numpy()[te])), "f_cols": f_cols, "g_cols": g_cols,
            "seconds": round(time.time() - t0, 1)}
@@ -224,8 +207,7 @@ GATE_COLUMNS = ["seesaw_1_4", "seesaw_5_8", "lead_opponent", "lead_opponent_grad
                 "lead_grade_player", "second_grade_player", "fourth_grade_player", "lead_grade_shot", "second_grade_shot",
                 "lead_repeatability", "second_repeatability", "lead_sd", "setup_repeatability", "setup_winrate",
                 "setup_repeatability_within", "setup_winrate_within",
-                "slope_12plus", "slope_8_11", "slope_4_7", "slope_1_3", "first_rock_gap_model", "first_rock_gap_real",
-                "pot_resid_12plus", "pot_resid_8_11", "pot_resid_4_7", "pot_resid_1_3"]
+                "slope_12plus", "slope_8_11", "slope_4_7", "slope_1_3", "first_rock_gap_model", "first_rock_gap_real"]
 
 
 def _append_gates(path: str, rep: dict):
@@ -235,7 +217,7 @@ def _append_gates(path: str, rep: dict):
         n = sum(v["n"] for r, v in by_rr.items() if lo <= int(r) <= hi)
         return sum(v["n"] * v[key] for r, v in by_rr.items() if lo <= int(r) <= hi) / n if n else float("nan")
     cols = ["name", "target", "mono", "f", "g", "f 12+", "f 5-11", "f 1-4"] + GATE_COLUMNS
-    line = "| " + " | ".join([rep["name"], rep.get("target", "final"), "yes" if rep.get("monotone") else "", f"{rep['f_logloss']:.4f}", f"{rep['g_logloss']:.4f}",
+    line = "| " + " | ".join([rep["name"], rep.get("target", "final"), "", f"{rep['f_logloss']:.4f}", f"{rep['g_logloss']:.4f}",
                               f"{band(12, 16, 'f'):.4f}", f"{band(5, 11, 'f'):.4f}", f"{band(1, 4, 'f'):.4f}"]
                              + [f"{g.get(c, float('nan')):.3f}" for c in GATE_COLUMNS]) + " |\n"
     new = not os.path.exists(path)

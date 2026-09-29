@@ -8,14 +8,18 @@ An open system for shot-by-shot curling analysis, with three major parts:
   contract for any other source of games.
 - **A corpus** built with it: 92 results books, 4,150 international games, 609,014 shots.
 - **Points Gained**, an expectation model for curling positions and a value for every shot as the change it made to the
-  end's expected result, split into the call and the execution, in points and in win probability. It rates execution,
+  end's expected result, split into the call and the execution, in points and in win probability. It reads a position
+  rock by rock: every rock carries objective yes/no traits (in the four-foot, behind cover, frozen, on the wing, ...),
+  re-read after every stone, and the corpus says what rocks like that have been worth; a few relations between rocks
+  (the draw to beat, doubles and runbacks) and the rocks that matter most, kept whole, complete it. It rates execution,
   and it is the general tool the studies use to evaluate a position, a shot or a phase of the end.
 
 On top of these sit sample studies: how often a double comes off by the separation and stagger of the two stones, how
 often a runback works by the distance of the stone in front, what the first five rocks of an end decide, which skips
 are best at runbacks, and per-event leaderboards for every Olympics and World Championship since 2018
-(`reports/samples/`). The design document, `shot_value_design.md`, describes the pipeline and corpus (Part I), Points
-Gained (Part II), the studies (Part III), and how to contribute (Part IV).
+(`reports/samples/`). The design document, `shot_value_design.md`, describes the pipeline and corpus (Part I), how a
+position is read rock by rock (Part II), Points Gained (Part III), the studies (Part IV), and how to contribute
+(Part V); retired approaches are in its Appendix A and in the repository at the tag `handcrafted-features-final`.
 
 ## Contributing
 
@@ -24,10 +28,11 @@ Gained (Part II), the studies (Part III), and how to contribute (Part IV).
   through the pipeline; any other source needs an adapter into the six tables described in Section 2.6 of the design
   document. Line scores alone help too. If you hold or know of such data, please open an issue.
 - **Points Gained.** The models, training targets and evaluation harness (`pointsgained experiment`) are all here, with
-  a list of known weaknesses and the positions the model misprices (design document, Section 17).
-- **Studies.** Every study reads the same tables: one row per stone with its values, the configuration of every
-  position, and the extraction tables. `src/pointsgained/model/frontend.py` is a worked example, and the strategic
-  situations in Section 15 of the design document are open.
+  a list of known weaknesses and the positions the model misprices (`pointsgained misprice`; design document, Part V).
+- **Studies.** Every study reads the same tables: one row per stone with its values, the traits of every rock, the
+  configuration of every position, and the extraction tables. `src/pointsgained/model/trait_study.py` and
+  `src/pointsgained/model/frontend.py` are worked examples, and the strategic situations in Part IV of the design
+  document are open.
 
 For a wider view, `open_problems.md` sets out ten open problems in curling analytics in plain curling terms.
 
@@ -64,30 +69,41 @@ pointsgained difficulty
 #    reports/execution_error.md seeds the Phase 2 error model)
 pointsgained intent
 
-# 6. models and Points Gained (reports/model_report.md, data/parquet/points_gained.parquet)
-pointsgained model --features base,situation,level,intent,config,potential_cb --target local:2
+# 6. rock traits: every rock's traits (data/parquet/rock_traits.parquet), what they have been worth and the rock
+#    grades (reports/traits.md), and the rock ledger for every stone (data/parquet/rock_ledger.parquet)
+pointsgained traits
+
+# 7. models and Points Gained (reports/model_report.md, data/parquet/points_gained.parquet); the adopted feature
+#    sets and the local:2 target are the defaults
+pointsgained model
 
 # rewrite the model report's tables from the saved run, without refitting
 pointsgained model-report
 
-# the six pinned 2026 Olympic shots, both currencies, call at the reference and at the thrower's own skill
+# the six pinned 2026 Olympic shots, both currencies
 pointsgained testset
 
-# 7. per-event player leaderboards (reports/events/<book>.md, one file per event, index in reports/events/README.md)
+# 8. per-event player leaderboards with a build-or-address table per team (reports/events/<book>.md, one file per
+#    event, index in reports/events/README.md)
 pointsgained events --match OWG2026 WMCC2026
 
-# 8. one game shot by shot: ends, players, largest swings, every stone's values (reports/games/<game>.md)
+# 9. one game shot by shot: ends, players, largest swings, every stone's values and the rock ledger
+#    (reports/games/<game>.md)
 pointsgained game --match OWG2026 Gold_Medal
 
-# 9. the early-end study: front-end measures, configurations, doubles and runbacks by geometry, runbacks by player,
-#    scenario probes (reports/front_end.md; configuration labels cached in data/parquet/configurations.parquet)
+# 10. the early-end study: front-end measures, configurations, doubles and runbacks by geometry, runbacks by player,
+#     scenario probes (reports/front_end.md; configuration labels cached in data/parquet/configurations.parquet)
 pointsgained frontend
 
-# one modelling experiment: fit once on a split, score held out (reports/experiments/log.md)
-pointsgained experiment --split time --features base,situation,level,intent,config,potential_cb --target local:2
+# the stone study: every stone tracked through the end, what stones end up doing (reports/stones.md)
+pointsgained stones
 
-# raw-geometry model (needs torch): time-split log-loss against the trees, subtlety probe, monotonicity
-pointsgained raster --features base,situation,level,intent --epochs 6
+# one modelling experiment: fit once on a split, score held out (reports/experiments/log.md, frontend_gates.md);
+# --features takes any comma list of the sets in model/train.py, the adopted ones by default
+pointsgained experiment --split time --save-predictions
+
+# where experiments' models misprice positions (reports/experiments/misprice.md)
+pointsgained misprice <experiment name> <another experiment name>
 
 # Archive: inventory of curlit.com/results, polite download, batch survey/extract/validate
 pointsgained inventory --check
@@ -98,8 +114,8 @@ pointsgained batch
 ## Layout
 
 - `src/pointsgained/ingest/` PDF page classification, diagram decoding and stone detection, panel text parsing, book assembly, validation gates
-- `src/pointsgained/core/` sheet geometry, the count function, canonical-frame position assembly, configurations (the position as a skip reads it)
-- `src/pointsgained/model/` value mappings (hammer-adjusted points, win probability), baseline features, configuration features, training targets, f and g models, Points Gained, leaderboards, the front-end study
+- `src/pointsgained/core/` sheet geometry, the count function, canonical-frame position assembly, stone tracking, rock traits, the draw to beat, doubles and runbacks, configurations (the study vocabulary)
+- `src/pointsgained/model/` value mappings (hammer-adjusted points, win probability), the feature cache and position descriptors, trait counts, slots and relation caches, rock grades and the rock ledger, training targets, f and g models, Points Gained, experiments and the mispricing report, leaderboards, the trait, front-end and stone studies
 - `src/pointsgained/corpus/` archive inventory, event family and tier table, downloader, batch processing
 - `tests/` unit tests
 - `data/raw/` PDFs (not committed), `data/parquet/` extracted tables (not committed), `reports/` validation and model reports (not committed)

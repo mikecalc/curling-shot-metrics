@@ -139,16 +139,16 @@ def game_report(pg_game: pd.DataFrame, title: str, subtitle: str = "", team_orde
     out.append("## Shots\n")
     out.append("Per stone: the situation (the end header and `WP before`), the shot (type, turn and the book's grade), "
                "its execution (`PGAA` and `call`, hammer-adjusted points) and its effect (`WP after`, `WP gain`).\n")
-    ledger = "pot_h" in df
+    ledger = "grade_h" in df
     if ledger:
-        out.append(f"Then the position's **rock potential** after the stone, for each team (`pot {a}`, `pot {b}`): its stones' "
-                   "chance of counting or covering a counter when the end is over, from where stones like them sit at that "
-                   "stage of the end, with a stone in front of or just behind a counter credited to whichever team the "
-                   "counter belongs to. `build` is how much the stone added to its own team's potential, `address` how much "
-                   "it took from the other team's. Potential describes the position; it is not a value and does not add up "
-                   "to the result. Under each end header: each team's potential after the free guard zone, after stone 12 "
-                   "and before the last stone, and the end's peak temperature (both teams' potential together: high in an "
-                   "aggressive end, low in a conservative one).\n")
+        out.append(f"Then the **rock ledger** after the stone: each team's rock grade (`rocks {a}`, `rocks {b}`), the sum of "
+                   "its rocks' grades as they sit after the stone, every rock read afresh by its traits (in the 4-foot, "
+                   "behind cover, frozen, ...) in hammer-adjusted points from that team's side. `build` is how much the "
+                   "stone added to its own team's grade, `address` how much it took from the other team's; a stone is "
+                   "graded before and after with the weights of its own stage of the end. The ledger describes the rocks; "
+                   "it is not the model's value and does not add up to the result. Under each end header: each team's "
+                   "grade after the free guard zone, after stone 12 and before the last stone, and the end's peak "
+                   "temperature (both teams' grades together: high in an aggressive end, low in a conservative one).\n")
     for end, g in df.groupby("end", sort=True):
         h = str(g["hammer_team"].iloc[0])
         o = b if h == a else a
@@ -160,17 +160,17 @@ def game_report(pg_game: pd.DataFrame, title: str, subtitle: str = "", team_orde
         cols = list(SHOT_COLS)
         g = g.copy()
         if ledger:
-            pa = np.where(g["hammer_team"] == a, g["pot_h"], g["pot_n"])
-            pb = np.where(g["hammer_team"] == b, g["pot_h"], g["pot_n"])
-            g[f"pot {a}"], g[f"pot {b}"] = pa, pb
-            cols += [f"pot {a}", f"pot {b}", "build", "address"]
+            pa = np.where(g["hammer_team"] == a, g["grade_h"], g["grade_n"])
+            pb = np.where(g["hammer_team"] == b, g["grade_h"], g["grade_n"])
+            g[f"rocks {a}"], g[f"rocks {b}"] = pa, pb
+            cols += [f"rocks {a}", f"rocks {b}", "build", "address"]
             fgz = 5 if pd.to_datetime(g["date"].iloc[0]) >= pd.Timestamp("2018-07-01") else 4
             def at(k):
                 r = g[g["shot"] == k]
-                return f"{a} {r[f'pot {a}'].iloc[0]:.2f}, {b} {r[f'pot {b}'].iloc[0]:.2f}" if len(r) and r[f"pot {a}"].notna().iloc[0] else "n/a"
+                return f"{a} {r[f'rocks {a}'].iloc[0]:.2f}, {b} {r[f'rocks {b}'].iloc[0]:.2f}" if len(r) and r[f"rocks {a}"].notna().iloc[0] else "n/a"
             last = int(g["shot"].max())
-            peak = (g[f"pot {a}"] + g[f"pot {b}"]).max()
-            out.append(f"Potential after the free guard zone: {at(fgz)}; after stone 12: {at(12)}; before the last stone: "
+            peak = (g[f"rocks {a}"] + g[f"rocks {b}"]).max()
+            out.append(f"Rock grades after the free guard zone: {at(fgz)}; after stone 12: {at(12)}; before the last stone: "
                        f"{at(last - 1)}. Peak temperature {peak:.2f}.\n")
         t = g.rename(columns={"shot_type": "type", "grade_pct": "grade"})[cols].copy()
         t["shot"] = t["shot"].astype(int)
@@ -179,7 +179,7 @@ def game_report(pg_game: pd.DataFrame, title: str, subtitle: str = "", team_orde
         for c in ("PGAA", "call"):
             t[c] = _r(t[c], 2)
         if ledger:
-            for c in (f"pot {a}", f"pot {b}", "build", "address"):
+            for c in (f"rocks {a}", f"rocks {b}", "build", "address"):
                 t[c] = _r(t[c], 2)
         out.append(t.to_markdown(index=False) + "\n")
     return "\n".join(out)

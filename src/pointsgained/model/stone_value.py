@@ -1,15 +1,15 @@
-"""The life and value of a stone (design Section 4, the stone-value study).
+"""The life of a stone: stone tracking and the stone study (`pointsgained stones`, reports/stones.md).
 
 `build_lives` follows every stone of every end through the diagrams (core/tracking.py) and writes
 `stone_lives.parquet`: one row per stone per diagram, with the stone's identity, team (hammer or not),
-position, how it got there, and whether it counted and was shot rock when the end was over.
+position, how it got there, and whether it counted and was shot rock when the end was over. The lives
+serve studies that need to know what happened to a particular stone (peels, runbacks, late risers).
 
-From the lives, the **future value** of a stone: what a stone of a given team, in a given place, with a
-given number of rocks still to come, ends up doing when the end is over. Three roles: it counts, it
-covers a counting stone of its own team, or it backs up a counting stone of the other team. A guard
-earns its value by covering, a stone behind the tee is as likely to back up the opponent as to count.
-It is the skip's sense that some stones matter and some can be ignored, measured from the field's play.
-`position_features` sums the roles per team for every position (cross-fitted by book) for the models.
+`final_roles` says what each stone was doing when the end was over: counting, covering a counter of its
+own team, or backing up a counter of the other team; `role_tables` gives the rates by team, zone and
+stage. These rates were once summed into "rock potential" as a model input; the model now reads rocks
+by their traits instead (model/trait_features.py, model/ledger.py), and the potential code is at the tag
+handcrafted-features-final.
 """
 from __future__ import annotations
 
@@ -155,138 +155,6 @@ def role_tables(lives_roles: pd.DataFrame, prior: float = 100.0, roles: list[str
     return z, pd.DataFrame(shrunk, index=cc.index, columns=roles)
 
 
-STONE_FEATURES = ["own_ev_count", "own_ev_cover", "own_ev_backs_opp", "opp_ev_count", "opp_ev_cover", "opp_ev_backs_opp",
-                  "own_best_sleeper", "opp_best_sleeper"]
-
-
-def _lookup(frame: pd.DataFrame, z: pd.DataFrame, cell: pd.DataFrame) -> np.ndarray:
-    c = cells(frame)
-    ci = pd.MultiIndex.from_frame(c[["owner", "band", "zone", "cx", "cy"]])
-    v = cell.reindex(ci).to_numpy()
-    zi = pd.MultiIndex.from_frame(c[["owner", "band", "zone"]])
-    vz = z.reindex(zi).to_numpy()
-    v = np.where(np.isnan(v), vz, v)
-    return np.nan_to_num(v)
-
-
-def position_features(lives: pd.DataFrame, n_groups: int = 5) -> pd.DataFrame:
-    """Per post-shot position (game_key, end, shot): each team's summed expected roles and its best stone
-    not counting now (the highest chance of counting at the end among its stones not counting yet).
-    Cross-fitted: a book's positions are valued with tables built from the other groups of books."""
-    from ..core.tracking import count_ids
-    lives = lives.copy()
-    lives["book"] = lives["game_key"].str.split("|").str[0]
-    books = sorted(lives["book"].unique())
-    group = {b: i % n_groups for i, b in enumerate(books)}
-    lives["grp"] = lives["book"].map(group)
-    roles = final_roles(lives)
-    # every stone of a complete end has a role row; a stone removed before the end did none of the three
-    lr = lives[lives["end_complete"]].merge(roles, on=KEYS + ["sid"], how="left")
-    all_roles = sorted(set(ROLES) | set(CB_ROLES))
-    lr[all_roles] = lr[all_roles].fillna(False).astype(bool)
-    vals = np.zeros((len(lives), len(ROLES)))
-    cb = np.zeros((len(lives), len(CB_ROLES)))
-    for g in range(n_groups):
-        tr = lr[lr["grp"] != g]
-        m = (lives["grp"] == g).to_numpy()
-        z, cell = role_tables(tr)
-        vals[m] = _lookup(lives[m], z, cell)
-        z, cell = role_tables(tr, roles=CB_ROLES)
-        cb[m] = _lookup(lives[m], z, cell)
-    lives[["v_count", "v_cover", "v_backs"]] = vals
-    ham = (lives["owner"] == 1).to_numpy()
-    # colour-blind potential: counting stays with the stone's colour, cover and backing go to the team whose
-    # counter the stone ends up protecting or supporting
-    lives["pot_h"] = np.where(ham, cb[:, 0], 0.0) + cb[:, 1] + cb[:, 3]
-    lives["pot_n"] = np.where(~ham, cb[:, 0], 0.0) + cb[:, 2] + cb[:, 4]
-    # stones counting now, per position
-    now = np.zeros(len(lives), dtype=bool)
-    for _, idx in lives.groupby(KEYS + ["shot"], sort=False).indices.items():
-        k, _s = count_ids(lives["x"].to_numpy()[idx], lives["y"].to_numpy()[idx], lives["owner"].to_numpy()[idx])
-        now[idx[k]] = True
-    lives["sleeper"] = np.where(now, 0.0, lives["v_count"])
-    agg = lives.groupby(KEYS + ["shot", "owner"])[["v_count", "v_cover", "v_backs", "sleeper"]].agg(
-        {"v_count": "sum", "v_cover": "sum", "v_backs": "sum", "sleeper": "max"}).unstack("owner", fill_value=0.0)
-    out = pd.DataFrame(index=agg.index)
-    for who, o in (("own", 1), ("opp", 0)):
-        for name, col in (("ev_count", "v_count"), ("ev_cover", "v_cover"), ("ev_backs_opp", "v_backs")):
-            out[f"{who}_{name}"] = agg[(col, o)] if (col, o) in agg.columns else 0.0
-        out[f"{who}_best_sleeper"] = agg[("sleeper", o)] if ("sleeper", o) in agg.columns else 0.0
-    pots = lives.groupby(KEYS + ["shot"])[["pot_h", "pot_n"]].sum()
-    out = out.join(pots)
-    return out.reset_index()
-
-
-def load_position_features(parquet_root: str, rebuild: bool = False) -> pd.DataFrame:
-    path = os.path.join(parquet_root, "stone_features.parquet")
-    lives_path = os.path.join(parquet_root, "stone_lives.parquet")
-    if not rebuild and os.path.exists(path) and os.path.exists(lives_path) and os.path.getmtime(path) >= os.path.getmtime(lives_path):
-        return pd.read_parquet(path)
-    feats = position_features(load_lives(parquet_root))
-    feats.to_parquet(path, index=False)
-    return feats
-
-
-POTENTIAL_FEATURES = ["own_pot", "opp_pot", "net_pot"]
-POTENTIAL_CB_FEATURES = ["h_pot_cb", "n_pot_cb", "net_pot_cb"]      # colour-blind cover and backing
-
-
-def attach_stones(rows: pd.DataFrame, feats: pd.DataFrame) -> pd.DataFrame:
-    """The `stones` and `potential` design columns for training rows, from each row's pre-shot position (the
-    post position of `pre_source_shot`; zeros for the empty sheet). Rock potential per team is the stones'
-    chance of counting or covering a counter of their own team, less their chance of backing up a counter
-    of the other team; `net_pot` is the hammer team's less the other team's."""
-    t = feats.set_index(["game_key", "end", "shot"])[STONE_FEATURES]
-    idx = pd.MultiIndex.from_arrays([rows["game_key"], rows["end"], rows["pre_source_shot"]])
-    v = t.reindex(idx).fillna(0.0).to_numpy()
-    out = rows.assign(**{c: v[:, i] for i, c in enumerate(STONE_FEATURES)})
-    own = out["own_ev_count"] + out["own_ev_cover"] - out["own_ev_backs_opp"]
-    opp = out["opp_ev_count"] + out["opp_ev_cover"] - out["opp_ev_backs_opp"]
-    out = out.assign(own_pot=own.to_numpy(), opp_pot=opp.to_numpy(), net_pot=(own - opp).to_numpy())
-    if "pot_h" in feats:
-        cbt = feats.set_index(["game_key", "end", "shot"])[["pot_h", "pot_n"]].reindex(idx).fillna(0.0).to_numpy()
-        out = out.assign(h_pot_cb=cbt[:, 0], n_pot_cb=cbt[:, 1], net_pot_cb=cbt[:, 0] - cbt[:, 1])
-    return out
-
-
-REGIME_FEATURES = ["reg_steal", "reg_single", "reg_deuce",
-                   "x_opp_cover_steal", "x_opp_count_steal", "x_own_count_deuce", "x_own_cover_deuce"]
-
-
-def attach_regime(rows: pd.DataFrame, wp_table) -> pd.DataFrame:
-    """The `regime` design columns: what the game makes each result worth to the hammer team, from the
-    win-probability table (a steal of one against a blank, a single against a blank, a deuce against a
-    single), and their products with the stone roles, so that a non-hammer guard can be worth more when
-    a steal is what that team needs. Needs the `stones` columns."""
-    from .value import IDX
-    d = rows["diff_hammer"].to_numpy(int)
-    n = rows["ends_remaining"].to_numpy(int)
-    pairs = {}
-    for k in set(zip(d, n)):
-        v = wp_table.v_vector(int(k[0]), int(k[1]))
-        pairs[k] = (v[IDX[0]] - v[IDX[-1]], v[IDX[1]] - v[IDX[0]], v[IDX[2]] - v[IDX[1]])
-    arr = np.array([pairs[k] for k in zip(d, n)])
-    out = rows.assign(reg_steal=arr[:, 0], reg_single=arr[:, 1], reg_deuce=arr[:, 2])
-    return out.assign(x_opp_cover_steal=out["opp_ev_cover"] * out["reg_steal"],
-                      x_opp_count_steal=out["opp_ev_count"] * out["reg_steal"],
-                      x_own_count_deuce=out["own_ev_count"] * out["reg_deuce"],
-                      x_own_cover_deuce=out["own_ev_cover"] * out["reg_deuce"])
-
-
-def load_wp_table(parquet_root: str):
-    """The win-probability table from every book's line scores (as `pointsgained model` builds it)."""
-    from .winprob import build_table, ends_from_line_scores
-    ls = []
-    for b in sorted(os.listdir(parquet_root)):
-        f = os.path.join(parquet_root, b, "line_scores.parquet")
-        if os.path.exists(f):
-            df = pd.read_parquet(f)
-            if len(df):
-                df["game_key"] = b + "|" + df["game_key"].astype(str)
-                ls.append(df)
-    return build_table(ends_from_line_scores(pd.concat(ls, ignore_index=True)))
-
-
 # ---- the stone study report ------------------------------------------------------------------------
 
 def _counting_now(lives: pd.DataFrame) -> np.ndarray:
@@ -378,64 +246,3 @@ def write_report(parquet_root: str, reports_dir: str) -> str:
     with open(path, "w") as f:
         f.write("\n".join(out))
     return path
-
-
-# ---- the potential ledger --------------------------------------------------------------------------
-
-LEDGER_COLUMNS = ["pot_h_before", "pot_n_before", "pot_h", "pot_n", "build", "address", "net_change", "total"]
-
-
-def ledger_frame(shots: pd.DataFrame, feats: pd.DataFrame) -> pd.DataFrame:
-    """Per stone: each team's rock potential (colour-blind) before and after it, and the thrower's view of
-    the change. `build` is the rise in the thrower's team's potential, `address` the fall in the other
-    team's, `net_change` their sum; `total` is both teams' potential after the stone, the end's temperature.
-    `shots` needs game_key, end, shot, pre_source_shot, has_post and thrower_has_hammer; a position absent
-    from `feats` is the empty sheet when the shot has a diagram, unknown otherwise."""
-    t = feats.set_index(["game_key", "end", "shot"])[["pot_h", "pot_n"]]
-    after = t.reindex(pd.MultiIndex.from_arrays([shots["game_key"], shots["end"], shots["shot"]])).to_numpy()
-    before = t.reindex(pd.MultiIndex.from_arrays([shots["game_key"], shots["end"], shots["pre_source_shot"]])).to_numpy()
-    before = np.nan_to_num(before)                                     # the empty sheet, or a position with no stones
-    has_post = shots["has_post"].fillna(False).to_numpy(dtype=bool)
-    after = np.where(np.isnan(after) & has_post[:, None], 0.0, after)
-    ham = shots["thrower_has_hammer"].to_numpy(dtype=bool)
-    own_b, opp_b = np.where(ham, before[:, 0], before[:, 1]), np.where(ham, before[:, 1], before[:, 0])
-    own_a, opp_a = np.where(ham, after[:, 0], after[:, 1]), np.where(ham, after[:, 1], after[:, 0])
-    out = shots[["game_key", "end", "shot"]].copy()
-    out["pot_h_before"], out["pot_n_before"] = before[:, 0], before[:, 1]
-    out["pot_h"], out["pot_n"] = after[:, 0], after[:, 1]
-    out["build"] = own_a - own_b
-    out["address"] = opp_b - opp_a
-    out["net_change"] = out["build"] + out["address"]
-    out["total"] = after[:, 0] + after[:, 1]
-    return out
-
-
-def potential_ledger(parquet_root: str) -> pd.DataFrame:
-    """The ledger for every stone of the corpus (`potential_ledger.parquet`)."""
-    rows = pd.read_parquet(os.path.join(parquet_root, "features.parquet"),
-                           columns=["game_key", "end", "shot", "mirror", "pre_source_shot", "has_post", "thrower_has_hammer"])
-    rows = rows[rows["mirror"] == 0].drop(columns="mirror")
-    led = ledger_frame(rows, load_position_features(parquet_root))
-    led.to_parquet(os.path.join(parquet_root, "potential_ledger.parquet"), index=False)
-    return led
-
-
-def style_table(df: pd.DataFrame) -> pd.DataFrame:
-    """Build or address, per team at one event (rows of one event and discipline, with the ledger columns):
-    the team's mean build and mean address per stone relative to the event's field at the same stage of the
-    end (rocks left 16-12, 11-8, 7-4, 3-1), the share of its stones that built more than they addressed,
-    and the mean peak temperature (both teams' potential together) of its ends with and without hammer."""
-    d = df[df["build"].notna()].copy()
-    stage = pd.cut(17 - d["shot"], [0, 3, 7, 11, 16])
-    for c in ("build", "address"):
-        d[c + "_rel"] = d[c] - d.groupby(stage, observed=True)[c].transform("mean")
-    d["builds"] = (d["build"] > d["address"]).astype(float)
-    peak = d.groupby(["game_key", "end"]).agg(peak=("total", "max"), hammer=("hammer_team", "first"))
-    rows = []
-    for team, g in d.groupby("team"):
-        ends = peak.loc[peak.index.isin(set(zip(g["game_key"], g["end"])))]
-        rows.append(dict(team=team, stones=len(g), build=g["build_rel"].mean(), address=g["address_rel"].mean(),
-                         builds_share=g["builds"].mean(),
-                         temperature_hammer=ends.loc[ends["hammer"] == team, "peak"].mean(),
-                         temperature_no_hammer=ends.loc[ends["hammer"] != team, "peak"].mean()))
-    return pd.DataFrame(rows).sort_values("build", ascending=False)

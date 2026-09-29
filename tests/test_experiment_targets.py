@@ -46,15 +46,6 @@ def test_local_targets_chain(monkeypatch):
     assert np.allclose(T3[:, 2], 1.0)
 
 
-def test_phase_steps_reach_the_end_of_the_setup():
-    rows = pd.DataFrame({"shot": np.arange(1, 17), "rocks_remaining": 17 - np.arange(1, 17), "fgz_rocks": 5})
-    k = ex.phase_steps(rows)
-    assert list(k[:5]) == [5, 4, 3, 2, 1]                 # stones 1-5 all reach the position after stone 5
-    assert list(k[5:8]) == [2, 2, 2] and (k[8:] == 0).all()
-    old = ex.phase_steps(rows.assign(fgz_rocks=4))
-    assert list(old[:4]) == [4, 3, 2, 1] and old[4] == 2
-
-
 def test_local_targets_per_row_steps(monkeypatch):
     """With per-row steps, every setup row lands on the same boundary row (a marker distribution per row)."""
     rows = pd.DataFrame({"book": np.repeat([f"b{i}" for i in range(10)], 16), "shot": np.tile(np.arange(1, 17), 10)})
@@ -76,51 +67,10 @@ def test_local_targets_per_row_steps(monkeypatch):
     monkeypatch.setattr(ex, "make_model", lambda seed=0, cat=None: M())
     monkeypatch.setattr(ex, "_full_proba", marker)
     X_f = rows[["shot"]].to_numpy(float)
-    T = ex.local_targets(rows, X_f, y, np.arange(len(rows)), ex.phase_steps(rows))
+    shot = rows["shot"].to_numpy()
+    steps = np.where(shot <= 5, 6 - shot, np.where(17 - shot >= ex.LOCAL_MIN_ROCKS, 2, 0))   # setup rows to the end of the free guard zone
+    T = ex.local_targets(rows, X_f, y, np.arange(len(rows)), steps)
     setup = rows["shot"] <= 5
     assert (T[setup.to_numpy()].argmax(1) == 6 % 7).all()          # the row for stone 6: the position after stone 5
     mid = rows["shot"].between(6, 8).to_numpy()
     assert (T[mid].argmax(1) == ((rows["shot"][mid] + 2) % 7)).all()
-
-
-def test_mix_target_blends_final_and_local(monkeypatch):
-    rows = pd.DataFrame({"book": np.repeat([f"b{i}" for i in range(10)], 16), "shot": np.tile(np.arange(1, 17), 10)})
-    rows["rocks_remaining"] = 17 - rows["shot"]
-    rows["is_last_shot"] = rows["shot"] == 16
-    rows["post_row"] = np.where(rows["is_last_shot"], -1, np.arange(len(rows)) + 1)
-    y = np.full(len(rows), 3)
-
-    class M:
-        def fit(self, X, y, sample_weight=None):
-            return self
-
-    monkeypatch.setattr(ex, "make_model", lambda seed=0, cat=None: M())
-    monkeypatch.setattr(ex, "_full_proba", lambda m, X: np.full((len(X), 7), 1 / 7))
-    X = np.zeros((len(rows), 1))
-    tr = np.arange(len(rows))
-    idx, cls, w = ex.training_rows("mix:2:0.5", rows, X, y, tr)
-    early = int(np.flatnonzero(rows["rocks_remaining"] >= ex.LOCAL_MIN_ROCKS)[0])
-    wr = {c: ww for i, c, ww in zip(idx, cls, w) if i == early}
-    assert abs(wr[3] - (0.5 + 0.5 / 7)) < 1e-9 and abs(sum(wr.values()) - 1.0) < 1e-9
-    i1, c1, w1 = ex.training_rows("mix:2:1.0", rows, X, y, tr)
-    assert (c1 == 3).all() and np.allclose(w1, 1.0)
-
-
-def test_ordinal_monotone_model_is_monotone_and_normalised():
-    from pointsgained.model.train import OrdinalMonotone, make_model, monotone_cst
-    rng = np.random.default_rng(0)
-    n = 6000
-    X = np.column_stack([rng.uniform(-1, 1, n), rng.uniform(-1, 1, n)])
-    # outcome rises with column 0 on average, with noise and a local dip the constraint must iron out
-    latent = 1.5 * X[:, 0] - 0.8 * ((X[:, 0] > 0.2) & (X[:, 0] < 0.4)) + rng.normal(0, 1, n)
-    y = np.clip(np.round(latent) + 3, 0, 6).astype(int)
-    m = make_model(0, None, [1, 0])
-    assert isinstance(m, OrdinalMonotone)
-    m.fit(X, y)
-    grid = np.column_stack([np.linspace(-1, 1, 41), np.zeros(41)])
-    P = m.predict_proba(grid)
-    assert np.allclose(P.sum(axis=1), 1.0) and (P >= 0).all()
-    ev = P @ np.arange(7)
-    assert (np.diff(ev) >= -1e-9).all() and ev[-1] > ev[0] + 1.0
-    assert monotone_cst(["x", "own_pot", "opp_pot", "net_pot"]) == [0, 1, -1, 1]
-    assert not isinstance(make_model(0, None, [0, 0]), OrdinalMonotone)

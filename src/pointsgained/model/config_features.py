@@ -1,9 +1,10 @@
 """Configuration labels and pair measures for every position, cached next to the feature cache.
 
 One row per post-shot position in the canonical stones table (keyed game_key, end, shot); a shot's
-pre-shot position is the post position of its `pre_source_shot` (0 = the empty sheet). The labels
-and pair measures are unchanged by mirroring, so the same values serve the mirrored training rows.
-Feature set `config` (model/train.py) puts them in f and g as `cfg_<label>` and the measure columns.
+pre-shot position is the post position of its `pre_source_shot` (0 = the empty sheet). The labels are
+the vocabulary the studies and reports read positions in (`frontend`, `misprice`); they are no longer a
+model input (the rock traits and relations replaced them; the feature set is at the tag
+handcrafted-features-final).
 """
 from __future__ import annotations
 
@@ -17,7 +18,6 @@ from ..core.configurations import LABELS, MEASURES, configuration, measures
 from ..core.positions import Position
 
 KEYS = ["game_key", "end", "shot"]
-CONFIG_COLUMNS = [f"cfg_{k}" for k in LABELS] + MEASURES
 
 
 def compute_table(stones: pd.DataFrame) -> pd.DataFrame:
@@ -80,17 +80,3 @@ def pre_and_post(rows: pd.DataFrame, table: pd.DataFrame, has_post: pd.Series | 
     for c in LABELS:
         pre[c], post[c] = pre[c].astype(bool), post[c].astype(bool)
     return pre, post
-
-
-def config_row(p: Position) -> dict[str, float]:
-    """The `config` design columns of one position."""
-    c, m = configuration(p), measures(p)
-    return {**{f"cfg_{k}": float(c[k]) for k in LABELS}, **{k: float(m[k]) for k in MEASURES}}
-
-
-def attach_config(rows: pd.DataFrame, table: pd.DataFrame) -> pd.DataFrame:
-    """The `config` design columns for the training rows (pre-shot position of each row)."""
-    pre, _ = pre_and_post(rows, table)
-    add = {f"cfg_{k}": pre[k].to_numpy(dtype=float) for k in LABELS}
-    add.update({k: pre[k].to_numpy(dtype=float) for k in MEASURES})
-    return rows.assign(**add)

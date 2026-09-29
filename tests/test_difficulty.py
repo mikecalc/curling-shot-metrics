@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 
-from pointsgained.model.difficulty import fit_difficulty, attach_level, apply_aliases, reference_skill
+from pointsgained.model.difficulty import fit_difficulty, attach_level, apply_aliases
 from pointsgained.model.features import FEATURE_NAMES
 from pointsgained.model.strength import fit_bradley_terry, season_of
 from pointsgained.model.train import column
@@ -46,14 +46,11 @@ def test_difficulty_recovers_skill_order_and_event_effect():
     e = res["events"].set_index("book")["event_effect"]
     assert e["BK1"] > e["BK2"]
     assert res["shots"]["grade_logit_base"].notna().all() and len(res["shots"]) == len(rows)
-    # attached level columns and the expected-grade design column
+    # attached level columns: the expected grade at the thrower's skill
     lv = attach_level(rows, res["players"], res["events"], rows["player"], res["shots"])
     assert {"skill_thrower", "event_effect", "grade_logit_base"} <= set(lv.columns)
-    eg = column(lv, X, "expected_grade")
-    assert 0 < eg.min() and eg.max() < 1
+    eg = 1 / (1 + np.exp(-(lv["grade_logit_base"] + lv["skill_thrower"]).to_numpy()))
     assert eg[lv["player"] == "A"].mean() > eg[lv["player"] == "D"].mean()
-    ref = reference_skill(lv, lv["skill_thrower"].to_numpy())
-    assert np.allclose(ref, np.median(lv["skill_thrower"]))
 
 
 def test_aliases_and_junior_team_key():

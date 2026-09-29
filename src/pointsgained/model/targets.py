@@ -5,13 +5,8 @@
              later instead: a soft label, the out-of-fold f distribution there (the end's result if the end
              finishes first). Positions are valued more locally, and the noise of everything after them
              is averaged by the model rather than carried in the label.
-  mix:k:l    the local:k soft target blended with the end's result, weight l on the result: the local
-             target alone inherits the stage-1 model's pull towards the mean, so early values come out
-             flatter than the field's results; the blend keeps part of the real spread in every label.
-  phase      the end's structure: the setup (the free guard zone, stones 1-5, or 1-4 before 2018) is
-             trained on the value of the position at the end of the setup; the middle game (to stone 8)
-             on the value two stones later; the rest on the end's result. Tried and not adopted: it made
-             the setup battle less repeatable than local:2 (reports/experiments/frontend_gates.md).
+The adopted target is local:2. The blended (mix) and phase targets were tried and not adopted; they are at
+the tag handcrafted-features-final.
 """
 from __future__ import annotations
 
@@ -24,15 +19,6 @@ from .value import N_OUT
 
 LOCAL_MIN_ROCKS = 9          # rows with this many rocks remaining or more take the local target
 SOFT_MIN_MASS = 0.005        # soft-label classes below this probability are dropped
-
-
-def phase_steps(rows: pd.DataFrame, middle_k: int = 2) -> np.ndarray:
-    """Steps ahead for the phase target: to the end of the setup (the position after stone `fgz_rocks`) for
-    setup stones, `middle_k` for the rest of the early rows (9 or more rocks remaining), 0 otherwise."""
-    shot = rows["shot"].to_numpy()
-    fgz = rows["fgz_rocks"].to_numpy() if "fgz_rocks" in rows else np.full(len(rows), 5)
-    early = rows["rocks_remaining"].to_numpy() >= LOCAL_MIN_ROCKS
-    return np.where(shot <= fgz, fgz + 1 - shot, np.where(early, middle_k, 0)).astype(int)
 
 
 def local_targets(rows: pd.DataFrame, X_f: np.ndarray, y: np.ndarray, tr: np.ndarray, k, seed: int = 0) -> np.ndarray:
@@ -82,19 +68,6 @@ def training_rows(target: str, rows: pd.DataFrame, X_f: np.ndarray, y: np.ndarra
     """(row index, class, sample weight or None) to fit f and g on the training rows `tr` under `target`."""
     if target == "final":
         return tr, y[tr], None
-    lam = 0.0
-    if target == "phase":
-        k = phase_steps(rows)
-    elif target.startswith("local:"):
-        k = int(target.split(":")[1])
-    elif target.startswith("mix:"):
-        _, k, lam = target.split(":")
-        k, lam = int(k), float(lam)
-    else:
-        raise ValueError(f"unknown target {target!r}")
-    T = local_targets(rows, X_f, y, tr, k, seed)
-    if lam:
-        onehot = np.zeros_like(T)
-        onehot[np.arange(len(y)), y] = 1.0
-        T = lam * onehot + (1.0 - lam) * T
-    return expand_soft(tr, T)
+    if not target.startswith("local:"):
+        raise ValueError(f"unknown target {target!r} (final or local:k)")
+    return expand_soft(tr, local_targets(rows, X_f, y, tr, int(target.split(":")[1]), seed))

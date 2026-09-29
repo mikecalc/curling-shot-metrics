@@ -122,7 +122,7 @@ def fit_difficulty(rows: pd.DataFrame, X: np.ndarray, event_strength: np.ndarray
 def attach_level(rows: pd.DataFrame, players_tab: pd.DataFrame, events_tab: pd.DataFrame, player_key: pd.Series,
                  shots_tab: pd.DataFrame | None = None) -> pd.DataFrame:
     """Add skill_thrower, event_effect and grade_logit_base to a row table (all rows, mirrored included).
-    The design column expected_grade = sigmoid(grade_logit_base + skill_thrower) is built from these."""
+    The expected grade of a shot at the thrower's skill is sigmoid(grade_logit_base + skill_thrower)."""
     sk = players_tab.set_index("key")["skill"]
     keys = rows["discipline"] + "|" + player_key
     rows = rows.copy()
@@ -146,11 +146,3 @@ def load_level(parquet_root: str, rows: pd.DataFrame, aliases_csv: str | None = 
     aliases = pd.read_csv(aliases_csv) if aliases_csv and os.path.exists(aliases_csv) else None
     pk = apply_aliases(rows["player"].map(normalise_player), rows["discipline"], aliases)
     return attach_level(rows, sk, ev, pk, sh)
-
-
-def reference_skill(rows: pd.DataFrame, skill: np.ndarray, tier: pd.Series | None = None) -> np.ndarray:
-    """A reference skill per row for level-comparable reporting: the median thrower skill at the
-    row's discipline and tier (discipline alone when tiers are unknown)."""
-    key = rows["discipline"].astype(str) + "|" + (tier.astype(str) if tier is not None else "")
-    med = pd.Series(skill).groupby(key.to_numpy()).median()
-    return med.reindex(key.to_numpy()).fillna(float(np.median(skill))).to_numpy()

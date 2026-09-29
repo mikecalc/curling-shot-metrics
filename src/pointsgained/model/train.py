@@ -1,31 +1,24 @@
-"""Fit the baseline f and g models (gradient-boosted trees) and report validation (Section 7.5).
+"""Fit the expectation models f and g (gradient-boosted trees) and report validation (design Part II).
 
-Feature sets (design Sections 5.4, 7.2, 13) are named so that experiments can toggle them:
-  base       the 28 position features plus discipline (f and g)
-  situation  score difference and ends remaining, hammer perspective (f and g)
-  call       shot type and turn (g only, always on)
-  level      the event's strength rating, level of play as a property of the field (g only)
-  level_player  the expected grade at the thrower's skill (built, then rejected: the baseline is the field, not the player)
-  intent     target of the called shot from the delivered stone (g only)
-  config     configuration labels and pair measures of the position, as a skip reads it (f and g)
-  stones     each team's stones valued by what stones like them end up doing: count, cover, back up (f and g)
-  regime     the value of a steal, a single and a deuce in this game, and its products with the stones (f and g)
-  core       a minimal position description (rocks left, who throws, era, stones in play, count, discipline);
-             with `nobase`, instead of the 26 base features
-  goals      the value of a steal, a single and a deuce in this game (from the win-probability table)
-  potential_cb  rock potential with colour-blind cover and backing: a stone in front of or just behind a
-             counter serves whichever team the counter belongs to
-  traits     rock traits: per team, the number of stones with each trait (in the 4-foot, frozen, open, ...)
-  grades     each team's stones graded by additive trait weights fitted on the end's result (cross-fitted)
-  margin     the count's margins (shot rock to first opposing stone, last counter to first opposing stone, near tie)
+The position enters as rocks and their relations, not as hand-built summaries. Feature sets are named so
+that experiments can toggle them; `ADOPTED` is the model's set.
+  core       rocks left, who throws next, free-guard-zone rule, stones in play, the count, discipline
+  situation  score difference and ends remaining, hammer perspective
+  traits     rock traits: per team, the number of stones with each trait (core/traits.py)
+  grades     each team's stones graded by additive trait weights fitted on the end's result (model/trait_study.py)
+  margin     the count's margins: shot rock to the first opposing stone, last counter to the first opposing stone,
+             near tie
   shotdist   each team's stone nearest the pin
-  slots      the rocks that matter, each whole: shot, second and third shot and each team's guard nearest the
-             pin, with owner and traits (is the shot rock open?) (model/slot_features.py)
-  combo      doubles and runbacks for the thrower: whether one is on, its geometry and the count swing
   draw       the draw to beat for the thrower: the stone to beat, how many it counts, what a made draw leaves,
              whether the curled paths from either side are open, and whether a finishing point has backing
-  potential  rock potential: per team, the stones' chance of counting or covering a counter, less their chance
-             of backing up the opponent; with --monotone, expectation must rise with it (f and g)
+  slots      the rocks that matter, each whole: shot, second and third shot and each team's guard nearest the
+             pin, with owner and traits (model/slot_features.py)
+  combo      doubles and runbacks for the thrower: whether one is on, its geometry and the count swing
+  call       shot type and turn (g only, always on)
+  level      the event's strength rating, level of play as a property of the field (g only)
+  intent     target of the called shot from the delivered stone (g only)
+The hand-built sets this replaced (26 base features, configuration labels, tracked rock potential, the
+regime and skill variants) are at the tag `handcrafted-features-final`.
 """
 from __future__ import annotations
 
@@ -39,13 +32,11 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import log_loss
 from sklearn.model_selection import GroupKFold
 
-from .config_features import CONFIG_COLUMNS
-from .stone_value import POTENTIAL_CB_FEATURES, POTENTIAL_FEATURES, REGIME_FEATURES, STONE_FEATURES
-from .features import FEATURE_NAMES
-from .trait_features import TRAIT_COLUMNS
-from ..core.draw import DRAW_FEATURES
 from ..core.combos import COMBO_FEATURES
+from ..core.draw import DRAW_FEATURES
+from .features import FEATURE_NAMES
 from .slot_features import SLOT_COLUMNS
+from .trait_features import TRAIT_COLUMNS
 from .value import N_OUT
 
 log = logging.getLogger(__name__)
@@ -54,35 +45,27 @@ TRIVIAL_FEATURES = ["rocks_remaining", "next_thrower_has_hammer", "count"]
 TURN_CODE = {"cw": 1.0, "ccw": -1.0, "in": 0.5, "out": -0.5}
 
 FEATURE_SETS = {
-    "base": FEATURE_NAMES + ["is_women"],
+    "core": ["rocks_remaining", "next_thrower_has_hammer", "fgz_rocks", "stones_in_play", "count", "is_women"],
     "situation": ["diff_hammer_clip", "ends_remaining_clip", "is_extra_end"],
+    "traits": TRAIT_COLUMNS,
+    "grades": ["h_grade", "n_grade", "net_grade"],
+    "margin": ["margin", "boundary_gap", "near_tie"],
+    "shotdist": ["own_min_dist", "opp_min_dist"],
+    "draw": DRAW_FEATURES,
+    "slots": SLOT_COLUMNS,
+    "combo": COMBO_FEATURES,
     "call": ["shot_type_code", "turn_code"],
     "level": ["event_rating"],                           # level of play is the event's (strokes-gained rule: the field, never the player)
-    "level_player": ["expected_grade"],                  # the difficulty model's expected grade at the thrower's skill (rejected: per-player)
-    "level_id": ["skill_thrower", "event_effect"],       # raw per-player / per-book effects (identity proxies; see experiments)
     "intent": ["target_x", "target_y", "target_owner", "target_ring", "target_is_shot_rock", "target_is_guard"],
-    "config": CONFIG_COLUMNS,                            # configuration labels and pair measures (core/configurations.py)
-    "stones": STONE_FEATURES,                            # each team's stones by what they end up doing (model/stone_value.py)
-    "regime": REGIME_FEATURES,                           # what the game makes each result worth, and its products with the stones
-    "potential": POTENTIAL_FEATURES,                     # each team's rock potential and the net (model/stone_value.py)
-    "potential_cb": POTENTIAL_CB_FEATURES,               # rock potential with colour-blind cover and backing
-    "core": ["rocks_remaining", "next_thrower_has_hammer", "fgz_rocks", "stones_in_play", "count", "is_women"],
-    "goals": ["reg_steal", "reg_single", "reg_deuce"],    # what a steal, a single and a deuce are worth in this game
-    "traits": TRAIT_COLUMNS,                             # each team's stones counted by rock trait (core/traits.py)
-    "grades": ["h_grade", "n_grade", "net_grade"],
-    "margin": ["margin", "boundary_gap", "near_tie"],     # the count's margin: inches between the shot rock (last counter) and the first opposing stone
-    "shotdist": ["own_min_dist", "opp_min_dist"],        # each team's stone nearest the pin: how close the rock to beat is
-    "slots": SLOT_COLUMNS,                               # shot, second, third and each team's nearest guard, each with its traits
-    "draw": DRAW_FEATURES,
-    "combo": COMBO_FEATURES,                             # doubles and runbacks for the thrower: available, how good, what is at stake (core/combos.py)                               # the draw to beat for the thrower: against n, open sides, backing (core/draw.py)       # each team's stones graded by additive trait weights (model/trait_study.py)
 }
-F_SETS = ("base", "core", "situation", "goals", "config", "stones", "regime", "potential", "potential_cb", "traits", "grades", "margin", "shotdist", "draw", "slots", "combo")   # sets that enter f (and g)
-G_ONLY_SETS = ("call", "level", "level_player", "level_id", "intent")       # sets that enter g only
+F_SETS = ("core", "situation", "traits", "grades", "margin", "shotdist", "draw", "slots", "combo")   # sets that enter f (and g)
+G_ONLY_SETS = ("call", "level", "intent")                                                            # sets that enter g only
+ADOPTED = ("core", "situation", "level", "intent", "traits", "grades", "margin", "shotdist", "draw", "slots", "combo")
 CATEGORICAL = {"shot_type_code"}
 
 
 def column(rows: pd.DataFrame, X: np.ndarray, name: str) -> np.ndarray:
-    """One design column, from the baseline features or derived from the row table."""
+    """One design column, from the position descriptors (features.py) or derived from the row table."""
     if name in FEATURE_NAMES:
         return X[:, FEATURE_NAMES.index(name)]
     if name == "is_women":
@@ -97,27 +80,24 @@ def column(rows: pd.DataFrame, X: np.ndarray, name: str) -> np.ndarray:
         return rows["turn"].map(TURN_CODE).fillna(0.0).to_numpy(dtype=float)
     if name == "shot_type_code":
         return rows["shot_type_code"].to_numpy(dtype=float)
-    if name == "expected_grade":
-        # the difficulty model's expected grade for this shot at the thrower's skill (design 3.5)
-        z = rows["grade_logit_base"].to_numpy(dtype=float) + rows["skill_thrower"].to_numpy(dtype=float)
-        return 1.0 / (1.0 + np.exp(-z))
     if name in rows:
         return pd.to_numeric(rows[name], errors="coerce").fillna(0.0).to_numpy(dtype=float)
     raise KeyError(f"no builder for design column {name!r}")
 
 
 def design_columns(sets: tuple[str, ...]) -> tuple[list[str], list[str]]:
-    """(f columns, g columns) for the named feature sets. 'base' and 'call' are always present."""
-    # `nobase` drops the 26 hand-built position features (use with `core`): the simplification test
-    lead = () if "nobase" in sets else ("base",)
-    sets = tuple(dict.fromkeys(lead + tuple(s for s in sets if s != "nobase") + ("call",)))
+    """(f columns, g columns) for the named feature sets; `call` is always present in g."""
+    unknown = set(sets) - set(FEATURE_SETS)
+    if unknown:
+        raise ValueError(f"unknown feature sets {sorted(unknown)} (retired sets are at the tag handcrafted-features-final)")
+    sets = tuple(dict.fromkeys(tuple(sets) + ("call",)))
     f_cols = [c for s in F_SETS if s in sets for c in FEATURE_SETS[s]]
     g_cols = f_cols + [c for s in G_ONLY_SETS if s in sets for c in FEATURE_SETS[s]]
     return f_cols, g_cols
 
 
-def design_matrices(rows: pd.DataFrame, X: np.ndarray, sets: tuple[str, ...] = ("base",)):
-    """f uses position features + discipline (+ situation); g adds the call (+ level, intent)."""
+def design_matrices(rows: pd.DataFrame, X: np.ndarray, sets: tuple[str, ...] = ADOPTED):
+    """f takes the position sets; g adds the call (and level, intent)."""
     f_cols, g_cols = design_columns(sets)
     X_f = np.column_stack([column(rows, X, c) for c in f_cols]) if len(rows) else np.zeros((0, len(f_cols)))
     extra = [column(rows, X, c) for c in g_cols[len(f_cols):]]
@@ -138,61 +118,14 @@ def _brier(P, y):
     return float(np.mean(np.sum((P - Y) ** 2, axis=1)))
 
 
-def make_model(seed: int = 0, categorical=None, monotonic=None):
+def make_model(seed: int = 0, categorical=None):
     # Regularised. On four books anything richer than 8 leaves / 80 rounds overfit; on the full
     # archive (1.2M rows) 15 leaves / 200 rounds is the plateau: 31 leaves / 300 rounds scores the
     # same at 25x the cost and 63 leaves is worse (15 held-out books, 2026-09-09).
-    if monotonic is not None and any(monotonic):
-        return OrdinalMonotone(seed, categorical, monotonic)
     return HistGradientBoostingClassifier(max_iter=200, learning_rate=0.05, max_leaf_nodes=15,
                                           min_samples_leaf=300, l2_regularization=10.0,
                                           early_stopping=False,
                                           categorical_features=categorical, random_state=seed)
-
-
-class OrdinalMonotone:
-    """The seven-class outcome model as six cumulative yes/no models, P(outcome > c) for c = -3..2, so that
-    monotonic constraints can be imposed (the tree library allows them for binary models only). With the
-    constraint on a column, every cumulative probability moves the same way with it, so the whole outcome
-    distribution shifts up (first-order dominance) and so does its value under any increasing v, points or
-    win probability. Crossing cumulative curves are resolved by a running minimum."""
-
-    def __init__(self, seed: int = 0, categorical=None, monotonic=None):
-        self.seed, self.categorical, self.monotonic = seed, categorical, list(monotonic)
-        self.classes_ = np.arange(N_OUT)
-
-    def _binary(self):
-        return HistGradientBoostingClassifier(max_iter=200, learning_rate=0.05, max_leaf_nodes=15,
-                                              min_samples_leaf=300, l2_regularization=10.0, early_stopping=False,
-                                              categorical_features=self.categorical, monotonic_cst=self.monotonic,
-                                              random_state=self.seed)
-
-    def fit(self, X, y, sample_weight=None):
-        self.models_ = []
-        for c in range(N_OUT - 1):
-            yb = (np.asarray(y) > c).astype(int)
-            if yb.min() == yb.max():
-                self.models_.append(float(yb[0]))
-            else:
-                self.models_.append(self._binary().fit(X, yb, sample_weight=sample_weight))
-        return self
-
-    def predict_proba(self, X):
-        G = np.column_stack([np.full(len(X), m) if isinstance(m, float) else m.predict_proba(X)[:, 1] for m in self.models_])
-        G = np.minimum.accumulate(G, axis=1)                    # P(outcome > c) cannot rise with c
-        P = np.empty((len(X), N_OUT))
-        P[:, 0] = 1.0 - G[:, 0]
-        P[:, 1:-1] = G[:, :-1] - G[:, 1:]
-        P[:, -1] = G[:, -1]
-        P = np.clip(P, 0.0, None)
-        return P / P.sum(axis=1, keepdims=True)
-
-
-MONOTONE = {"own_pot": 1, "opp_pot": -1, "net_pot": 1}      # the hammer team's rock potential raises its expectation
-
-
-def monotone_cst(cols: list[str]) -> list[int]:
-    return [MONOTONE.get(c, 0) for c in cols]
 
 
 def _cat_index(cols: list[str]):
@@ -207,7 +140,7 @@ class FittedModels:
     trivial: HistGradientBoostingClassifier
     f_cols: list[str]
     g_cols: list[str]
-    sets: tuple[str, ...] = ("base",)
+    sets: tuple[str, ...] = ADOPTED
     cv_report: dict = field(default_factory=dict)
     folds: list = field(default_factory=list)     # (set of held-out group keys, f model, g model)
     group_key: str = "book"
@@ -282,8 +215,7 @@ def evaluate(P: dict[str, np.ndarray], y: np.ndarray, rows: pd.DataFrame, X: np.
 
 
 def fit_models(rows: pd.DataFrame, X: np.ndarray, y: np.ndarray, seed: int = 0,
-               sets: tuple[str, ...] = ("base",), n_splits: int = 5, target: str = "final",
-               monotone: bool = False) -> FittedModels:
+               sets: tuple[str, ...] = ADOPTED, n_splits: int = 5, target: str = "final") -> FittedModels:
     """f, g and the trivial model: out-of-fold by book for the report and for Points Gained, then on all rows.
     Under a local target (model/targets.py) the soft targets are rebuilt inside each fold from that fold's
     training books only, so no held-out book shapes the targets its models are trained on."""
@@ -291,14 +223,12 @@ def fit_models(rows: pd.DataFrame, X: np.ndarray, y: np.ndarray, seed: int = 0,
     t0 = time.time()
     X_f, f_cols, X_g, g_cols = design_matrices(rows, X, sets)
     cat_g = _cat_index(g_cols)
-    mono_f = monotone_cst(f_cols) if monotone else None
-    mono_g = monotone_cst(g_cols) if monotone else None
     tri_cols = TRIVIAL_FEATURES + (FEATURE_SETS["situation"] if "situation" in sets else [])
     X_t = np.column_stack([column(rows, X, c) for c in tri_cols])
     groups = rows["book"].to_numpy()
     n_groups = len(set(groups))
     report = {"n_rows": int(len(rows)), "n_groups": int(n_groups), "group_key": "book", "sets": list(sets),
-              "target": target, "monotone": monotone, "f_cols": f_cols, "g_cols": g_cols}
+              "target": target, "f_cols": f_cols, "g_cols": g_cols}
     if n_groups < 3:
         groups = rows["game_key"].to_numpy(); n_groups = len(set(groups)); report["group_key"] = "game_key"
     n_splits = min(n_splits, n_groups)
@@ -309,16 +239,16 @@ def fit_models(rows: pd.DataFrame, X: np.ndarray, y: np.ndarray, seed: int = 0,
     for k, (tr, te) in enumerate(folds.split(X_f, y, groups)):
         t1 = time.time()
         idx, yy, w = training_rows(target, rows, X_f, y, tr, seed)
-        mf = make_model(seed, None, mono_f).fit(X_f[idx], yy, sample_weight=w); P_f[te] = _full_proba(mf, X_f[te])
-        mg = make_model(seed, cat_g, mono_g).fit(X_g[idx], yy, sample_weight=w); P_g[te] = _full_proba(mg, X_g[te])
+        mf = make_model(seed).fit(X_f[idx], yy, sample_weight=w); P_f[te] = _full_proba(mf, X_f[te])
+        mg = make_model(seed, cat_g).fit(X_g[idx], yy, sample_weight=w); P_g[te] = _full_proba(mg, X_g[te])
         mt = make_model(seed).fit(X_t[tr], y[tr]); P_t[te] = _full_proba(mt, X_t[te])
         fold_models.append((set(groups[te]), mf, mg))
         log.info("fold %d/%d fitted in %.0fs", k + 1, n_splits, time.time() - t1)
     report.update(evaluate({"trivial": P_t[unm], "f": P_f[unm], "g": P_g[unm]}, y[unm], rows[unm], X[unm]))
     t1 = time.time()
     idx, yy, w = training_rows(target, rows, X_f, y, np.arange(len(y)), seed)
-    f = make_model(seed, None, mono_f).fit(X_f[idx], yy, sample_weight=w)
-    g = make_model(seed, cat_g, mono_g).fit(X_g[idx], yy, sample_weight=w)
+    f = make_model(seed).fit(X_f[idx], yy, sample_weight=w)
+    g = make_model(seed, cat_g).fit(X_g[idx], yy, sample_weight=w)
     t = make_model(seed).fit(X_t, y)
     log.info("full-data models fitted in %.0fs (total %.0fs)", time.time() - t1, time.time() - t0)
     report["fit_seconds"] = round(time.time() - t0, 1)
