@@ -78,3 +78,19 @@ def test_exposure_is_exclusive_and_mirror_invariant():
 def test_type_bitmask():
     m = stone_traits(P([(0, 120, 0)], 15))
     assert type_name(int(trait_type(m)[0])) == "front+controls_4ft+open"
+
+
+def test_slots_keep_each_rock_whole():
+    import pandas as pd
+    from pointsgained.core.traits import TRAITS, traits_xy
+    from pointsgained.model.slot_features import compute_table
+    # non-hammer shot rock behind a hammer guard; hammer second shot open on the wing
+    x, y, o = np.array([0.0, 2.0, 40.0]), np.array([110.0, 5.0, 10.0]), np.array([1, 0, 1])
+    m = traits_xy(x, y, o)
+    long = pd.DataFrame({"game_key": "g", "end": 1, "shot": 3, "owner": o, "x": x, "y": y})
+    long[TRAITS] = m
+    t = compute_table(long).iloc[0]
+    assert t["s1_owner"] == 0 and t["s1_exposure"] == 2 and t["s1_four_foot"] == 1
+    assert t["s2_owner"] == 1 and t["s2_wing"] == 1 and t["s2_exposure"] == 0
+    assert t["s3_owner"] == -1
+    assert t["gh_owner"] == 1 and t["gh_guarding"] == 1 and t["gn_owner"] == -1
