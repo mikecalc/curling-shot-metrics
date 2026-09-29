@@ -1,4 +1,4 @@
-"""Command line interface: pointsgained ingest | validate | audit | model | features | experiment | events | frontend | stones | inventory | download | batch."""
+"""Command line interface: pointsgained ingest | validate | audit | model | features | experiment | events | frontend | stones | traits | inventory | download | batch."""
 from __future__ import annotations
 
 import argparse
@@ -112,7 +112,7 @@ def _feature_sets(spec: str) -> tuple[str, ...]:
     return tuple(s.strip() for s in spec.split(",") if s.strip())
 
 
-def _with_level(ds, sets, parquet_root, aliases_csv, event_strength_csv="data/event_strength.csv"):
+def _with_level(ds, sets, parquet_root, aliases_csv, event_strength_csv="data/event_strength.csv", grade_books=None):
     """Attach the level columns (event rating; or the per-player skill sets) and the intent columns when requested."""
     if "level" in sets:
         es = pd.read_csv(event_strength_csv).set_index("book")["rating"] if os.path.exists(event_strength_csv) else pd.Series(dtype=float)
@@ -126,6 +126,12 @@ def _with_level(ds, sets, parquet_root, aliases_csv, event_strength_csv="data/ev
     if "config" in sets:
         from .model.config_features import attach_config, load_table
         ds.rows = attach_config(ds.rows, load_table(parquet_root))
+    if "traits" in sets:
+        from .model.trait_features import attach_traits, load_tables as load_trait_tables
+        ds.rows = attach_traits(ds.rows, load_trait_tables(parquet_root)[1])
+    if "grades" in sets:
+        from .model.trait_study import attach_grades
+        ds.rows = attach_grades(ds.rows, parquet_root, fit_books=grade_books)
     if {"stones", "regime", "goals", "potential", "potential_cb"} & set(sets):
         from .model.stone_value import attach_stones, load_position_features
         ds.rows = attach_stones(ds.rows, load_position_features(parquet_root))
@@ -173,7 +179,11 @@ def cmd_experiment(args):
     from .model.experiment import run_experiment
     sets = _feature_sets(args.features)
     early = _feature_sets(args.early_features) if args.split_model else ()
-    ds = _with_level(load_or_build(args.parquet, rebuild=args.rebuild), tuple(dict.fromkeys(sets + early)), args.parquet, args.aliases)
+    ds = load_or_build(args.parquet, rebuild=args.rebuild)
+    # trait grades are fitted on the split's training books only, so the held-out rows are graded honestly
+    from .model.experiment import split_rows
+    grade_books = set(ds.rows["book"].to_numpy()[split_rows(ds.rows, args.split, args.cutoff_year, args.fold)[0]])
+    ds = _with_level(ds, tuple(dict.fromkeys(sets + early)), args.parquet, args.aliases, grade_books=grade_books)
     if "net_pot" not in ds.rows:
         # rock potential for the gates, whether or not the models use it
         from .model.stone_value import attach_stones, load_position_features
@@ -182,7 +192,8 @@ def cmd_experiment(args):
     rep = run_experiment(ds, name, sets, split=args.split, cutoff_year=args.cutoff_year, fold=args.fold,
                          seed=args.seed, reports=args.reports, inventory_csv=args.inventory, target=args.target,
                          monotone=args.monotone, split_model=args.split_model, early_sets=early,
-                         blend=tuple(int(v) for v in args.blend.split(",")) if args.blend else None)
+                         blend=tuple(int(v) for v in args.blend.split(",")) if args.blend else None,
+                         save_predictions=os.path.join(args.parquet, "experiments") if args.save_predictions else None)
     print(json.dumps({k: rep[k] for k in ("name", "split", "sets", "n_train", "n_test", "trivial_logloss", "f_logloss", "g_logloss", "seconds")}, indent=2))
     print("by rocks remaining:", {r: (v["f"], v["trivial"]) for r, v in rep["logloss_by_rocks_remaining"].items()})
     print("front-end gates:", {k: round(v, 3) for k, v in rep["frontend_gates"].items()})
@@ -446,6 +457,22 @@ def cmd_stones(args):
     print(f"wrote {write_report(args.parquet, args.reports)} in {time.time() - t0:.0f}s")
 
 
+def cmd_traits(args):
+    """The rock-trait study: what positions whose stones carry each trait have been worth, by team and
+    stage, stone types, and additive stone grades (reports/traits.md)."""
+    from .model.trait_features import load_tables
+    from .model.trait_study import write_report
+    t0 = time.time()
+    load_tables(args.parquet, rebuild=args.rebuild)
+    print(f"wrote {write_report(args.parquet, args.reports, args.inventory, args.tier1)} in {time.time() - t0:.0f}s")
+
+
+def cmd_misprice(args):
+    """Where experiments' models over- or under-price positions, from their saved held-out predictions."""
+    from .model.misprice import write_report
+    print(f"wrote {write_report(args.parquet, args.reports, args.names, args.which)}")
+
+
 def cmd_difficulty(args):
     """Fit the shot-difficulty model: skill scalar per player and event effect per book (design 3.5, 8)."""
     import numpy as np
@@ -654,6 +681,7 @@ def main(argv=None):
     j.add_argument("--seed", type=int, default=0)
     j.add_argument("--rebuild", action="store_true")
     j.add_argument("--aliases", default="data/player_aliases.csv")
+    j.add_argument("--save-predictions", action="store_true", help="write the held-out predictions to <parquet>/experiments/<name>.parquet")
     j.set_defaults(func=cmd_experiment)
     e = sub.add_parser("inventory", help="build the inventory of the curlit results directory")
     e.add_argument("--out", default="data/inventory.csv")
@@ -706,6 +734,19 @@ def main(argv=None):
     sn.add_argument("--reports", default="reports")
     sn.add_argument("--rebuild", action="store_true", help="re-track the stones")
     sn.set_defaults(func=cmd_stones)
+    tr = sub.add_parser("traits", help="the rock-trait study: stones by trait, outcome distributions, additive grades")
+    tr.add_argument("--parquet", default="data/parquet")
+    tr.add_argument("--reports", default="reports")
+    tr.add_argument("--inventory", default="data/inventory.csv")
+    tr.add_argument("--tier1", action="store_true", help="Worlds and Olympics only")
+    tr.add_argument("--rebuild", action="store_true", help="recompute the trait tables")
+    tr.set_defaults(func=cmd_traits)
+    mp = sub.add_parser("misprice", help="where models over- or under-price positions (needs experiment --save-predictions)")
+    mp.add_argument("names", nargs="+", help="experiment names; the first is the reference")
+    mp.add_argument("--which", choices=["f", "g"], default="f")
+    mp.add_argument("--parquet", default="data/parquet")
+    mp.add_argument("--reports", default="reports")
+    mp.set_defaults(func=cmd_misprice)
     n = sub.add_parser("intent", help="realised intent per shot from the delivered stone and prior rings")
     n.add_argument("--parquet", default="data/parquet")
     n.add_argument("--seed", type=int, default=0)

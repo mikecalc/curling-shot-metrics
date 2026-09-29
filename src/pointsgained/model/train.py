@@ -15,6 +15,10 @@ Feature sets (design Sections 5.4, 7.2, 13) are named so that experiments can to
   goals      the value of a steal, a single and a deuce in this game (from the win-probability table)
   potential_cb  rock potential with colour-blind cover and backing: a stone in front of or just behind a
              counter serves whichever team the counter belongs to
+  traits     rock traits: per team, the number of stones with each trait (in the 4-foot, frozen, open, ...)
+  grades     each team's stones graded by additive trait weights fitted on the end's result (cross-fitted)
+  margin     the count's margins (shot rock to first opposing stone, last counter to first opposing stone, near tie)
+  shotdist   each team's stone nearest the pin
   potential  rock potential: per team, the stones' chance of counting or covering a counter, less their chance
              of backing up the opponent; with --monotone, expectation must rise with it (f and g)
 """
@@ -33,6 +37,7 @@ from sklearn.model_selection import GroupKFold
 from .config_features import CONFIG_COLUMNS
 from .stone_value import POTENTIAL_CB_FEATURES, POTENTIAL_FEATURES, REGIME_FEATURES, STONE_FEATURES
 from .features import FEATURE_NAMES
+from .trait_features import TRAIT_COLUMNS
 from .value import N_OUT
 
 log = logging.getLogger(__name__)
@@ -55,8 +60,12 @@ FEATURE_SETS = {
     "potential_cb": POTENTIAL_CB_FEATURES,               # rock potential with colour-blind cover and backing
     "core": ["rocks_remaining", "next_thrower_has_hammer", "fgz_rocks", "stones_in_play", "count", "is_women"],
     "goals": ["reg_steal", "reg_single", "reg_deuce"],    # what a steal, a single and a deuce are worth in this game
+    "traits": TRAIT_COLUMNS,                             # each team's stones counted by rock trait (core/traits.py)
+    "grades": ["h_grade", "n_grade", "net_grade"],
+    "margin": ["margin", "boundary_gap", "near_tie"],     # the count's margin: inches between the shot rock (last counter) and the first opposing stone
+    "shotdist": ["own_min_dist", "opp_min_dist"],        # each team's stone nearest the pin: how close the rock to beat is       # each team's stones graded by additive trait weights (model/trait_study.py)
 }
-F_SETS = ("base", "core", "situation", "goals", "config", "stones", "regime", "potential", "potential_cb")   # sets that enter f (and g)
+F_SETS = ("base", "core", "situation", "goals", "config", "stones", "regime", "potential", "potential_cb", "traits", "grades", "margin", "shotdist")   # sets that enter f (and g)
 G_ONLY_SETS = ("call", "level", "level_player", "level_id", "intent")       # sets that enter g only
 CATEGORICAL = {"shot_type_code"}
 

@@ -163,7 +163,7 @@ def setup_battle(rows: pd.DataFrame, V_f: np.ndarray, min_half: int = 30) -> dic
 def run_experiment(ds: Dataset, name: str, sets: tuple[str, ...], split: str = "time", cutoff_year: int = 2024,
                    fold: int = 0, seed: int = 0, reports: str = "reports", inventory_csv: str | None = None,
                    target: str = "final", monotone: bool = False, split_model: str | None = None,
-                   early_sets: tuple = (), blend: tuple[int, int] | None = None) -> dict:
+                   early_sets: tuple = (), blend: tuple[int, int] | None = None, save_predictions: str | None = None) -> dict:
     t0 = time.time()
     rows = attach_tier(ds.rows, inventory_csv)
     tr, te = split_rows(rows, split, cutoff_year, fold)
@@ -203,6 +203,14 @@ def run_experiment(ds: Dataset, name: str, sets: tuple[str, ...], split: str = "
     H = ValueSet.from_outcomes(first["label"]).H
     rep["frontend_gates"] = frontend_gates(rows.iloc[te[unm]], P["f"][unm], P["g"][unm], y[te][unm], H)
     rep["seconds"] = round(time.time() - t0, 1)
+    if save_predictions:
+        # held-out unmirrored rows: keys, label, and each model's outcome distribution (for calibration studies)
+        keep = te[unm]
+        pred = rows.iloc[keep][["game_key", "end", "shot", "label"]].reset_index(drop=True)
+        for k in ("trivial", "f", "g"):
+            pred[[f"{k}_{o}" for o in range(P[k].shape[1])]] = P[k][unm]
+        os.makedirs(save_predictions, exist_ok=True)
+        pred.to_parquet(os.path.join(save_predictions, f"{name}.parquet"), index=False)
     out_dir = os.path.join(reports, "experiments")
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, f"{name}.json"), "w") as f:
