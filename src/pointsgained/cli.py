@@ -114,20 +114,24 @@ def _feature_sets(spec: str) -> tuple[str, ...]:
 
 def attach_position_sets(rows, sets, parquet_root, grade_books=None, grade_groups=None):
     """The position sets of the rows' pre-shot positions: rock traits, slots, the draw to beat, doubles and
-    runbacks, and trait grades (fitted on `grade_books`, or cross-fitted over `grade_groups`)."""
+    runbacks, the tap, and trait grades and the tap's trait rescore (fitted on `grade_books`, or cross-fitted
+    over `grade_groups`)."""
     if "traits" in sets:
         from .model.trait_features import attach_traits, load_tables as load_trait_tables
         rows = attach_traits(rows, load_trait_tables(parquet_root)[1])
     if "slots" in sets:
         from .model.slot_features import attach_slots
         rows = attach_slots(rows, parquet_root)
-    for rel in ("draw", "combo"):
+    for rel in ("draw", "combo", "tap"):
         if rel in sets:
             from .model.draw_features import attach_draw, load_table as load_rel_table
             rows = attach_draw(rows, load_rel_table(parquet_root, name=rel), name=rel)
-    if "grades" in sets:
+    if "tapedge" in sets:
+        from .model.draw_features import attach_tap_edge, load_table as load_rel_table
+        rows = attach_tap_edge(rows, load_rel_table(parquet_root, name="tap"), load_rel_table(parquet_root, name="draw"))
+    if "grades" in sets or "tapgrade" in sets:
         from .model.trait_study import attach_grades
-        rows = attach_grades(rows, parquet_root, fit_books=grade_books, groups=grade_groups)
+        rows = attach_grades(rows, parquet_root, fit_books=grade_books, groups=grade_groups, tap="tapgrade" in sets)
     return rows
 
 

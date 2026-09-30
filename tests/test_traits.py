@@ -82,15 +82,52 @@ def test_type_bitmask():
 
 def test_slots_keep_each_rock_whole():
     import pandas as pd
-    from pointsgained.core.traits import TRAITS, traits_xy
+    from pointsgained.core.traits import TRAITS, jam_share, traits_xy
     from pointsgained.model.slot_features import compute_table
-    # non-hammer shot rock behind a hammer guard; hammer second shot open on the wing
-    x, y, o = np.array([0.0, 2.0, 40.0]), np.array([110.0, 5.0, 10.0]), np.array([1, 0, 1])
+    # non-hammer shot rock behind a hammer guard, backed by a hammer stone; hammer second shot open on the wing
+    x, y, o = np.array([0.0, 2.0, 40.0, 2.0]), np.array([110.0, 5.0, 10.0, -45.0]), np.array([1, 0, 1, 1])
     m = traits_xy(x, y, o)
     long = pd.DataFrame({"game_key": "g", "end": 1, "shot": 3, "owner": o, "x": x, "y": y})
     long[TRAITS] = m
+    long["jam_share"], long["jam_gap"] = jam_share(x, y)
     t = compute_table(long).iloc[0]
     assert t["s1_owner"] == 0 and t["s1_exposure"] == 2 and t["s1_four_foot"] == 1
-    assert t["s2_owner"] == 1 and t["s2_wing"] == 1 and t["s2_exposure"] == 0
-    assert t["s3_owner"] == -1
+    assert t["s1_jam"] == 1 and abs(t["s1_jam_gap"] - (50 - 11.4)) < 1e-6
+    assert t["s2_owner"] == 1 and t["s2_wing"] == 1 and t["s2_exposure"] == 0 and t["s2_jam"] == 1   # the deep stone clips its cone
+    assert t["s3_owner"] == 1
     assert t["gh_owner"] == 1 and t["gh_guarding"] == 1 and t["gn_owner"] == -1
+
+
+# ---- the jam (Mike Calcagno, 2026-09-30) -------------------------------------------------------------
+
+def test_lone_stone_is_not_backed():
+    assert not ({"backed", "partly_backed"} & on(P([(0, 10, 1)]), 0))
+
+
+def test_freeze_is_backed_with_no_gap():
+    from pointsgained.core.traits import jam_share
+    p = P([(0, 0, 1), (1, 11.6, 0)])
+    assert "backed" in on(p, 1)
+    share, gap = jam_share(p.x, p.y)
+    assert share[1] == 1.0 and gap[1] < 1.0
+
+
+def test_stone_three_feet_straight_back_is_backed():
+    assert "backed" in on(P([(0, 20, 1), (0, -16, 0)]), 0)
+
+
+def test_stone_far_back_and_off_line_is_partly_backed():
+    t = on(P([(0, 30, 1), (15, -58, 1)]), 0)
+    assert "partly_backed" in t and "backed" not in t
+
+
+def test_stones_beside_or_in_front_do_not_back():
+    p = P([(0, 0, 1), (36, 0, 0), (0, 60, 0)])
+    assert not ({"backed", "partly_backed"} & on(p, 0))
+
+
+def test_jam_is_mirror_symmetric():
+    from pointsgained.core.traits import jam_share
+    x, y = np.array([0.0, 12.0, -30.0, 20.0]), np.array([30.0, -20.0, -40.0, 90.0])
+    a, b = jam_share(x, y), jam_share(-x, y)
+    assert np.allclose(a[0], b[0]) and np.allclose(a[1], b[1])

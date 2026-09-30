@@ -13,7 +13,12 @@ that experiments can toggle them; `ADOPTED` is the model's set.
              whether the curled paths from either side are open, and whether a finishing point has backing
   slots      the rocks that matter, each whole: shot, second and third shot and each team's guard nearest the
              pin, with owner and traits (model/slot_features.py)
-  combo      doubles and runbacks for the thrower: whether one is on, its geometry and the count swing
+  combo      doubles and runbacks for the thrower: whether one is on, its geometry, the count swing and whether
+             the double jams
+  tap        the thrower's best tap of a house stone (own forward or the other team's back, the shooter staying):
+             whether one is on, the count swing, margin gained, how far and from where (core/taps.py)
+  tapgrade   the position after that tap rescored with the trait grades, less the position now (thrower's side)
+  tapedge    the minimal tap overlay: how many more the thrower lies after a straight tap than after a made draw
   call       shot type and turn (g only, always on)
   level      the event's strength rating, level of play as a property of the field (g only)
   intent     target of the called shot from the delivered stone (g only)
@@ -34,6 +39,7 @@ from sklearn.model_selection import GroupKFold
 
 from ..core.combos import COMBO_FEATURES
 from ..core.draw import DRAW_FEATURES
+from ..core.taps import TAP_FEATURES
 from .features import FEATURE_NAMES
 from .slot_features import SLOT_COLUMNS
 from .trait_features import TRAIT_COLUMNS
@@ -54,11 +60,14 @@ FEATURE_SETS = {
     "draw": DRAW_FEATURES,
     "slots": SLOT_COLUMNS,
     "combo": COMBO_FEATURES,
+    "tap": TAP_FEATURES,
+    "tapgrade": ["tap_grade_gain"],
+    "tapedge": ["tap_edge"],
     "call": ["shot_type_code", "turn_code"],
     "level": ["event_rating"],                           # level of play is the event's (strokes-gained rule: the field, never the player)
     "intent": ["target_x", "target_y", "target_owner", "target_ring", "target_is_shot_rock", "target_is_guard"],
 }
-F_SETS = ("core", "situation", "traits", "grades", "margin", "shotdist", "draw", "slots", "combo")   # sets that enter f (and g)
+F_SETS = ("core", "situation", "traits", "grades", "margin", "shotdist", "draw", "slots", "combo", "tap", "tapgrade", "tapedge")   # sets that enter f (and g)
 G_ONLY_SETS = ("call", "level", "intent")                                                            # sets that enter g only
 ADOPTED = ("core", "situation", "level", "intent", "traits", "grades", "margin", "shotdist", "draw", "slots", "combo")
 CATEGORICAL = {"shot_type_code"}

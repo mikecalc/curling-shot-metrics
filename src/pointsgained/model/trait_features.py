@@ -1,8 +1,8 @@
 """Rock traits for every stone of every position, cached next to the feature cache (core/traits.py).
 
 Two tables from the canonical stones table (post-shot positions, keyed game_key, end, shot):
-- `rock_traits.parquet`: one row per stone per position, with owner, x, y, the trait booleans and `type`,
-  the stone's trait vector as a bitmask;
+- `rock_traits.parquet`: one row per stone per position, with owner, x, y, the trait booleans, `type`
+  (the stone's trait vector as a bitmask) and the jam measures `jam_share` and `jam_gap` (core/traits.py);
 - `trait_counts.parquet`: one row per position, each team's number of stones with each trait
   (`h_<trait>` for the hammer team, `n_<trait>` for the other).
 A shot's pre-shot position is the post position of its `pre_source_shot` (0 = the empty sheet, all zeros).
@@ -16,10 +16,11 @@ import os
 import numpy as np
 import pandas as pd
 
-from ..core.traits import TRAITS, trait_type, traits_xy
+from ..core.traits import TRAITS, jam_share, trait_type, traits_xy
 
 KEYS = ["game_key", "end", "shot"]
 TRAIT_COLUMNS = [f"h_{t}" for t in TRAITS] + [f"n_{t}" for t in TRAITS]
+CACHE_VERSION = 2          # 2: jam traits and measures
 
 
 def compute_tables(stones: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -27,11 +28,14 @@ def compute_tables(stones: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     stones = stones.sort_values(KEYS, kind="stable").reset_index(drop=True)
     x, y, o = stones["x"].to_numpy(float), stones["y"].to_numpy(float), stones["owner"].to_numpy(int)
     m = np.zeros((len(stones), len(TRAITS)), dtype=bool)
+    share, gap = np.zeros(len(stones)), np.zeros(len(stones))
     for i in stones.groupby(KEYS, sort=False).indices.values():
         m[i] = traits_xy(x[i], y[i], o[i])
+        share[i], gap[i] = jam_share(x[i], y[i])
     long = stones[KEYS + ["owner", "x", "y"]].copy()
     long[TRAITS] = m
     long["type"] = trait_type(m)
+    long["jam_share"], long["jam_gap"] = share, gap
     ham = (o == 1)[:, None]
     per = pd.DataFrame(np.hstack([m & ham, m & ~ham]).astype(np.int16), columns=TRAIT_COLUMNS)
     per[KEYS] = stones[KEYS]
@@ -45,7 +49,7 @@ def load_tables(parquet_root: str, rebuild: bool = False) -> tuple[pd.DataFrame,
     wide_path = os.path.join(parquet_root, "trait_counts.parquet")
     meta_path = os.path.join(parquet_root, "rock_traits.json")
     stones_path = os.path.join(parquet_root, "stones_canonical.parquet")
-    sig = {"traits": TRAITS, "stones_mtime": os.path.getmtime(stones_path)}
+    sig = {"version": CACHE_VERSION, "traits": TRAITS, "stones_mtime": os.path.getmtime(stones_path)}
     if not rebuild and all(os.path.exists(p) for p in (long_path, wide_path, meta_path)):
         with open(meta_path) as f:
             if json.load(f) == sig:

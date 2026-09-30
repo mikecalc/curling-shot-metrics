@@ -8,6 +8,8 @@ re-reading the house, so only availability and stakes are described here.
   stone of its line) and the second behind it, the pair not flat: the line between them at least
   DOUBLE_MIN_ANGLE from level, and within DOUBLE_MAX_SEP. The field doubles a flat split four feet
   or more apart about 2% of the time (core/configurations.py), a staggered one far more often.
+  `dbl_jam` is the share of the back stone's exit cone that runs into a stone behind it (core/traits.py):
+  "the double jams" is a common reason not to play one.
 - **Runback**: a stone of either team in front of the other team's best stone, hittable, within
   RUNBACK_MAX_ANGLE of the line behind it and RUNBACK_MAX_DIST in front: driving it back removes the
   stone to beat. Straight runbacks (under RUNBACK_STRAIGHT) are the ones skips like.
@@ -21,12 +23,13 @@ import numpy as np
 
 from .configurations import FLAT_MAX_ANGLE, RUNBACK_MAX_ANGLE, RUNBACK_MAX_DIST, RUNBACK_STRAIGHT
 from .geometry import RING_12_RADIUS, STONE_DIAMETER, STONE_RADIUS
+from .traits import jam_share
 
 DOUBLE_MIN_ANGLE = FLAT_MAX_ANGLE      # flatter than this the double is (nearly) off
 DOUBLE_MAX_SEP = 96.0                  # eight feet
 NO_ANGLE, NO_DIST = 90.0, 300.0
 
-COMBO_FEATURES = ["dbl_on", "dbl_house", "dbl_sep", "dbl_angle", "dbl_swing",
+COMBO_FEATURES = ["dbl_on", "dbl_house", "dbl_sep", "dbl_angle", "dbl_swing", "dbl_jam",
                   "rb_on", "rb_straight", "rb_angle", "rb_dist", "rb_front_own", "rb_swing"]
 
 
@@ -51,7 +54,7 @@ def hittable(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 def combos(x: np.ndarray, y: np.ndarray, owner: np.ndarray, thrower: int) -> dict[str, float]:
     """Double and runback availability and stakes for `thrower` (1 hammer, 0 non-hammer)."""
     x, y, owner = np.asarray(x, float), np.asarray(y, float), np.asarray(owner, int)
-    out = {"dbl_on": 0.0, "dbl_house": 0.0, "dbl_sep": NO_DIST, "dbl_angle": 0.0, "dbl_swing": 0.0,
+    out = {"dbl_on": 0.0, "dbl_house": 0.0, "dbl_sep": NO_DIST, "dbl_angle": 0.0, "dbl_swing": 0.0, "dbl_jam": 0.0,
            "rb_on": 0.0, "rb_straight": 0.0, "rb_angle": NO_ANGLE, "rb_dist": NO_DIST, "rb_front_own": 0.0, "rb_swing": 0.0}
     if len(x) < 2:
         return out
@@ -79,10 +82,11 @@ def combos(x: np.ndarray, y: np.ndarray, owner: np.ndarray, thrower: int) -> dic
             swing = signed_count(x[keep], y[keep], owner[keep], thrower) - now
             key = (both, swing, -sep)
             if best is None or key > best[0]:
-                best = (key, sep, ang, both, swing)
+                best = (key, sep, ang, both, swing, b)
     if best is not None:
-        _, sep, ang, both, swing = best
-        out.update(dbl_on=1.0, dbl_house=float(both), dbl_sep=sep, dbl_angle=ang, dbl_swing=float(swing))
+        _, sep, ang, both, swing, b = best
+        out.update(dbl_on=1.0, dbl_house=float(both), dbl_sep=sep, dbl_angle=ang, dbl_swing=float(swing),
+                   dbl_jam=float(jam_share(x, y)[0][b]))
 
     # runbacks on the other team's best stone in the house
     opp_house = opp[house[opp]]

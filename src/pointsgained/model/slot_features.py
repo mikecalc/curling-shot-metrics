@@ -7,8 +7,9 @@ owner and its traits as they are in this position. Late in an end these are most
 (the endgame is close to a lookup on them); the rest stay in the counts.
 
 Per slot: `owner` (1 hammer, 0 non-hammer, -1 no such rock), the ring and tee traits, wing,
-controls_4ft, guarding, frozen to own / to the other colour (relative to the slot's owner), and
-`exposure` (0 open, 1 partly open, 2 behind cover). Built from `rock_traits.parquet`; a row takes its
+controls_4ft, guarding, frozen to own / to the other colour (relative to the slot's owner),
+`exposure` (0 open, 1 partly open, 2 behind cover), `jam` (0 clear behind, 1 partly backed, 2 backed) and
+`jam_gap`, the surface gap to the nearest stone in its exit cone (0 a freeze, 120 in when there is none). Built from `rock_traits.parquet`; a row takes its
 pre-shot position (the post position of `pre_source_shot`; no rocks for the empty sheet).
 """
 from __future__ import annotations
@@ -16,11 +17,12 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from ..core.traits import NO_JAM_GAP
 from .trait_features import KEYS, load_tables
 
 SLOTS = ["s1", "s2", "s3", "gh", "gn"]           # shot, second, third; hammer's and non-hammer's nearest guard
 SLOT_TRAITS = ["four_foot", "eight_foot", "behind_tee", "wing", "controls_4ft", "guarding", "frozen_own", "frozen_opp"]
-SLOT_FIELDS = ["owner"] + SLOT_TRAITS + ["exposure"]
+SLOT_FIELDS = ["owner"] + SLOT_TRAITS + ["exposure", "jam", "jam_gap"]
 SLOT_COLUMNS = [f"{s}_{f}" for s in SLOTS for f in SLOT_FIELDS]
 
 
@@ -30,6 +32,8 @@ def _fields(d: pd.DataFrame) -> pd.DataFrame:
     for t in SLOT_TRAITS:
         out[t] = d[t].astype(float)
     out["exposure"] = np.where(d["behind_cover"], 2.0, np.where(d["partly_open"], 1.0, 0.0))
+    out["jam"] = np.where(d["backed"], 2.0, np.where(d["partly_backed"], 1.0, 0.0))
+    out["jam_gap"] = d["jam_gap"].astype(float)
     return out
 
 
@@ -51,7 +55,7 @@ def compute_table(long: pd.DataFrame) -> pd.DataFrame:
 def fill_absent(t: pd.DataFrame) -> pd.DataFrame:
     for s in SLOTS:
         t[f"{s}_owner"] = t[f"{s}_owner"].fillna(-1.0)
-    return t.fillna({c: 0.0 for c in SLOT_COLUMNS})
+    return t.fillna({c: (NO_JAM_GAP if c.endswith("_jam_gap") else 0.0) for c in SLOT_COLUMNS})
 
 
 def attach_slots(rows: pd.DataFrame, parquet_root: str) -> pd.DataFrame:

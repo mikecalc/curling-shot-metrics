@@ -39,10 +39,10 @@ DRAW_FEATURES = ["draw_beat_dist", "draw_against", "draw_gain", "draw_open_sides
                  "draw_backed"]
 
 
-def path_offset(u: np.ndarray, U: np.ndarray) -> np.ndarray:
+def path_offset(u: np.ndarray, U: np.ndarray, curl: float = CURL_IN) -> np.ndarray:
     """How far to the side of its finishing point a draw is with u inches still to travel."""
     r = np.sqrt(np.clip(u / U, 0.0, 1.0))
-    return CURL_IN * (2 * r - r * r)
+    return curl * (2 * r - r * r)
 
 
 def targets(x: np.ndarray, y: np.ndarray, limit: float) -> np.ndarray:
@@ -58,15 +58,16 @@ def targets(x: np.ndarray, y: np.ndarray, limit: float) -> np.ndarray:
     return P
 
 
-def open_sides(P: np.ndarray, x: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """(targets, 2) booleans: the path from the left (-x) and from the right (+x) to each target is clear."""
+def open_sides(P: np.ndarray, x: np.ndarray, y: np.ndarray, curl: float = CURL_IN) -> np.ndarray:
+    """(targets, 2) booleans: the path from the left (-x) and from the right (+x) to each target is clear
+    (`curl`: the sideways travel of the stone over its curl; a tap curls a little less than a draw)."""
     out = np.ones((len(P), 2), dtype=bool)
     if not len(x) or not len(P):
         return out
     u = y[None, :] - P[:, None, 1]                               # distance up the sheet from target to stone
     ahead = u > STONE_RADIUS
     U = (HOG_LINE_Y - P[:, 1] + CURL_BEYOND_HOG)[:, None]
-    off = path_offset(u, U)
+    off = path_offset(u, U, curl)
     for k, side in enumerate((-1.0, 1.0)):
         px = P[:, None, 0] + side * off                          # where the path is at each stone's depth
         out[:, k] = ~(ahead & (np.abs(x[None, :] - px) < STONE_DIAMETER)).any(axis=1)

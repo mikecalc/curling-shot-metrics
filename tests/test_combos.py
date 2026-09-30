@@ -48,3 +48,9 @@ def test_signed_count_from_the_thrower():
 def test_mirror_symmetric():
     s = [(-20, 20, 0), (25, -15, 0), (5, 100, 1), (30, 40, 1)]
     assert C(s) == C([(-x, y, o) for x, y, o in s])
+
+
+def test_double_jams_with_a_stone_behind_the_back_stone():
+    free = C([(-20, 20, 0), (25, -15, 0)])
+    jammed = C([(-20, 20, 0), (25, -15, 0), (25, -30, 1)])
+    assert free["dbl_jam"] == 0 and jammed["dbl_on"] == 1 and jammed["dbl_jam"] > 0.5

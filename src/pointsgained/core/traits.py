@@ -8,6 +8,15 @@ stage of the end, go with which end results (model/trait_study.py). No tracking:
 off the position it is in. Vocabulary by Mike Calcagno (2026-09-29): a single centre guard at the start of
 an end is "in the front" and "controlling the 4-foot" and nothing else (and open).
 
+Exposure says whether a stone can be reached from the front; the jam says whether it can be removed once
+reached (Mike Calcagno, 2026-09-30). A struck stone leaves along the line of centres, and a stone behind it
+on that line stops it: the takeout jams. For a shooter who wants to hit the centre of the rock and stay,
+the exit directions that matter are within about 30 degrees of straight back; off-line stones matter less
+when the shooter may roll away (and more for doubles, where "the double jams"). A stone t behind s blocks
+the exit bearings within asin(D / r) of its own bearing, so the closer it is the wider the arc it blocks;
+a freeze is the limit, blocking the whole cone. A stone is **backed** when half the cone or more is
+blocked and **partly backed** when some of it is, whichever colour does the blocking.
+
 Canonical frame (core/positions.py): inches, pin at (0, 0), y > 0 towards the hog line, owner 1 = hammer.
 Every test uses |x| only, so traits are unchanged by mirroring.
 """
@@ -20,6 +29,10 @@ from .positions import Position
 
 CENTER_LANE = 24.0        # |x| <= 24 in: the width of the 4-foot (as in the features and configurations)
 FROZEN_TOLERANCE = 2.0    # centre distance up to a stone's diameter plus 2 in: touching, within the diagram's resolution
+JAM_CONE = 30.0           # degrees either side of straight back: the exit directions of a takeout that keeps the shooter
+JAM_REACH = 96.0          # a stone up to eight feet behind (centre to centre) can stop a struck stone
+JAM_BEARINGS = np.linspace(-JAM_CONE, JAM_CONE, 61)
+NO_JAM_GAP = 120.0        # the "gap" of a stone with nothing behind it in the cone
 
 TRAITS = [
     "four_foot",      # in or touching the 4-foot
@@ -39,6 +52,8 @@ TRAITS = [
     "open",           # no stone in front of it within a stone's width of its line
     "partly_open",    # the nearest stone in front of it overlaps its line by less than half a stone
     "behind_cover",   # a stone in front of it overlaps its line by half a stone or more
+    "partly_backed",  # some of its exit cone (30 degrees either side of straight back) runs into a stone behind it
+    "backed",         # half or more of its exit cone runs into a stone behind it: a takeout is likely to jam
 ]
 T = {k: i for i, k in enumerate(TRAITS)}
 
@@ -89,7 +104,32 @@ def traits_xy(x: np.ndarray, y: np.ndarray, owner: np.ndarray) -> np.ndarray:
     out[:, T["behind_cover"]] = offs <= STONE_RADIUS
     out[:, T["partly_open"]] = (offs > STONE_RADIUS) & (offs <= STONE_DIAMETER)
     out[:, T["open"]] = offs > STONE_DIAMETER
+
+    share, _ = jam_share(x, y)
+    out[:, T["backed"]] = share >= 0.5
+    out[:, T["partly_backed"]] = (share > 0) & (share < 0.5)
     return out
+
+
+def jam_share(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Per stone: the share of its exit cone (JAM_BEARINGS, 0 = straight back towards the back line) that runs
+    into another stone within JAM_REACH, and the surface gap to the nearest such stone (0 for a freeze,
+    NO_JAM_GAP when the cone is clear). Mirror-symmetric: mirroring flips bearings and the cone with them."""
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    n = len(x)
+    if n < 2:
+        return np.zeros(n), np.full(n, NO_JAM_GAP)
+    ddx = x[None, :] - x[:, None]                                # [s, t]: t relative to s
+    ddy = y[None, :] - y[:, None]
+    r = np.hypot(ddx, ddy)
+    near = (r <= JAM_REACH) & ~np.eye(n, dtype=bool)
+    bearing = np.degrees(np.arctan2(ddx, -ddy))                  # 0 straight back, positive towards +x
+    half = np.degrees(np.arcsin(np.clip(STONE_DIAMETER / np.maximum(r, 1e-9), 0.0, 1.0)))
+    hit = near[:, :, None] & (np.abs(JAM_BEARINGS[None, None, :] - bearing[:, :, None]) < half[:, :, None])
+    share = hit.any(axis=1).mean(axis=1)
+    blocks = hit.any(axis=2)
+    gap = np.where(blocks, np.maximum(r - STONE_DIAMETER, 0.0), np.inf).min(axis=1)
+    return share, np.where(np.isfinite(gap), gap, NO_JAM_GAP)
 
 
 def trait_type(m: np.ndarray) -> np.ndarray:

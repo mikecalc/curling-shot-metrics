@@ -262,24 +262,41 @@ def position_grades(counts: pd.DataFrame, shot: np.ndarray, w: pd.DataFrame) -> 
 
 
 GRADE_COLUMNS = ["h_grade", "n_grade", "net_grade"]
+TAP_GRADE_COLUMNS = ["tap_grade_gain"]
 
 
 def attach_grades(train_rows: pd.DataFrame, parquet_root: str, n_groups: int = 5, fit_books: set | None = None,
-                  groups: dict | None = None) -> pd.DataFrame:
+                  groups: dict | None = None, tap: bool = False) -> pd.DataFrame:
     """The `grades` design columns: each row's pre-shot position graded with additive trait weights (hammer
     points). With `fit_books` (an experiment's training books) the weights are fitted once on those books and
     applied to every row, so held-out rows are graded by weights that never saw them. Otherwise cross-fitted:
     each book is graded with weights fitted on the other groups of books, `groups` (book -> group, the
     model's cross-validation folds) or book index mod n_groups. net_grade is the sum of the two teams'
-    grades, both from the hammer team's side."""
+    grades, both from the hammer team's side.
+    With `tap`, also `tap_grade_gain` (set `tapgrade`): the position after the thrower's best tap
+    (core/taps.py) rescored with the same weights, less the position now, from the thrower's side; both are
+    graded with the weights of the thrower's stage, as in the rock ledger."""
     study = load_rows(parquet_root)
     _, wide = load_tables(parquet_root)
     counts = counts_at(train_rows, wide, "pre_source_shot")
     pre_stones = train_rows["shot"].to_numpy() - 1
-    out = pd.DataFrame(0.0, index=counts.index, columns=GRADE_COLUMNS)
+    cols = GRADE_COLUMNS + (TAP_GRADE_COLUMNS if tap else [])
+    out = pd.DataFrame(0.0, index=counts.index, columns=cols)
+    if tap:
+        from .draw_features import load_table, tap_counts_at
+        after = tap_counts_at(train_rows.reset_index(drop=True), load_table(parquet_root, name="tap"))
+        after = after.fillna(counts)                                  # no position to tap from: nothing changes
+        sign = np.where(train_rows["thrower_has_hammer"].fillna(False).to_numpy(dtype=bool), 1.0, -1.0)
+        shot = train_rows["shot"].to_numpy()
+
+    def fill(m, w):
+        out.loc[m, GRADE_COLUMNS] = position_grades(counts[m], pre_stones[m], w).to_numpy()
+        if tap:
+            gain = (position_grades(after[m], shot[m], w)["net_grade"] - position_grades(counts[m], shot[m], w)["net_grade"])
+            out.loc[m, "tap_grade_gain"] = sign[m] * gain.to_numpy()
+
     if fit_books is not None:
-        w = fit_weights(study[study["book"].isin(fit_books)], targets=("pts",))
-        out[:] = position_grades(counts, pre_stones, w).to_numpy()
+        fill(np.ones(len(counts), dtype=bool), fit_weights(study[study["book"].isin(fit_books)], targets=("pts",)))
     else:
         books = sorted(set(study["book"]) | set(train_rows["book"]))
         group = groups if groups is not None else {b: i % n_groups for i, b in enumerate(books)}
@@ -288,9 +305,8 @@ def attach_grades(train_rows: pd.DataFrame, parquet_root: str, n_groups: int = 5
         for g in sorted(set(group.values())):
             m = tg == g
             if m.any():
-                w = fit_weights(study[sg != g], targets=("pts",))
-                out.loc[m] = position_grades(counts[m], pre_stones[m], w).to_numpy()
-    return train_rows.assign(**{c: out[c].to_numpy() for c in GRADE_COLUMNS})
+                fill(m, fit_weights(study[sg != g], targets=("pts",)))
+    return train_rows.assign(**{c: out[c].to_numpy() for c in cols})
 
 
 # ---- the report ------------------------------------------------------------------------------------
@@ -307,6 +323,18 @@ def _effect_view(eff: pd.DataFrame, stage: str, team: str) -> pd.DataFrame:
                       "2+ %": e["two"], "Δ 2+": e["d_two"].round(1).astype(str) + " ± " + e["ci_two"].round(1).astype(str),
                       "steal %": e["steal"], "Δ steal": e["d_steal"].round(1).astype(str) + " ± " + e["ci_steal"].round(1).astype(str)})
     return v
+
+
+JAM_VS_COVER = ["partly_open", "partly_backed", "behind_cover", "backed", "frozen_own", "frozen_opp", "guarding"]
+
+
+def jam_vs_cover(w: pd.DataFrame, target: str = "pts") -> pd.DataFrame:
+    """The additive weights of the exposure and jam traits side by side, per stage and team (Mike Calcagno,
+    2026-09-30: a jam should count about as much as partial cover). Exposure weights are relative to an open
+    stone, jam weights to a stone with a clear exit behind it."""
+    t = w[(w["target"] == target) & w["trait"].isin(JAM_VS_COVER)]
+    t = t.pivot_table(index=["team", "stage"], columns="trait", values="weight")[JAM_VS_COVER]
+    return t.reindex([(team, st) for _, team in TEAMS for st in STAGE_NAMES]).reset_index()
 
 
 def write_report(parquet_root: str, reports_dir: str, inventory_csv: str | None = None, tier1: bool = False) -> str:
@@ -377,6 +405,13 @@ def write_report(parquet_root: str, reports_dir: str, inventory_csv: str | None 
             "### Weights, hammer points\n", _md(weight_table(w, "pts"), 3) + "\n",
             "### Weights, two-or-more (percentage points)\n", _md(weight_table(w, "two"), 1) + "\n",
             "### Weights, steal (percentage points)\n", _md(weight_table(w, "steal"), 1) + "\n",
+            "### The jam against cover\n",
+            "A stone is partly backed when some of its exit cone (30 degrees either side of straight back) runs into a "
+            "stone behind it, and backed when half or more does: a takeout is likely to jam. The question is whether "
+            "being backed is worth about as much as being partly covered. Exposure weights are relative to an open "
+            "stone, jam weights to a stone with a clear exit; a freeze is also backed, so frozen_* adds to backed. "
+            "Hammer points:\n", _md(jam_vs_cover(w, "pts"), 3) + "\n",
+            "Two-or-more (percentage points):\n", _md(jam_vs_cover(w, "two"), 1) + "\n",
             "### Grade card\n",
             "The most common stone types per stage and team with their grades (hammer points; two-or-more and steal in "
             "percentage points; always from the hammer team's side).\n", _md(card) + "\n"]
