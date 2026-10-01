@@ -54,10 +54,10 @@ leaderboard number looks surprising, because it shows which stones produced it.
 **Event leaderboard** (`pointsgained events`). One file per Results Book. Execution (PG: Throw) is the pivot, and it is
 reported relative to that event's field for the same shot type and hammer state, so that a fourth who throws doubles all
 week is compared with the other fourths' doubles rather than with a lead's guards. Players are grouped by throwing position,
-from the throwing order, and sorted by reliability, the share of their shots at or above the field's expectation, then by
-the average miss. The execution block reads the player's distribution rather than its average (`shot_value_design.md`,
-Section 11.2): reliability, the average make and the average miss, the counts of big makes and big misses, the sum of the
-five costliest shots, and `net`, the mean, kept as the single number that folds these together. The effect on win
+from the throwing order, and sorted by `net`, their mean execution over every shot against the field's expectation, then by
+reliability, the share of their shots at or above it. The execution block reads the player's distribution as well as its average (`shot_value_design.md`,
+Section 11.2): reliability, the average make and the average miss, and `net`, which folds the three together; then the big shots: the counts of big makes and big misses and the sum of the
+five costliest shots. The effect on win
 probability follows for reference: shots that gained or cost five or more points, and the five best and five worst stones
 summed. The call component and the book's official percentage sit at the right. The team table above the position groups
 follows the team-level rule, in win probability per game and with no execution columns: `net` is the record (a win +50, a
@@ -132,7 +132,7 @@ it was between players already level (Mouat and Edin at Beijing, the leaders at 
 **What the rock-trait refit changed.** Every value in these files was recomputed when the model changed from hand-built
 position features to rocks read by their traits (September 2026). The fourths' execution barely moved (per-stone
 correlation 0.96 with the old values; their event rankings by net 0.98); the front end moved most (leads 0.70), which
-is where the old model knew least. Because the leaderboards sort on reliability, where players sit within a point or two
+is where the old model knew least. Because the leaderboards then sorted on reliability, where players sit within a point or two
 of each other, the order within a position group changed often, mostly among leads and seconds; among the fourths the top
 of a table changed only between players who were already level. The design document's Section 19 has the details.
 

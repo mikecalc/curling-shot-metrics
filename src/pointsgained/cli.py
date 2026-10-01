@@ -322,11 +322,6 @@ def cmd_events(args):
     """Per-event player leaderboards: one file per event under reports/events/, an index by year, one combined CSV."""
     from .model import aggregate as agg
     pg = pd.read_parquet(os.path.join(args.parquet, "points_gained.parquet"))
-    from .model.ledger import style_table
-    led_path = os.path.join(args.parquet, "rock_ledger.parquet")
-    led = pd.read_parquet(led_path) if os.path.exists(led_path) else None
-    if led is not None:
-        pg = pg.merge(led, on=["game_key", "end", "shot"], how="left")
     books = args.books or None
     if args.match:
         books = sorted(b for b in pg["book"].unique() if any(m in b for m in args.match))
@@ -340,17 +335,17 @@ def cmd_events(args):
     if inv is not None:
         inv["book"] = inv["file_name"].str.replace(r"\.pdf$", "", regex=True)
         names = inv.drop_duplicates("book").set_index("book")[["event_name", "year", "location", "tier"]].to_dict("index")
-    cols = ["player", "team", "shots", "games", "reliability", "avg_make", "avg_miss", "big_makes", "big_misses", "worst5",
-            "pg_throw_rel_event", "big_makes_wp", "big_misses_wp", "best5_wp", "worst5_wp", "pg_call", "grade"]
+    cols = ["player", "team", "shots", "games", "reliability", "avg_make", "avg_miss", "pg_throw_rel_event",
+            "big_makes", "big_misses", "worst5", "big_makes_wp", "big_misses_wp", "best5_wp", "worst5_wp", "pg_call", "grade"]
     short = {"pg_throw_rel_event": "net", "pg_call": "call"}
     legend = ("Execution (PGAA, points gained above average) relative to this event's field for the same shot type and hammer state, "
               "in hammer-adjusted points per shot. The block reads the player's distribution rather than its average: `reliability` is the "
               "share of shots at or above the field's expectation; `avg_make` how good the shot was when it was above, `avg_miss` how bad when "
-              "below; `big_makes` / `big_misses` count shots beyond half a point either way; `worst5` sums the five costliest shots. `net` is "
-              "the mean, kept as the single number that folds these together. The `_wp` columns are the effect on win probability, for "
-              "reference: shots that gained or cost five or more points, and the five best and five worst stones summed, in percentage "
-              "points. `call` is the call component (secondary). Players are grouped by throwing position and sorted by reliability, then "
-              "by average miss. The team table above them is a different kind of table: a team's standing is its record and where its "
+              "below; `net` is the mean over every shot, which folds the three together (reliability times the average make plus the "
+              "rest times the average miss). The big shots follow: `big_makes` / `big_misses` count shots beyond half a point either way, "
+              "`worst5` sums the five costliest shots, and the `_wp` columns are the effect on win probability, for reference: shots that "
+              "gained or cost five or more points, and the five best and five worst stones summed, in percentage points. `call` is the "
+              "call component (secondary). Players are grouped by throwing position and sorted by net, then by reliability. The team table above them is a different kind of table: a team's standing is its record and where its "
               "chance of winning came from, so it carries no execution columns.\n\n")
     index = []
     for ev, grp in lb.groupby("event", sort=True):
@@ -380,23 +375,15 @@ def cmd_events(args):
                         "start of each end (ends after the game was decided count as decided), the second sort: a team that leads "
                         "early and keeps the game quiet holds it high.\n\n"
                         + tt.round(1).to_markdown(index=False) + "\n\n")
-                if led is not None:
-                    st = style_table(pg[(pg["book"] == ev) & (pg["discipline"] == d)])
-                    f.write("### Build or address\n\nHow each team played the stones, in rock grades (descriptive, not a "
-                            "ranking): `build` is how much a stone added to the grade of the team's own rocks and `address` how "
-                            "much it took from the other team's, per stone, relative to this field at the same stage of the end; "
-                            "`builds_share` the share of its stones that built more than they addressed; `temperature` the mean "
-                            "peak of both teams' grades together in its ends with and without hammer (high: aggressive ends, "
-                            "low: conservative ones).\n\n" + st.round(3).to_markdown(index=False) + "\n\n")
                 for pos in ("FOURTH", "THIRD", "SECOND", "LEAD"):
-                    gp = gd[gd["position"] == pos].sort_values(["reliability", "avg_miss"], ascending=False)
+                    gp = gd[gd["position"] == pos].sort_values(["pg_throw_rel_event", "reliability"], ascending=False)
                     if not len(gp):
                         continue
                     f.write(f"### {pos.title()}s\n\n" + gp[cols].rename(columns=short).round(3).to_markdown(index=False) + "\n\n")
         n_games = int(pg.loc[pg["book"] == ev, "game_key"].nunique())
         index.append((year, ev, title, fn, int(grp["player"].nunique()), sorted(grp["discipline"].unique()), n_games))
     with open(os.path.join(out_dir, "README.md"), "w") as f:
-        f.write("# Per-event player leaderboards\n\nOne file per event; players grouped by position and sorted by reliability (the share of shots at or above that event's field for the same call), then by the average miss.\n\n")
+        f.write("# Per-event player leaderboards\n\nOne file per event; players grouped by position and sorted by net (mean execution against that event's field for the same call), then by reliability (the share of shots at or above it).\n\n")
         for year in sorted(set(i[0] for i in index), reverse=True):
             f.write(f"## {year}\n\n")
             for y, ev, title, fn, n, discs, ng in sorted(index, key=lambda i: i[1]):

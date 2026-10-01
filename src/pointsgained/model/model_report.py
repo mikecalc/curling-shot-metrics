@@ -56,9 +56,9 @@ def write_model_report(path: str, rep: dict, lb: dict, strata: dict, min_shots: 
                "its chance of winning came from, with no execution columns. A player is judged on what they were asked "
                "to throw: execution (PGAA, points gained above average) relative to the field for the same shot type and hammer "
                "state, read as a distribution rather than an average. `reliability` is the share of shots at or above the field's "
-               "expectation; `avg_make` how good the shot was when above, `avg_miss` how bad when below; `big_makes_100` and "
-               "`big_misses_100` are shots beyond half a point either way, per 100 shots; `net` is the mean, kept as the single "
-               "number that folds these together. `net_wp` is the same execution in percentage points of win probability per "
+               "expectation; `avg_make` how good the shot was when above, `avg_miss` how bad when below; `net` is the mean over "
+               "every shot, which folds the three together, and the sort; `big_makes_100` and `big_misses_100` are shots beyond "
+               "half a point either way, per 100 shots. `net_wp` is the same execution in percentage points of win probability per "
                "shot, for reference; `call` is the call component (secondary). The full tables are in the leaderboard CSVs.\n")
     t = lb["teams"]
     t = t[t["games"] >= team_min_games].copy()
@@ -73,9 +73,9 @@ def write_model_report(path: str, rep: dict, lb: dict, strata: dict, min_shots: 
                + t.round(1).to_markdown(index=False) + "\n")
     p = lb["players"]
     p = p[p["shots"] >= player_min_shots]
-    cols = ["discipline", "player", "teams", "shots", "games", "reliability", "avg_make", "avg_miss",
-            "big_makes_100", "big_misses_100", "net", "net_wp", "call", "grade"]
-    out.append(f"### Players (min {player_min_shots} shots; top {player_rows} per position by reliability, then average miss)\n")
+    cols = ["discipline", "player", "teams", "shots", "games", "reliability", "avg_make", "avg_miss", "net",
+            "big_makes_100", "big_misses_100", "net_wp", "call", "grade"]
+    out.append(f"### Players (min {player_min_shots} shots; top {player_rows} per position by net, then reliability)\n")
     for pos in ("FOURTH", "THIRD", "SECOND", "LEAD"):
         pp = p[p["position"] == pos].head(player_rows)
         if len(pp):

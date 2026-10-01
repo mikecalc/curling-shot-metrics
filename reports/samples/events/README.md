@@ -1,6 +1,6 @@
 # Per-event player leaderboards
 
-One file per event; players grouped by position and sorted by reliability (the share of shots at or above that event's field for the same call), then by the average miss.
+One file per event; players grouped by position and sorted by net (mean execution against that event's field for the same call), then by reliability (the share of shots at or above it).
 
 ## 2026
 

@@ -83,7 +83,7 @@ pointsgained model-report
 # the six pinned 2026 Olympic shots, both currencies
 pointsgained testset
 
-# 8. per-event player leaderboards with a build-or-address table per team (reports/events/<book>.md, one file per
+# 8. per-event player leaderboards with the team table (reports/events/<book>.md, one file per
 #    event, index in reports/events/README.md)
 pointsgained events --match OWG2026 WMCC2026
 

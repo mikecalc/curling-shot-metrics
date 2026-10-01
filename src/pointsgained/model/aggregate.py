@@ -20,7 +20,7 @@ def execution_block(x: pd.Series) -> dict:
 def by_player(pg: pd.DataFrame, min_shots: int = 40) -> pd.DataFrame:
     """Whole-corpus player table: execution relative to the field for the same shot type and hammer state,
     as the execution block, with big makes and misses as rates per 100 shots so that a 200-shot line and a
-    1,400-shot line read alike. Sorted by reliability, then by the average miss. The win-probability
+    1,400-shot line read alike. Sorted by net (the mean), then by reliability. The win-probability
     effect of the execution (`net_wp`, percentage points per shot) and the call component are reference."""
     df = pg.copy()
     df["player"] = df["player"].map(normalise_player)
@@ -42,7 +42,7 @@ def by_player(pg: pd.DataFrame, min_shots: int = 40) -> pd.DataFrame:
                          net_wp=100 * float(g["rel_wp"].mean()), call=float(g["pg_call"].mean()),
                          grade=float(g["grade_pct"].mean())))
     out = pd.DataFrame(rows)
-    return out.sort_values(["reliability", "avg_miss"], ascending=False) if len(out) else out
+    return out.sort_values(["net", "reliability"], ascending=False) if len(out) else out
 
 
 def _records(df: pd.DataFrame, keys: list[str]) -> dict[tuple, list[int]]:
@@ -283,8 +283,8 @@ def by_player_event(pg: pd.DataFrame, books: list[str] | None = None, min_shots:
         grade=("grade_pct", "mean"),
     ).reset_index()
     agg = agg[agg["shots"] >= min_shots].rename(columns={"book": "event"})
-    # sorted by reliability (how often above the field), then by how bad the misses were
-    return agg.sort_values(["event", "discipline", "reliability", "avg_miss"], ascending=[True, True, False, False])
+    # sorted by net (mean execution against the field), then by reliability (how often above it)
+    return agg.sort_values(["event", "discipline", "pg_throw_rel_event", "reliability"], ascending=[True, True, False, False])
 
 
 def by_team_event(pg: pd.DataFrame, books: list[str] | None = None) -> pd.DataFrame:
