@@ -24,6 +24,7 @@ def game_file_name(game_key: str) -> str:
 def _outcome_label(hammer: str, other: str, score: float) -> str:
     if pd.isna(score):
         return "X (not completed: out of rocks, game over)"
+    score = int(score)
     if score > 0:
         return f"{hammer} {score}"
     if score < 0:

@@ -112,7 +112,7 @@ def game_ledger(df: pd.DataFrame) -> pd.DataFrame:
             rows.append({"game_key": gk, "book": first["book"], "discipline": first["discipline"], "team": t, "result": res,
                          "net": net, "dsc": dsc, "own": own, "allowed": allowed, "other": net - dsc - own - allowed,
                          "control": 100 * float(np.mean(path)) if path else np.nan})
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=["game_key", "book", "discipline", "team", "result"] + TEAM_COLUMNS)
 
 
 def _team_table(df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
