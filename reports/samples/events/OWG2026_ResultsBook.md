@@ -2,26 +2,26 @@
 
 Cortina, Italy, 2026; tier 1.0.
 
-Execution (PGAA, points gained above average) relative to this event's field for the same shot type and hammer state, in hammer-adjusted points per shot. The block reads the player's distribution rather than its average: `reliability` is the share of shots at or above the field's expectation; `avg_make` how good the shot was when it was above, `avg_miss` how bad when below; `big_makes` / `big_misses` count shots beyond half a point either way; `worst5` sums the five costliest shots. `net` is the mean, kept as the single number that folds these together. The `_wp` columns are the effect on win probability, for reference: shots that gained or cost five or more points, and the five best and five worst stones summed, in percentage points. `call` is the call component (secondary). Players are grouped by throwing position and sorted by reliability, then by average miss. The team table above them is a different kind of table: a team's standing is its record and what its stones did to its chance of winning, so it carries no execution columns.
+Execution (PGAA, points gained above average) relative to this event's field for the same shot type and hammer state, in hammer-adjusted points per shot. The block reads the player's distribution rather than its average: `reliability` is the share of shots at or above the field's expectation; `avg_make` how good the shot was when it was above, `avg_miss` how bad when below; `big_makes` / `big_misses` count shots beyond half a point either way; `worst5` sums the five costliest shots. `net` is the mean, kept as the single number that folds these together. The `_wp` columns are the effect on win probability, for reference: shots that gained or cost five or more points, and the five best and five worst stones summed, in percentage points. `call` is the call component (secondary). Players are grouped by throwing position and sorted by reliability, then by average miss. The team table above them is a different kind of table: a team's standing is its record and where its chance of winning came from, so it carries no execution columns.
 
 ## Men
 
 ### Teams
 
-The team-level view, in win probability: the record, and the summed effect of the team's own stones on its chance of winning, per game, in percentage points (calls and throws together).
+Each team's games in win probability, in percentage points per game. `net` is the record (a win is +50, a loss -50: every game runs from an even start to the end) and is the sort; it adds up from `dsc`, the start a team had from first-end hammer (won in the draw shot challenge; seeding in playoffs), `own`, what the team's stones did against what this field's stones did at the same point of the end, `allowed`, what the other team's stones did the same way, from this team's side (positive: they got less out of their stones than the field does), and `other`, what no stone accounts for (concessions between ends, ends missing from the book's shot-by-shot pages). A lead flattens both stone columns: in a decided game neither team's stones move much, which reads as low `own` and high `allowed`; read the two together as the team's stones and the split as style. `control` is the team's mean chance of winning at the start of each end (ends after the game was decided count as decided), the second sort: a team that leads early and keeps the game quiet holds it high.
 
-| team   |   games | record   |   WP gained / game |
-|:-------|--------:|:---------|-------------------:|
-| SUI    |      11 | 10-1     |               78.7 |
-| GBR    |      11 | 6-5      |               76.4 |
-| CAN    |      11 | 9-2      |               75.6 |
-| GER    |       9 | 4-5      |               74.4 |
-| NOR    |      11 | 5-6      |               68.6 |
-| ITA    |       9 | 4-5      |               51.9 |
-| CHN    |       9 | 2-7      |               48.6 |
-| USA    |       9 | 4-5      |               44.5 |
-| CZE    |       9 | 3-6      |               38.2 |
-| SWE    |       9 | 2-7      |               32.9 |
+| team   |   games | record   |   net |   dsc |   own |   allowed |   other |   control |
+|:-------|--------:|:---------|------:|------:|------:|----------:|--------:|----------:|
+| SUI    |      11 | 10-1     |  40.9 |   9.8 |  20.8 |      10.7 |    -0.5 |      77   |
+| CAN    |      11 | 9-2      |  31.8 |   1.1 |  15.4 |      11.4 |     3.9 |      57.8 |
+| GBR    |      11 | 6-5      |   4.5 |   1.1 |  16.5 |     -10.3 |    -2.7 |      59.5 |
+| NOR    |      11 | 5-6      |  -4.5 |  -5.5 |   7.1 |      -4   |    -2.1 |      39.8 |
+| ITA    |       9 | 4-5      |  -5.6 |  -4   | -10.9 |       5.6 |     3.7 |      52.6 |
+| USA    |       9 | 4-5      |  -5.6 |   4   | -10.9 |       0.4 |     0.9 |      48.8 |
+| GER    |       9 | 4-5      |  -5.6 |  -1.3 |   8.3 |     -12.6 |     0   |      46.3 |
+| CZE    |       9 | 3-6      | -16.7 |  -4   | -19.9 |       6.1 |     1.1 |      35   |
+| SWE    |       9 | 2-7      | -27.8 |   4   | -24.9 |      -4.1 |    -2.7 |      38.2 |
+| CHN    |       9 | 2-7      | -27.8 |  -6.7 | -14.7 |      -5   |    -1.4 |      37.5 |
 
 ### Build or address
 
@@ -29,95 +29,95 @@ How each team played the stones, in rock grades (descriptive, not a ranking): `b
 
 | team   |   stones |   build |   address |   builds_share |   temperature_hammer |   temperature_no_hammer |
 |:-------|---------:|--------:|----------:|---------------:|---------------------:|------------------------:|
-| CZE    |      640 |   0.023 |    -0.017 |          0.639 |                2.106 |                   2.24  |
-| CHN    |      676 |   0.016 |    -0.007 |          0.618 |                2.278 |                   2.02  |
-| SWE    |      646 |   0.011 |    -0.007 |          0.624 |                2.168 |                   2.097 |
-| NOR    |      847 |   0.009 |    -0.013 |          0.62  |                2.055 |                   2.069 |
-| SUI    |      769 |   0     |    -0.004 |          0.594 |                2.145 |                   2.101 |
-| USA    |      647 |  -0.001 |     0.007 |          0.586 |                1.866 |                   2.1   |
-| GBR    |      806 |  -0.003 |     0.018 |          0.576 |                2.208 |                   2.039 |
-| GER    |      701 |  -0.004 |    -0.009 |          0.622 |                2.141 |                   2.3   |
-| ITA    |      662 |  -0.02  |     0.003 |          0.554 |                1.995 |                   2.063 |
-| CAN    |      808 |  -0.026 |     0.025 |          0.562 |                2.008 |                   1.989 |
+| CZE    |      652 |   0.025 |    -0.017 |          0.652 |                2.104 |                   2.195 |
+| CHN    |      676 |   0.016 |    -0.008 |          0.621 |                2.294 |                   2.033 |
+| SWE    |      653 |   0.013 |    -0.009 |          0.632 |                2.172 |                   2.096 |
+| NOR    |      861 |   0.005 |    -0.012 |          0.617 |                2.029 |                   2.056 |
+| SUI    |      769 |   0.002 |    -0.005 |          0.599 |                2.143 |                   2.115 |
+| USA    |      663 |  -0.003 |     0.008 |          0.59  |                1.87  |                   2.096 |
+| GER    |      708 |  -0.003 |    -0.008 |          0.627 |                2.127 |                   2.297 |
+| GBR    |      813 |  -0.006 |     0.021 |          0.588 |                2.2   |                   2.024 |
+| ITA    |      662 |  -0.02  |     0.002 |          0.559 |                2.007 |                   2.077 |
+| CAN    |      815 |  -0.025 |     0.024 |          0.563 |                1.992 |                   1.986 |
 
 ### Fourths
 
 | player             | team   |   shots |   games |   reliability |   avg_make |   avg_miss |   big_makes |   big_misses |   worst5 |    net |   big_makes_wp |   big_misses_wp |   best5_wp |   worst5_wp |   call |   grade |
 |:-------------------|:-------|--------:|--------:|--------------:|-----------:|-----------:|------------:|-------------:|---------:|-------:|---------------:|----------------:|-----------:|------------:|-------:|--------:|
-| JACOBS B           | CAN    |     203 |      11 |         0.67  |      0.239 |     -0.224 |          20 |           10 |   -4.117 |  0.086 |             33 |              14 |      1.188 |      -0.669 |  0.013 |  85.891 |
-| MOUAT B            | GBR    |     202 |      11 |         0.649 |      0.29  |     -0.288 |          21 |           13 |   -6.697 |  0.087 |             35 |              18 |      1.157 |      -1.17  |  0.009 |  84.53  |
-| SCHWARZ-VAN BERKEL | SUI    |     194 |      11 |         0.639 |      0.289 |     -0.234 |          24 |           10 |   -5     |  0.1   |             30 |              13 |      1.115 |      -0.784 |  0.006 |  87.565 |
-| MUSKATEWITZ M      | GER    |     176 |       9 |         0.58  |      0.295 |     -0.313 |          21 |           17 |   -5.296 |  0.039 |             27 |              21 |      1.33  |      -1.14  |  0.019 |  75.429 |
-| RETORNAZ J         | ITA    |     166 |       9 |         0.578 |      0.268 |     -0.342 |          14 |           16 |   -7.163 |  0.011 |             21 |              20 |      0.946 |      -1.387 |  0.016 |  79.242 |
-| RAMSFJELL M        | NOR    |     212 |      11 |         0.571 |      0.285 |     -0.27  |          16 |           14 |   -8.536 |  0.047 |             26 |              15 |      1.15  |      -1.09  |  0.025 |  79.447 |
-| EDIN N             | SWE    |     156 |       9 |         0.558 |      0.245 |     -0.326 |           9 |           13 |   -6.389 | -0.008 |             25 |              22 |      0.583 |      -1.089 |  0.012 |  74.359 |
-| KLIMA L            | CZE    |     160 |       9 |         0.525 |      0.273 |     -0.314 |          17 |           15 |   -6.013 | -0.006 |             13 |              18 |      0.852 |      -0.672 |  0.004 |  73.594 |
-| CASPER D           | USA    |     162 |       9 |         0.525 |      0.215 |     -0.368 |           7 |           20 |   -8.514 | -0.062 |             15 |              24 |      1.211 |      -1.158 |  0.016 |  75.155 |
-| XU X               | CHN    |     169 |       9 |         0.509 |      0.265 |     -0.284 |          11 |           16 |   -6.599 | -0.005 |             21 |              22 |      0.884 |      -1.091 |  0.023 |  77.53  |
+| SCHWARZ-VAN BERKEL | SUI    |     194 |      11 |         0.655 |      0.272 |     -0.242 |          23 |            9 |   -4.891 |  0.095 |             29 |              13 |      1.097 |      -0.756 |  0.006 |  87.565 |
+| MOUAT B            | GBR    |     203 |      11 |         0.65  |      0.28  |     -0.301 |          22 |           13 |   -6.649 |  0.077 |             35 |              16 |      1.151 |      -1.248 |  0.009 |  84.606 |
+| JACOBS B           | CAN    |     204 |      11 |         0.642 |      0.243 |     -0.218 |          20 |           11 |   -4.111 |  0.078 |             30 |              16 |      1.149 |      -0.743 |  0.013 |  85.714 |
+| RAMSFJELL M        | NOR    |     214 |      11 |         0.593 |      0.27  |     -0.29  |          20 |           17 |   -8.425 |  0.042 |             29 |              19 |      1.148 |      -1.089 |  0.027 |  79.643 |
+| MUSKATEWITZ M      | GER    |     177 |       9 |         0.588 |      0.294 |     -0.321 |          22 |           18 |   -5.425 |  0.04  |             24 |              23 |      1.412 |      -1.05  |  0.016 |  75.426 |
+| RETORNAZ J         | ITA    |     166 |       9 |         0.578 |      0.261 |     -0.349 |          14 |           18 |   -7.095 |  0.004 |             23 |              18 |      0.88  |      -1.336 |  0.017 |  79.242 |
+| EDIN N             | SWE    |     157 |       9 |         0.567 |      0.237 |     -0.332 |          10 |           12 |   -6.357 | -0.009 |             20 |              23 |      0.597 |      -1.078 |  0.015 |  74.204 |
+| CASPER D           | USA    |     166 |       9 |         0.524 |      0.224 |     -0.361 |           7 |           21 |   -8.648 | -0.054 |             18 |              22 |      1.201 |      -1.171 |  0.012 |  75.758 |
+| XU X               | CHN    |     169 |       9 |         0.515 |      0.255 |     -0.295 |          11 |           18 |   -6.574 | -0.012 |             19 |              21 |      0.862 |      -1.065 |  0.021 |  77.53  |
+| KLIMA L            | CZE    |     160 |       9 |         0.506 |      0.282 |     -0.311 |          16 |           16 |   -6.076 | -0.011 |             15 |              21 |      0.912 |      -0.671 |  0.004 |  73.594 |
 
 ### Thirds
 
 | player      | team   |   shots |   games |   reliability |   avg_make |   avg_miss |   big_makes |   big_misses |   worst5 |    net |   big_makes_wp |   big_misses_wp |   best5_wp |   worst5_wp |   call |   grade |
 |:------------|:-------|--------:|--------:|--------------:|-----------:|-----------:|------------:|-------------:|---------:|-------:|---------------:|----------------:|-----------:|------------:|-------:|--------:|
-| SCHWALLER Y | SUI    |     194 |      11 |         0.572 |      0.125 |     -0.125 |           0 |            0 |   -2.137 |  0.018 |              4 |               4 |      0.286 |      -0.297 | -0.011 |  88.66  |
-| HARDIE G    | GBR    |     202 |      11 |         0.55  |      0.141 |     -0.136 |           2 |            2 |   -2.56  |  0.016 |             10 |               6 |      0.501 |      -0.408 | -0.015 |  87.748 |
-| VIOLETTE L  | USA    |     162 |       9 |         0.494 |      0.116 |     -0.143 |           0 |            5 |   -3.28  | -0.015 |              2 |               6 |      0.242 |      -0.43  | -0.013 |  79.63  |
-| KENNEDY M   | CAN    |     204 |      11 |         0.475 |      0.136 |     -0.143 |           3 |            3 |   -3.627 | -0.011 |              7 |               6 |      0.382 |      -0.759 | -0.014 |  86.33  |
-| ERIKSSON O  | SWE    |     162 |       9 |         0.463 |      0.139 |     -0.146 |           2 |            3 |   -3.721 | -0.014 |              6 |               4 |      0.392 |      -0.463 |  0.002 |  81.327 |
-| KAPP B      | GER    |     176 |       9 |         0.46  |      0.136 |     -0.143 |           1 |            5 |   -2.882 | -0.014 |              6 |               6 |      0.46  |      -0.554 |  0.02  |  84.801 |
-| CERNOVSKY M | CZE    |     160 |       9 |         0.419 |      0.145 |     -0.137 |           0 |            2 |   -2.686 | -0.019 |              6 |               3 |      0.334 |      -0.277 |  0.006 |  80.781 |
-| FEI X       | CHN    |     170 |       9 |         0.418 |      0.118 |     -0.128 |           0 |            3 |   -2.997 | -0.026 |              6 |               8 |      0.324 |      -0.461 |  0.006 |  82.206 |
-| SESAKER M   | NOR    |     212 |      11 |         0.41  |      0.127 |     -0.152 |           2 |            5 |   -2.818 | -0.037 |              9 |              10 |      0.441 |      -0.37  |  0.006 |  78.066 |
-| MOSANER A   | ITA    |     166 |       9 |         0.367 |      0.108 |     -0.128 |           1 |            2 |   -3.289 | -0.041 |              4 |               5 |      0.339 |      -0.528 | -0.008 |  81.364 |
+| SCHWALLER Y | SUI    |     194 |      11 |         0.577 |      0.122 |     -0.128 |           0 |            1 |   -2.265 |  0.017 |              6 |               3 |      0.339 |      -0.277 | -0.009 |  88.66  |
+| HARDIE G    | GBR    |     204 |      11 |         0.554 |      0.137 |     -0.134 |           2 |            1 |   -2.346 |  0.016 |             10 |               5 |      0.48  |      -0.332 | -0.006 |  87.868 |
+| VIOLETTE L  | USA    |     166 |       9 |         0.512 |      0.117 |     -0.142 |           0 |            5 |   -3.306 | -0.01  |              1 |               8 |      0.236 |      -0.424 | -0.009 |  80.12  |
+| ERIKSSON O  | SWE    |     164 |       9 |         0.488 |      0.135 |     -0.151 |           3 |            5 |   -3.743 | -0.012 |              5 |               4 |      0.355 |      -0.452 | -0.002 |  81.402 |
+| KAPP B      | GER    |     178 |       9 |         0.472 |      0.125 |     -0.149 |           1 |            5 |   -2.984 | -0.02  |              5 |               8 |      0.491 |      -0.555 |  0.019 |  84.41  |
+| KENNEDY M   | CAN    |     206 |      11 |         0.461 |      0.14  |     -0.142 |           3 |            5 |   -3.585 | -0.012 |              5 |               7 |      0.401 |      -0.712 | -0.009 |  86.22  |
+| CERNOVSKY M | CZE    |     164 |       9 |         0.451 |      0.133 |     -0.141 |           0 |            2 |   -2.603 | -0.017 |              5 |               3 |      0.368 |      -0.259 |  0.006 |  81.25  |
+| SESAKER M   | NOR    |     216 |      11 |         0.431 |      0.128 |     -0.149 |           1 |            2 |   -2.656 | -0.03  |             11 |               7 |      0.457 |      -0.351 |  0.002 |  78.009 |
+| MOSANER A   | ITA    |     166 |       9 |         0.398 |      0.104 |     -0.139 |           1 |            3 |   -3.68  | -0.043 |              3 |               6 |      0.308 |      -0.618 | -0.004 |  81.364 |
+| FEI X       | CHN    |     170 |       9 |         0.388 |      0.125 |     -0.125 |           1 |            4 |   -3.084 | -0.028 |              8 |               9 |      0.322 |      -0.476 |  0.007 |  82.206 |
 
 ### Seconds
 
 | player       | team   |   shots |   games |   reliability |   avg_make |   avg_miss |   big_makes |   big_misses |   worst5 |    net |   big_makes_wp |   big_misses_wp |   best5_wp |   worst5_wp |   call |   grade |
 |:-------------|:-------|--------:|--------:|--------------:|-----------:|-----------:|------------:|-------------:|---------:|-------:|---------------:|----------------:|-----------:|------------:|-------:|--------:|
-| ARMAN S      | ITA    |     166 |       9 |         0.554 |      0.065 |     -0.09  |           0 |            0 |   -1.581 | -0.004 |              1 |               3 |      0.205 |      -0.285 | -0.001 |  85.542 |
-| MICHEL S     | SUI    |     194 |      11 |         0.531 |      0.077 |     -0.067 |           0 |            0 |   -1.447 |  0.009 |              3 |               0 |      0.263 |      -0.139 | -0.017 |  86.34  |
-| GALLANT B    | CAN    |     204 |      11 |         0.505 |      0.065 |     -0.09  |           0 |            1 |   -1.872 | -0.012 |              2 |               2 |      0.203 |      -0.219 | -0.006 |  83.578 |
-| LI Z         | CHN    |     170 |       9 |         0.471 |      0.054 |     -0.087 |           0 |            0 |   -1.606 | -0.02  |              1 |               2 |      0.215 |      -0.257 | -0.001 |  78.235 |
-| LAMMIE B     | GBR    |     202 |      11 |         0.455 |      0.074 |     -0.093 |           0 |            1 |   -2.069 | -0.017 |              4 |               3 |      0.277 |      -0.261 | -0.01  |  78.96  |
-| WRANAA R     | SWE    |     158 |       9 |         0.449 |      0.07  |     -0.105 |           0 |            0 |   -1.575 | -0.026 |              0 |               1 |      0.145 |      -0.228 | -0.002 |  84.177 |
-| RAMSFJELL B  | NOR    |     212 |      11 |         0.448 |      0.06  |     -0.095 |           0 |            0 |   -1.946 | -0.025 |              3 |               1 |      0.247 |      -0.24  | -0.003 |  77.594 |
-| RICHARDSON B | USA    |     162 |       9 |         0.444 |      0.066 |     -0.091 |           0 |            0 |   -1.412 | -0.021 |              1 |               0 |      0.209 |      -0.215 | -0.009 |  77.932 |
-| MESSENZEHL F | GER    |     176 |       9 |         0.443 |      0.087 |     -0.099 |           0 |            0 |   -1.805 | -0.016 |              4 |               2 |      0.333 |      -0.231 |  0.001 |  87.5   |
-| JURIK M      | CZE    |     160 |       9 |         0.35  |      0.063 |     -0.093 |           0 |            0 |   -1.878 | -0.038 |              0 |               2 |      0.126 |      -0.22  | -0.005 |  75.156 |
+| MICHEL S     | SUI    |     194 |      11 |         0.562 |      0.076 |     -0.064 |           0 |            0 |   -1.34  |  0.014 |              3 |               0 |      0.27  |      -0.15  | -0.019 |  86.34  |
+| ARMAN S      | ITA    |     166 |       9 |         0.518 |      0.068 |     -0.086 |           0 |            0 |   -1.63  | -0.006 |              1 |               3 |      0.199 |      -0.305 | -0.001 |  85.542 |
+| GALLANT B    | CAN    |     206 |      11 |         0.5   |      0.069 |     -0.084 |           0 |            0 |   -1.722 | -0.007 |              2 |               2 |      0.197 |      -0.207 | -0.004 |  83.617 |
+| LAMMIE B     | GBR    |     204 |      11 |         0.461 |      0.07  |     -0.092 |           0 |            1 |   -2.144 | -0.017 |              3 |               4 |      0.273 |      -0.265 | -0.01  |  79.167 |
+| LI Z         | CHN    |     170 |       9 |         0.459 |      0.058 |     -0.079 |           0 |            0 |   -1.46  | -0.016 |              1 |               3 |      0.236 |      -0.248 | -0.004 |  78.235 |
+| MESSENZEHL F | GER    |     178 |       9 |         0.455 |      0.089 |     -0.102 |           0 |            0 |   -1.757 | -0.015 |              5 |               2 |      0.333 |      -0.235 |  0.002 |  87.36  |
+| WRANAA R     | SWE    |     160 |       9 |         0.45  |      0.072 |     -0.11  |           0 |            0 |   -1.598 | -0.028 |              0 |               1 |      0.145 |      -0.223 | -0     |  84.375 |
+| RICHARDSON B | USA    |     166 |       9 |         0.446 |      0.071 |     -0.094 |           0 |            0 |   -1.501 | -0.02  |              0 |               1 |      0.212 |      -0.219 | -0.009 |  78.464 |
+| RAMSFJELL B  | NOR    |     216 |      11 |         0.407 |      0.062 |     -0.082 |           0 |            0 |   -1.903 | -0.023 |              2 |               2 |      0.22  |      -0.249 | -0.004 |  77.778 |
+| JURIK M      | CZE    |     164 |       9 |         0.384 |      0.065 |     -0.097 |           0 |            0 |   -1.751 | -0.035 |              1 |               2 |      0.134 |      -0.216 | -0.002 |  75.457 |
 
 ### Leads
 
 | player             | team   |   shots |   games |   reliability |   avg_make |   avg_miss |   big_makes |   big_misses |   worst5 |    net |   big_makes_wp |   big_misses_wp |   best5_wp |   worst5_wp |   call |   grade |
 |:-------------------|:-------|--------:|--------:|--------------:|-----------:|-----------:|------------:|-------------:|---------:|-------:|---------------:|----------------:|-----------:|------------:|-------:|--------:|
-| OLDENBURG A        | USA    |     160 |       9 |         0.575 |      0.037 |     -0.041 |           0 |            0 |   -0.522 |  0.004 |              0 |               0 |      0.116 |      -0.074 |  0.002 |  92.5   |
-| SUNDGREN C         | SWE    |     162 |       9 |         0.549 |      0.036 |     -0.053 |           0 |            0 |   -0.92  | -0.004 |              0 |               0 |      0.064 |      -0.134 | -0.001 |  90.123 |
-| XU J               | CHN    |     170 |       9 |         0.547 |      0.036 |     -0.044 |           0 |            0 |   -0.744 | -0     |              0 |               1 |      0.092 |      -0.171 |  0.006 |  87.647 |
-| GIOVANELLA M       | ITA    |     166 |       9 |         0.536 |      0.037 |     -0.049 |           0 |            0 |   -0.739 | -0.003 |              1 |               0 |      0.148 |      -0.112 |  0.003 |  85.909 |
-| SCHEUERL J         | GER    |     174 |       9 |         0.534 |      0.033 |     -0.046 |           0 |            0 |   -0.604 | -0.004 |              0 |               0 |      0.085 |      -0.109 |  0.001 |  90.805 |
-| MCMILLAN H         | GBR    |     202 |      11 |         0.515 |      0.035 |     -0.045 |           0 |            0 |   -0.64  | -0.004 |              0 |               0 |      0.088 |      -0.123 | -0.001 |  91.832 |
-| KLIPA L            | CZE    |     156 |       9 |         0.513 |      0.037 |     -0.047 |           0 |            0 |   -0.607 | -0.004 |              0 |               0 |      0.075 |      -0.075 |  0.001 |  89.194 |
-| HEBERT B           | CAN    |     182 |      10 |         0.495 |      0.036 |     -0.042 |           0 |            0 |   -0.622 | -0.004 |              0 |               0 |      0.098 |      -0.097 |  0.003 |  92.033 |
-| LACHAT-COUCHEPIN P | SUI    |     192 |      11 |         0.49  |      0.044 |     -0.04  |           0 |            0 |   -0.666 |  0.001 |              0 |               1 |      0.099 |      -0.17  |  0.003 |  91.099 |
-| NEPSTAD G          | NOR    |     212 |      11 |         0.458 |      0.039 |     -0.044 |           0 |            0 |   -0.657 | -0.006 |              0 |               0 |      0.101 |      -0.124 |  0.002 |  86.557 |
+| XU J               | CHN    |     170 |       9 |         0.588 |      0.037 |     -0.044 |           0 |            0 |   -0.686 |  0.004 |              0 |               0 |      0.107 |      -0.123 |  0.004 |  87.647 |
+| OLDENBURG A        | USA    |     164 |       9 |         0.585 |      0.039 |     -0.045 |           0 |            0 |   -0.569 |  0.004 |              0 |               0 |      0.101 |      -0.082 |  0.003 |  92.53  |
+| GIOVANELLA M       | ITA    |     166 |       9 |         0.584 |      0.035 |     -0.053 |           0 |            0 |   -0.746 | -0.002 |              1 |               0 |      0.16  |      -0.109 |  0.003 |  85.909 |
+| SUNDGREN C         | SWE    |     164 |       9 |         0.573 |      0.038 |     -0.057 |           0 |            0 |   -0.894 | -0.003 |              0 |               0 |      0.069 |      -0.131 | -0.003 |  90.244 |
+| KLIPA L            | CZE    |     160 |       9 |         0.556 |      0.039 |     -0.051 |           0 |            0 |   -0.597 | -0.001 |              0 |               0 |      0.077 |      -0.071 | -0     |  89.151 |
+| SCHEUERL J         | GER    |     176 |       9 |         0.54  |      0.034 |     -0.048 |           0 |            0 |   -0.679 | -0.004 |              0 |               0 |      0.094 |      -0.107 |  0     |  90.909 |
+| LACHAT-COUCHEPIN P | SUI    |     192 |      11 |         0.536 |      0.044 |     -0.039 |           0 |            0 |   -0.635 |  0.006 |              0 |               0 |      0.103 |      -0.145 |  0.005 |  91.099 |
+| MCMILLAN H         | GBR    |     204 |      11 |         0.529 |      0.034 |     -0.043 |           0 |            0 |   -0.563 | -0.002 |              0 |               0 |      0.086 |      -0.126 | -0.001 |  91.789 |
+| HEBERT B           | CAN    |     182 |      10 |         0.522 |      0.034 |     -0.044 |           0 |            0 |   -0.64  | -0.003 |              0 |               0 |      0.096 |      -0.094 |  0.002 |  92.033 |
+| NEPSTAD G          | NOR    |     216 |      11 |         0.519 |      0.04  |     -0.046 |           0 |            0 |   -0.655 | -0.002 |              0 |               0 |      0.104 |      -0.118 |  0.001 |  86.806 |
 
 ## Women
 
 ### Teams
 
-The team-level view, in win probability: the record, and the summed effect of the team's own stones on its chance of winning, per game, in percentage points (calls and throws together).
+Each team's games in win probability, in percentage points per game. `net` is the record (a win is +50, a loss -50: every game runs from an even start to the end) and is the sort; it adds up from `dsc`, the start a team had from first-end hammer (won in the draw shot challenge; seeding in playoffs), `own`, what the team's stones did against what this field's stones did at the same point of the end, `allowed`, what the other team's stones did the same way, from this team's side (positive: they got less out of their stones than the field does), and `other`, what no stone accounts for (concessions between ends, ends missing from the book's shot-by-shot pages). A lead flattens both stone columns: in a decided game neither team's stones move much, which reads as low `own` and high `allowed`; read the two together as the team's stones and the split as style. `control` is the team's mean chance of winning at the start of each end (ends after the game was decided count as decided), the second sort: a team that leads early and keeps the game quiet holds it high.
 
-| team   |   games | record   |   WP gained / game |
-|:-------|--------:|:---------|-------------------:|
-| SUI    |      11 | 7-4      |               94.4 |
-| SWE    |      11 | 9-2      |               73.8 |
-| CAN    |      11 | 7-4      |               72.3 |
-| USA    |      11 | 6-5      |               67   |
-| DEN    |       9 | 4-5      |               57.6 |
-| GBR    |       9 | 5-4      |               55.4 |
-| JPN    |       9 | 2-7      |               52.7 |
-| KOR    |       9 | 5-4      |               43.1 |
-| CHN    |       9 | 2-7      |               41.5 |
-| ITA    |       9 | 2-7      |               35.4 |
+| team   |   games | record   |   net |   dsc |   own |   allowed |   other |   control |
+|:-------|--------:|:---------|------:|------:|------:|----------:|--------:|----------:|
+| SWE    |      11 | 9-2      |  31.8 |   3.1 |  12.6 |      15.6 |     0.6 |      61.8 |
+| CAN    |      11 | 7-4      |  13.6 |   1   |   8.6 |       6.8 |    -2.8 |      59.5 |
+| SUI    |      11 | 7-4      |  13.6 |  -5.1 |  33.5 |     -18.2 |     3.5 |      51.5 |
+| KOR    |       9 | 5-4      |   5.6 |   6.3 | -15   |      15.3 |    -1   |      59.3 |
+| GBR    |       9 | 5-4      |   5.6 |   3.8 |  -4.2 |       7.2 |    -1.3 |      55.6 |
+| USA    |      11 | 6-5      |   4.5 |   1   |   5.3 |      -4.3 |     2.5 |      48.8 |
+| DEN    |       9 | 4-5      |  -5.6 |  -3.8 |  -3.1 |       0.8 |     0.5 |      49.2 |
+| CHN    |       9 | 2-7      | -27.8 |  -1.3 | -18.1 |      -6.6 |    -1.8 |      39.1 |
+| ITA    |       9 | 2-7      | -27.8 |  -1.3 | -24.8 |      -0.6 |    -1.1 |      37.9 |
+| JPN    |       9 | 2-7      | -27.8 |  -3.8 |  -8.2 |     -15.9 |     0.1 |      32.5 |
 
 ### Build or address
 
@@ -125,75 +125,75 @@ How each team played the stones, in rock grades (descriptive, not a ranking): `b
 
 | team   |   stones |   build |   address |   builds_share |   temperature_hammer |   temperature_no_hammer |
 |:-------|---------:|--------:|----------:|---------------:|---------------------:|------------------------:|
-| KOR    |      646 |   0.018 |    -0.006 |          0.652 |                1.926 |                   2.316 |
-| JPN    |      688 |   0.012 |    -0.005 |          0.613 |                2.057 |                   2.143 |
-| CHN    |      682 |   0.011 |    -0.004 |          0.639 |                2.189 |                   2.098 |
-| USA    |      849 |   0.01  |    -0.002 |          0.629 |                2.054 |                   2.062 |
-| GBR    |      646 |   0.005 |    -0.001 |          0.61  |                1.942 |                   2.198 |
-| DEN    |      654 |  -0.005 |    -0.01  |          0.606 |                2.305 |                   2.117 |
-| SUI    |      857 |  -0.007 |     0.021 |          0.588 |                2.339 |                   1.812 |
-| CAN    |      852 |  -0.011 |     0.001 |          0.576 |                2.22  |                   2.281 |
-| SWE    |      817 |  -0.011 |     0.019 |          0.589 |                2.081 |                   2.36  |
-| ITA    |      661 |  -0.017 |    -0.023 |          0.628 |                2.27  |                   2.052 |
+| KOR    |      646 |   0.019 |    -0.007 |          0.65  |                1.928 |                   2.324 |
+| JPN    |      688 |   0.014 |    -0.004 |          0.628 |                2.073 |                   2.167 |
+| USA    |      849 |   0.01  |    -0.002 |          0.637 |                2.059 |                   2.073 |
+| CHN    |      689 |   0.009 |    -0.005 |          0.639 |                2.2   |                   2.089 |
+| GBR    |      646 |   0.006 |    -0.001 |          0.61  |                1.94  |                   2.202 |
+| DEN    |      654 |  -0.004 |    -0.01  |          0.607 |                2.317 |                   2.131 |
+| SUI    |      864 |  -0.008 |     0.022 |          0.586 |                2.339 |                   1.812 |
+| CAN    |      859 |  -0.011 |    -0.001 |          0.584 |                2.213 |                   2.287 |
+| SWE    |      825 |  -0.012 |     0.019 |          0.587 |                2.089 |                   2.359 |
+| ITA    |      661 |  -0.018 |    -0.022 |          0.634 |                2.283 |                   2.052 |
 
 ### Fourths
 
 | player        | team   |   shots |   games |   reliability |   avg_make |   avg_miss |   big_makes |   big_misses |   worst5 |    net |   big_makes_wp |   big_misses_wp |   best5_wp |   worst5_wp |   call |   grade |
 |:--------------|:-------|--------:|--------:|--------------:|-----------:|-----------:|------------:|-------------:|---------:|-------:|---------------:|----------------:|-----------:|------------:|-------:|--------:|
-| HASSELBORG A  | SWE    |     205 |      11 |         0.576 |      0.3   |     -0.268 |          21 |           13 |   -6.033 |  0.059 |             37 |              17 |      1.238 |      -0.703 | -0.004 |  80.637 |
-| MORRISON R    | GBR    |     166 |       9 |         0.572 |      0.316 |     -0.309 |          23 |           12 |   -5.556 |  0.048 |             27 |              19 |      1.102 |      -0.767 |  0.007 |  81.627 |
-| PAETZ A       | SUI    |     217 |      11 |         0.571 |      0.287 |     -0.234 |          20 |           14 |   -4.46  |  0.064 |             38 |              29 |      1.581 |      -0.852 |  0.016 |  82.326 |
-| HOMAN R       | CAN    |     213 |      11 |         0.563 |      0.283 |     -0.262 |          17 |           18 |   -4.517 |  0.045 |             29 |              23 |      1.253 |      -0.831 |  0.008 |  77.712 |
-| YOSHIMURA S   | JPN    |     174 |       9 |         0.534 |      0.279 |     -0.335 |          13 |           16 |   -8.072 | -0.007 |             28 |              24 |      0.863 |      -1.283 |  0.018 |  73.132 |
-| DUPONT M      | DEN    |     163 |       9 |         0.528 |      0.299 |     -0.3   |          17 |           11 |   -7.21  |  0.016 |             24 |              20 |      1.258 |      -1.252 |  0.012 |  75.932 |
-| GIM E         | KOR    |     163 |       9 |         0.521 |      0.283 |     -0.341 |          14 |           18 |   -8.079 | -0.016 |             22 |              20 |      0.867 |      -1.46  |  0.024 |  77.16  |
-| PETERSON T    | USA    |     214 |      11 |         0.491 |      0.297 |     -0.265 |          18 |           17 |   -7.374 |  0.011 |             30 |              26 |      1.5   |      -1.459 |  0.032 |  79.695 |
-| WANG R        | CHN    |     172 |       9 |         0.488 |      0.255 |     -0.303 |          15 |           18 |   -5.745 | -0.03  |             21 |              31 |      0.679 |      -1.088 |  0.012 |  74.708 |
-| CONSTANTINI S | ITA    |     167 |       9 |         0.449 |      0.327 |     -0.277 |          17 |           14 |   -5.727 | -0.005 |             19 |              24 |      1.255 |      -1.252 |  0.007 |  72.59  |
+| HASSELBORG A  | SWE    |     207 |      11 |         0.585 |      0.306 |     -0.282 |          24 |           14 |   -6.1   |  0.062 |             35 |              19 |      1.355 |      -0.691 | -0.004 |  80.825 |
+| HOMAN R       | CAN    |     214 |      11 |         0.57  |      0.285 |     -0.26  |          20 |           17 |   -4.602 |  0.051 |             28 |              23 |      1.29  |      -0.792 |  0.007 |  77.817 |
+| PAETZ A       | SUI    |     218 |      11 |         0.569 |      0.291 |     -0.236 |          22 |           14 |   -4.476 |  0.064 |             40 |              30 |      1.5   |      -0.854 |  0.015 |  82.407 |
+| MORRISON R    | GBR    |     166 |       9 |         0.554 |      0.319 |     -0.295 |          21 |           12 |   -5.784 |  0.046 |             26 |              19 |      1.108 |      -0.821 |  0.007 |  81.627 |
+| YOSHIMURA S   | JPN    |     174 |       9 |         0.546 |      0.278 |     -0.336 |          16 |           13 |   -7.937 | -0.001 |             27 |              23 |      0.87  |      -1.231 |  0.016 |  73.132 |
+| GIM E         | KOR    |     163 |       9 |         0.54  |      0.273 |     -0.353 |          11 |           18 |   -8.166 | -0.015 |             24 |              21 |      0.862 |      -1.414 |  0.02  |  77.16  |
+| DUPONT M      | DEN    |     163 |       9 |         0.491 |      0.31  |     -0.284 |          16 |           10 |   -7.329 |  0.007 |             21 |              20 |      1.154 |      -1.29  |  0.014 |  75.932 |
+| PETERSON T    | USA    |     214 |      11 |         0.491 |      0.293 |     -0.268 |          18 |           16 |   -7.454 |  0.007 |             27 |              27 |      1.385 |      -1.452 |  0.033 |  79.695 |
+| WANG R        | CHN    |     173 |       9 |         0.468 |      0.271 |     -0.3   |          14 |           19 |   -5.82  | -0.033 |             23 |              33 |      0.689 |      -1.095 |  0.015 |  74.273 |
+| CONSTANTINI S | ITA    |     167 |       9 |         0.443 |      0.323 |     -0.279 |          19 |           14 |   -5.633 | -0.012 |             19 |              24 |      1.27  |      -1.256 |  0.013 |  72.59  |
 
 ### Thirds
 
 | player      | team   |   shots |   games |   reliability |   avg_make |   avg_miss |   big_makes |   big_misses |   worst5 |    net |   big_makes_wp |   big_misses_wp |   best5_wp |   worst5_wp |   call |   grade |
 |:------------|:-------|--------:|--------:|--------------:|-----------:|-----------:|------------:|-------------:|---------:|-------:|---------------:|----------------:|-----------:|------------:|-------:|--------:|
-| FLEURY T    | CAN    |     214 |      11 |         0.542 |      0.158 |     -0.164 |           2 |            7 |   -3.158 |  0.01  |             14 |              12 |      0.439 |      -0.525 | -0.003 |  79.695 |
-| TIRINZONI S | SUI    |     218 |      11 |         0.537 |      0.133 |     -0.124 |           1 |            2 |   -2.52  |  0.014 |             11 |               6 |      0.539 |      -0.318 |  0.006 |  83.83  |
-| HALSE M     | DEN    |     164 |       9 |         0.518 |      0.138 |     -0.145 |           1 |            3 |   -2.802 |  0.002 |              9 |               8 |      0.376 |      -0.411 |  0.008 |  75.457 |
-| MCMANUS S   | SWE    |     206 |      11 |         0.495 |      0.166 |     -0.154 |           7 |            1 |   -2.527 |  0.005 |             12 |              14 |      0.388 |      -0.487 |  0.003 |  78.277 |
-| ONODERA K   | JPN    |     174 |       9 |         0.483 |      0.152 |     -0.128 |           1 |            3 |   -2.715 |  0.007 |             12 |               8 |      0.441 |      -0.457 |  0.004 |  77.874 |
-| THIESSE C   | USA    |     214 |      11 |         0.481 |      0.144 |     -0.136 |           2 |            3 |   -2.905 | -0.001 |             10 |               9 |      0.486 |      -0.479 |  0.011 |  81.075 |
-| HAN Y       | CHN    |     172 |       9 |         0.465 |      0.171 |     -0.106 |           2 |            1 |   -2.026 |  0.023 |             11 |               3 |      0.432 |      -0.336 |  0.004 |  83.285 |
-| DODDS J     | GBR    |     166 |       9 |         0.422 |      0.136 |     -0.142 |           1 |            2 |   -2.637 | -0.025 |              2 |               6 |      0.258 |      -0.455 |  0.001 |  81.627 |
-| MATHIS E    | ITA    |     168 |       9 |         0.411 |      0.126 |     -0.151 |           1 |            1 |   -2.234 | -0.038 |              4 |              13 |      0.443 |      -0.495 |  0.001 |  77.695 |
-| KIM M       | KOR    |     164 |       9 |         0.366 |      0.193 |     -0.124 |           4 |            3 |   -2.82  | -0.008 |              6 |               6 |      0.523 |      -0.519 |  0.006 |  82.927 |
+| FLEURY T    | CAN    |     216 |      11 |         0.546 |      0.152 |     -0.171 |           2 |            7 |   -3.23  |  0.005 |             14 |              13 |      0.492 |      -0.527 | -0.003 |  79.302 |
+| TIRINZONI S | SUI    |     220 |      11 |         0.523 |      0.142 |     -0.127 |           2 |            3 |   -2.576 |  0.014 |             13 |               6 |      0.506 |      -0.291 |  0.009 |  83.977 |
+| ONODERA K   | JPN    |     174 |       9 |         0.494 |      0.157 |     -0.129 |           2 |            4 |   -2.918 |  0.012 |             11 |               6 |      0.456 |      -0.457 |  0.003 |  77.874 |
+| HAN Y       | CHN    |     174 |       9 |         0.483 |      0.163 |     -0.106 |           3 |            1 |   -1.86  |  0.024 |             13 |               4 |      0.427 |      -0.33  |  0.008 |  83.477 |
+| HALSE M     | DEN    |     164 |       9 |         0.482 |      0.152 |     -0.137 |           2 |            4 |   -2.652 |  0.002 |              7 |               8 |      0.369 |      -0.43  |  0.008 |  75.457 |
+| MCMANUS S   | SWE    |     208 |      11 |         0.466 |      0.17  |     -0.15  |           2 |            4 |   -2.651 | -0.001 |             16 |              14 |      0.363 |      -0.454 |  0.002 |  78.486 |
+| THIESSE C   | USA    |     214 |      11 |         0.463 |      0.148 |     -0.128 |           2 |            3 |   -3.08  | -0     |             11 |              10 |      0.48  |      -0.485 |  0.013 |  81.075 |
+| DODDS J     | GBR    |     166 |       9 |         0.434 |      0.136 |     -0.142 |           1 |            3 |   -2.672 | -0.022 |              2 |               7 |      0.256 |      -0.465 |  0.003 |  81.627 |
+| KIM M       | KOR    |     164 |       9 |         0.427 |      0.16  |     -0.123 |           4 |            3 |   -2.747 | -0.002 |              7 |               5 |      0.482 |      -0.46  | -0.001 |  82.927 |
+| MATHIS E    | ITA    |     168 |       9 |         0.411 |      0.125 |     -0.153 |           1 |            0 |   -2.248 | -0.039 |              4 |              13 |      0.436 |      -0.467 |  0.001 |  77.695 |
 
 ### Seconds
 
 | player         | team   |   shots |   games |   reliability |   avg_make |   avg_miss |   big_makes |   big_misses |   worst5 |    net |   big_makes_wp |   big_misses_wp |   best5_wp |   worst5_wp |   call |   grade |
 |:---------------|:-------|--------:|--------:|--------------:|-----------:|-----------:|------------:|-------------:|---------:|-------:|---------------:|----------------:|-----------:|------------:|-------:|--------:|
-| LO DESERTO M   | ITA    |     126 |       7 |         0.532 |      0.1   |     -0.075 |           0 |            0 |   -1.148 |  0.018 |              3 |               0 |      0.269 |      -0.172 |  0.009 |  80.357 |
-| DONG Z         | CHN    |     172 |       9 |         0.483 |      0.084 |     -0.082 |           0 |            1 |   -1.735 | -0.002 |              3 |               2 |      0.288 |      -0.25  |  0.002 |  81.541 |
-| HOLTERMANN J   | DEN    |     164 |       9 |         0.463 |      0.071 |     -0.096 |           0 |            1 |   -1.741 | -0.019 |              1 |               3 |      0.215 |      -0.314 |  0.005 |  76.677 |
-| PETERSON TS    | USA    |     214 |      11 |         0.463 |      0.071 |     -0.093 |           0 |            1 |   -1.942 | -0.017 |              1 |               4 |      0.298 |      -0.345 | -0.001 |  80.634 |
-| MISKEW E       | CAN    |     214 |      11 |         0.453 |      0.081 |     -0.095 |           0 |            0 |   -1.698 | -0.015 |              3 |               3 |      0.306 |      -0.297 |  0.011 |  78.972 |
-| KNOCHENHAUER A | SWE    |     206 |      11 |         0.437 |      0.077 |     -0.082 |           0 |            0 |   -1.418 | -0.013 |              3 |               1 |      0.329 |      -0.282 |  0.003 |  82.767 |
-| HOWALD C       | SUI    |     218 |      11 |         0.431 |      0.077 |     -0.095 |           0 |            2 |   -2.419 | -0.021 |              3 |               6 |      0.275 |      -0.406 |  0.006 |  84.518 |
-| KIM S          | KOR    |     144 |       8 |         0.403 |      0.105 |     -0.087 |           1 |            0 |   -1.368 | -0.009 |              3 |               2 |      0.293 |      -0.23  | -0     |  81.076 |
-| KOTANI Y       | JPN    |     154 |       8 |         0.396 |      0.075 |     -0.097 |           0 |            1 |   -2.344 | -0.029 |              0 |               2 |      0.18  |      -0.347 |  0.004 |  78.247 |
-| SINCLAIR S     | GBR    |     166 |       9 |         0.392 |      0.082 |     -0.096 |           0 |            0 |   -1.768 | -0.026 |              2 |               1 |      0.2   |      -0.234 | -0.005 |  79.848 |
+| LO DESERTO M   | ITA    |     126 |       7 |         0.548 |      0.097 |     -0.083 |           0 |            0 |   -1.145 |  0.016 |              3 |               0 |      0.275 |      -0.165 |  0.009 |  80.357 |
+| MISKEW E       | CAN    |     216 |      11 |         0.472 |      0.074 |     -0.103 |           0 |            0 |   -1.652 | -0.02  |              3 |               2 |      0.296 |      -0.277 |  0.008 |  78.819 |
+| HOWALD C       | SUI    |     220 |      11 |         0.468 |      0.073 |     -0.097 |           0 |            3 |   -2.441 | -0.017 |              4 |               6 |      0.306 |      -0.407 |  0.003 |  84.659 |
+| DONG Z         | CHN    |     174 |       9 |         0.466 |      0.076 |     -0.078 |           0 |            1 |   -1.702 | -0.006 |              3 |               2 |      0.256 |      -0.256 |  0.003 |  81.034 |
+| HOLTERMANN J   | DEN    |     164 |       9 |         0.451 |      0.066 |     -0.096 |           0 |            0 |   -1.762 | -0.023 |              0 |               3 |      0.206 |      -0.306 |  0.003 |  76.677 |
+| PETERSON TS    | USA    |     214 |      11 |         0.449 |      0.067 |     -0.091 |           0 |            1 |   -2.049 | -0.02  |              1 |               4 |      0.267 |      -0.359 | -0.002 |  80.634 |
+| KNOCHENHAUER A | SWE    |     208 |      11 |         0.442 |      0.074 |     -0.083 |           0 |            0 |   -1.403 | -0.013 |              5 |               1 |      0.34  |      -0.291 |  0.001 |  82.85  |
+| SINCLAIR S     | GBR    |     166 |       9 |         0.44  |      0.075 |     -0.098 |           0 |            0 |   -1.803 | -0.022 |              2 |               1 |      0.213 |      -0.246 | -0.01  |  79.848 |
+| KIM S          | KOR    |     144 |       8 |         0.41  |      0.104 |     -0.083 |           1 |            0 |   -1.43  | -0.006 |              3 |               2 |      0.3   |      -0.23  | -0.006 |  81.076 |
+| KOTANI Y       | JPN    |     154 |       8 |         0.409 |      0.073 |     -0.101 |           0 |            2 |   -2.277 | -0.03  |              0 |               2 |      0.184 |      -0.33  |  0.003 |  78.247 |
 
 ### Leads
 
 | player            | team   |   shots |   games |   reliability |   avg_make |   avg_miss |   big_makes |   big_misses |   worst5 |    net |   big_makes_wp |   big_misses_wp |   best5_wp |   worst5_wp |   call |   grade |
 |:------------------|:-------|--------:|--------:|--------------:|-----------:|-----------:|------------:|-------------:|---------:|-------:|---------------:|----------------:|-----------:|------------:|-------:|--------:|
-| WILKES S          | CAN    |     214 |      11 |         0.579 |      0.04  |     -0.055 |           0 |            0 |   -0.814 |  0     |              0 |               0 |      0.132 |      -0.147 |  0.003 |  85.864 |
-| OHMIYA A          | JPN    |     174 |       9 |         0.575 |      0.033 |     -0.047 |           0 |            0 |   -0.581 | -0.001 |              0 |               0 |      0.148 |      -0.088 | -0.001 |  85.345 |
-| WITSCHONKE S      | SUI    |     218 |      11 |         0.528 |      0.038 |     -0.049 |           0 |            0 |   -0.829 | -0.003 |              0 |               0 |      0.125 |      -0.122 |  0.002 |  88.761 |
-| JIANG J           | CHN    |     172 |       9 |         0.517 |      0.036 |     -0.046 |           0 |            0 |   -0.58  | -0.004 |              0 |               0 |      0.097 |      -0.08  | -0     |  91.86  |
-| JACKSON S         | GBR    |     166 |       9 |         0.506 |      0.039 |     -0.047 |           0 |            0 |   -0.707 | -0.003 |              0 |               0 |      0.097 |      -0.083 |  0     |  90.586 |
-| MARIANI R         | ITA    |      42 |       2 |         0.5   |      0.041 |     -0.053 |           0 |            0 |   -0.506 | -0.006 |              0 |               0 |      0.094 |      -0.068 | -0.005 |  79.762 |
-| ZARDINI LACEDELLI | ITA    |     168 |       9 |         0.5   |      0.05  |     -0.072 |           0 |            0 |   -1.257 | -0.011 |              0 |               1 |      0.167 |      -0.191 |  0.003 |  84.524 |
-| SCHARBACK S       | SWE    |     198 |      11 |         0.49  |      0.036 |     -0.048 |           0 |            0 |   -0.831 | -0.007 |              0 |               0 |      0.081 |      -0.132 |  0.002 |  86.111 |
-| SEOL YEE          | KOR    |     164 |       9 |         0.47  |      0.032 |     -0.057 |           0 |            0 |   -0.788 | -0.015 |              0 |               0 |      0.061 |      -0.126 | -0.002 |  84.909 |
-| ANDERSON-HEIDE T  | USA    |     214 |      11 |         0.467 |      0.031 |     -0.052 |           0 |            0 |   -0.832 | -0.013 |              0 |               0 |      0.105 |      -0.142 |  0.004 |  85.514 |
-| DUPONT D          | DEN    |     164 |       9 |         0.457 |      0.037 |     -0.047 |           0 |            0 |   -0.704 | -0.008 |              0 |               0 |      0.101 |      -0.119 |  0.003 |  79.726 |
+| WILKES S          | CAN    |     216 |      11 |         0.616 |      0.038 |     -0.057 |           0 |            0 |   -0.79  |  0.001 |              0 |               0 |      0.125 |      -0.144 |  0.002 |  85.995 |
+| OHMIYA A          | JPN    |     174 |       9 |         0.575 |      0.033 |     -0.046 |           0 |            0 |   -0.54  | -0.001 |              0 |               0 |      0.171 |      -0.084 | -0.003 |  85.345 |
+| SCHARBACK S       | SWE    |     200 |      11 |         0.565 |      0.031 |     -0.054 |           0 |            0 |   -0.839 | -0.006 |              0 |               0 |      0.086 |      -0.128 |  0.002 |  86.25  |
+| WITSCHONKE S      | SUI    |     220 |      11 |         0.564 |      0.034 |     -0.047 |           0 |            0 |   -0.801 | -0.001 |              0 |               0 |      0.112 |      -0.118 |  0.002 |  88.864 |
+| JACKSON S         | GBR    |     166 |       9 |         0.53  |      0.039 |     -0.047 |           0 |            0 |   -0.718 | -0.001 |              0 |               0 |      0.1   |      -0.085 |  0     |  90.586 |
+| JIANG J           | CHN    |     174 |       9 |         0.523 |      0.037 |     -0.042 |           0 |            0 |   -0.597 | -0.001 |              0 |               0 |      0.104 |      -0.074 | -0.002 |  91.954 |
+| DUPONT D          | DEN    |     164 |       9 |         0.488 |      0.035 |     -0.048 |           0 |            0 |   -0.692 | -0.008 |              0 |               0 |      0.109 |      -0.118 |  0.002 |  79.726 |
+| ANDERSON-HEIDE T  | USA    |     214 |      11 |         0.486 |      0.033 |     -0.051 |           0 |            0 |   -0.808 | -0.01  |              0 |               0 |      0.085 |      -0.142 |  0.003 |  85.514 |
+| MARIANI R         | ITA    |      42 |       2 |         0.476 |      0.045 |     -0.054 |           0 |            0 |   -0.533 | -0.007 |              0 |               0 |      0.096 |      -0.073 | -0.008 |  79.762 |
+| ZARDINI LACEDELLI | ITA    |     168 |       9 |         0.464 |      0.05  |     -0.067 |           0 |            0 |   -1.3   | -0.013 |              1 |               1 |      0.157 |      -0.193 |  0.005 |  84.524 |
+| SEOL YEE          | KOR    |     164 |       9 |         0.457 |      0.033 |     -0.053 |           0 |            0 |   -0.765 | -0.014 |              0 |               0 |      0.069 |      -0.113 | -0.003 |  84.909 |
 
