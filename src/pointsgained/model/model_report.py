@@ -52,8 +52,8 @@ def write_model_report(path: str, rep: dict, lb: dict, strata: dict, min_shots: 
 
     # ---- performance: the currency rule ----------------------------------------------------
     out.append("## Performance across the corpus\n")
-    out.append("Two kinds of table, by the rule the reports follow. A team's standing is in win probability: its record and what "
-               "its own stones did to its chance of winning, with no execution columns. A player is judged on what they were asked "
+    out.append("Two kinds of table, by the rule the reports follow. A team's standing is in win probability: its record and where "
+               "its chance of winning came from, with no execution columns. A player is judged on what they were asked "
                "to throw: execution (PGAA, points gained above average) relative to the field for the same shot type and hammer "
                "state, read as a distribution rather than an average. `reliability` is the share of shots at or above the field's "
                "expectation; `avg_make` how good the shot was when above, `avg_miss` how bad when below; `big_makes_100` and "
@@ -64,9 +64,12 @@ def write_model_report(path: str, rep: dict, lb: dict, strata: dict, min_shots: 
     t = t[t["games"] >= team_min_games].copy()
     t["record"] = t["wins"].astype(str) + "-" + t["losses"].astype(str)
     t["win rate"] = (100 * t["win_rate"]).round(0)
-    t = t[["discipline", "team", "games", "record", "win rate", "wp_gain"]].rename(columns={"wp_gain": "WP gained / game"})
-    out.append(f"### Teams (min {team_min_games} games)\n\nRecord and the summed effect of the team's own stones on its chance of "
-               "winning, per game, in percentage points (calls and throws together), across every book the team appears in.\n\n"
+    t = t[["discipline", "team", "games", "record", "win rate", "net", "dsc", "own", "allowed", "other", "control"]]
+    out.append(f"### Teams (min {team_min_games} games)\n\nEach team's games in win probability, per game in percentage points, "
+               "across every book the team appears in: `net` is the record (win +50, loss -50) and adds up from `dsc` (the start "
+               "from first-end hammer), `own` and `allowed` (the team's and the other team's stones, each against its event's field "
+               "at the same point of the end) and `other` (what no stone accounts for); `control` is the mean chance of winning at "
+               "the start of each end. The event reports explain the columns.\n\n"
                + t.round(1).to_markdown(index=False) + "\n")
     p = lb["players"]
     p = p[p["shots"] >= player_min_shots]

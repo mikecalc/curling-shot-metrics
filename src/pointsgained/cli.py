@@ -151,13 +151,16 @@ def cmd_intent(args):
     """Realised intent per shot from the delivered stone and prior rings (design Section 6) -> intent.parquet."""
     from .model.dataset import load_books
     from .model.cache import load_or_build
+    from .model.dataset import drop_censored
     from .model.intent import realised_intent, apply_target_model
     t0 = time.time()
     tabs = load_books(args.parquet)
     it = realised_intent(tabs)
-    ds = load_or_build(args.parquet)
+    ds = load_or_build(args.parquet, censored=True)      # X-ended shots get intent too (valued in Points Gained)
     it = apply_target_model(it, ds.rows, ds.X, seed=args.seed)
     it.to_parquet(os.path.join(args.parquet, "intent.parquet"), index=False)
+    scored = ~ds.rows.loc[ds.rows["mirror"] == 0, "censored"].to_numpy(bool)
+    it, ds = it[scored].reset_index(drop=True), drop_censored(ds)
     # Phase 2 seed: delivered-stone error relative to the modal target (design Section 11)
     from .model.intent import execution_error_summary
     skill = None
@@ -202,7 +205,7 @@ def cmd_experiment(args):
 def cmd_model(args):
     """Phase 1 pipeline: feature cache -> value set -> WP table -> f/g -> Points Gained -> leaderboards."""
     from .model.cache import load_or_build
-    from .model.dataset import load_books
+    from .model.dataset import load_books, drop_censored
     from .model.value import ValueSet, HammerAdjustedPoints, OUTCOMES
     from .model.winprob import ends_from_line_scores, build_table
     from .model.train import fit_models
@@ -211,7 +214,10 @@ def cmd_model(args):
     os.makedirs(args.reports, exist_ok=True)
     t0 = time.time()
     sets = _feature_sets(args.features)
-    ds = load_or_build(args.parquet, mirror=not args.no_mirror, rebuild=args.rebuild)
+    # every row, X-ended ends included: they are valued for Points Gained; the models train on `ds`, the
+    # rows with an outcome, exactly as without them
+    ds_all = load_or_build(args.parquet, mirror=not args.no_mirror, rebuild=args.rebuild, censored=True)
+    ds = drop_censored(ds_all)
     # trait grades cross-fitted on the same book folds as the models: a held-out book is graded by weights
     # fitted without it
     from sklearn.model_selection import GroupKFold
@@ -219,9 +225,11 @@ def cmd_model(args):
     grade_groups = {}
     for k, (_, te) in enumerate(GroupKFold(n_splits=5).split(books, groups=books)):
         grade_groups.update({b: k for b in set(books[te])})
-    ds = _with_level(ds, sets, args.parquet, grade_groups=grade_groups)
+    ds_all = _with_level(ds_all, sets, args.parquet, grade_groups=grade_groups)
+    ds = drop_censored(ds_all)
     rep = {"n_games": int(ds.rows["game_key"].nunique()), "n_ends": int(ds.rows.groupby(["game_key", "end"]).ngroups),
-           "n_shots": int((ds.rows["mirror"] == 0).sum()), "n_rows": int(len(ds.rows)), "feature_sets": list(sets)}
+           "n_shots": int((ds.rows["mirror"] == 0).sum()), "n_rows": int(len(ds.rows)), "feature_sets": list(sets),
+           "n_x_end_shots": int(((ds_all.rows["mirror"] == 0) & ds_all.rows["censored"]).sum())}
     logging.info("dataset: %d rows (%d shots) in %.0fs", rep["n_rows"], rep["n_shots"], time.time() - t0)
 
     # value set per discipline from the end outcomes seen in shot-by-shot ends
@@ -245,19 +253,21 @@ def cmd_model(args):
         rep["regimes"] = {f"d={d},n={n}": wpt.regime(d, n) for d, n in [(0, 10), (0, 1), (-1, 1), (1, 2), (-2, 3), (3, 4)]}
 
     models = fit_models(ds.rows, ds.X, ds.y, seed=args.seed, sets=sets, target=args.target)
+    import joblib
+    joblib.dump(models, os.path.join(args.parquet, "models.joblib"))      # for rescoring without a refit
     rep["target"] = args.target
     rep["cv"] = models.cv_report
     logging.info("models fitted in %.0fs; f logloss %.4f vs trivial %.4f", time.time() - t0,
                  models.cv_report["f_logloss"], models.cv_report["trivial_logloss"])
 
     vm = HammerAdjustedPoints(vs_all.H)
-    pg = compute_points_gained(ds, models, vm, wp_table=wpt,
+    pg = compute_points_gained(ds_all, models, vm, wp_table=wpt,
                                attach_position=lambda sub: attach_position_sets(sub, sets, args.parquet, grade_groups=grade_groups))
     cons = conservation_check(pg, vm)
     rep["conservation_max_abs_residual"] = float(cons["residual"].abs().max())
-    rep["conservation_terminal_ok_rate"] = float(cons["terminal_is_actual"].mean())
+    rep["conservation_terminal_ok_rate"] = float(cons.loc[~cons["x_end"], "terminal_is_actual"].mean())
     # calibration check: V(f(S0)) should be near H (empty sheet, hammer perspective)
-    s0 = pg[pg["shot"] == 1]
+    s0 = pg[(pg["shot"] == 1) & ~pg["x_end"]]
     rep["V_S0_mean"] = round(float(s0["V_pre"].mean()), 4)
     rep["H_used"] = round(vs_all.H, 4)
     if wpt is not None:
@@ -340,8 +350,8 @@ def cmd_events(args):
               "the mean, kept as the single number that folds these together. The `_wp` columns are the effect on win probability, for "
               "reference: shots that gained or cost five or more points, and the five best and five worst stones summed, in percentage "
               "points. `call` is the call component (secondary). Players are grouped by throwing position and sorted by reliability, then "
-              "by average miss. The team table above them is a different kind of table: a team's standing is its record and what its "
-              "stones did to its chance of winning, so it carries no execution columns.\n\n")
+              "by average miss. The team table above them is a different kind of table: a team's standing is its record and where its "
+              "chance of winning came from, so it carries no execution columns.\n\n")
     index = []
     for ev, grp in lb.groupby("event", sort=True):
         meta = names.get(ev, {})
@@ -357,9 +367,18 @@ def cmd_events(args):
                 f.write(f"## {'Men' if d == 'M' else 'Women'}\n\n")
                 tt = te[(te["event"] == ev) & (te["discipline"] == d)].copy()
                 tt["record"] = tt["wins"].astype(str) + "-" + tt["losses"].astype(str)
-                tt = tt[["team", "games", "record", "wp_gain"]].rename(columns={"wp_gain": "WP gained / game"})
-                f.write("### Teams\n\nThe team-level view, in win probability: the record, and the summed effect of the team's own "
-                        "stones on its chance of winning, per game, in percentage points (calls and throws together).\n\n"
+                tt = tt[["team", "games", "record", "net", "dsc", "own", "allowed", "other", "control"]]
+                f.write("### Teams\n\nEach team's games in win probability, in percentage points per game. `net` is the record "
+                        "(a win is +50, a loss -50: every game runs from an even start to the end) and is the sort; it adds up from "
+                        "`dsc`, the start a team had from first-end hammer (won in the draw shot challenge; seeding in playoffs), "
+                        "`own`, what the team's stones did against what this field's stones did at the same point of the end, "
+                        "`allowed`, what the other team's stones did the same way, from this team's side (positive: they got less "
+                        "out of their stones than the field does), and `other`, what no stone accounts for (concessions between "
+                        "ends, ends missing from the book's shot-by-shot pages). A lead flattens both stone columns: in a decided "
+                        "game neither team's stones move much, which reads as low `own` and high `allowed`; read the two together "
+                        "as the team's stones and the split as style. `control` is the team's mean chance of winning at the "
+                        "start of each end (ends after the game was decided count as decided), the second sort: a team that leads "
+                        "early and keeps the game quiet holds it high.\n\n"
                         + tt.round(1).to_markdown(index=False) + "\n\n")
                 if led is not None:
                     st = style_table(pg[(pg["book"] == ev) & (pg["discipline"] == d)])

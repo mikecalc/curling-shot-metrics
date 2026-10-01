@@ -15,6 +15,7 @@ import pandas as pd
 
 from ..core.configurations import LABELS
 from .config_features import load_table, pre_and_post
+from .dataset import scored_rows
 from .value import OUTCOMES
 
 KEYS = ["game_key", "end", "shot"]
@@ -26,8 +27,8 @@ def load(parquet_root: str, names: list[str], which: str = "f") -> pd.DataFrame:
     each named experiment's expected points, P(2+) and P(steal) under `which` (f or g)."""
     cols = ["game_key", "end", "shot", "mirror", "pre_source_shot", "discipline", "rocks_remaining", "count",
             "stones_in_play", "own_min_dist", "opp_min_dist", "margin", "shot_rock_covered", "button_covered"]
-    rows = pd.read_parquet(os.path.join(parquet_root, "features.parquet"), columns=cols)
-    rows = rows[rows["mirror"] == 0].drop(columns="mirror")
+    rows = scored_rows(pd.read_parquet(os.path.join(parquet_root, "features.parquet"), columns=cols + ["censored"]))
+    rows = rows[rows["mirror"] == 0].drop(columns=["mirror", "censored"])
     df = None
     for n in names:
         p = pd.read_parquet(os.path.join(parquet_root, "experiments", f"{n}.parquet"))

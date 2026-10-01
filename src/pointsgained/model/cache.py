@@ -3,7 +3,8 @@
 `features.parquet` holds one row per (shot, mirror) with strata, situation, label and the baseline
 features; `stones_canonical.parquet` holds the post-shot stones in the hammer frame. `features.json`
 records the cache version and the book directories so that a changed corpus or feature definition
-rebuilds automatically.
+rebuilds automatically. The cache holds the X-ended (censored) rows too; loaders leave them out unless
+asked, so fits, experiments and studies see only ends with an outcome.
 """
 from __future__ import annotations
 
@@ -14,10 +15,10 @@ import time
 
 import pandas as pd
 
-from .dataset import Dataset, build_dataset, load_books, book_dirs
+from .dataset import Dataset, build_dataset, drop_censored, load_books, book_dirs
 from .features import FEATURE_NAMES
 
-CACHE_VERSION = "2"     # bump when rows, features or the stones table change shape or meaning
+CACHE_VERSION = "3"     # bump when rows, features or the stones table change shape or meaning
 
 log = logging.getLogger(__name__)
 
@@ -64,10 +65,13 @@ def load_cache(root: str) -> Dataset:
     return Dataset.from_frame(rows, stones)
 
 
-def load_or_build(root: str, books: list[str] | None = None, mirror: bool = True, rebuild: bool = False) -> Dataset:
+def load_or_build(root: str, books: list[str] | None = None, mirror: bool = True, rebuild: bool = False,
+                  censored: bool = False) -> Dataset:
+    """The cached dataset; with `censored` the X-ended rows are kept (for valuing their stones)."""
     if not rebuild and is_current(root, books, mirror):
         t0 = time.time()
         ds = load_cache(root)
         log.info("feature cache: %d rows loaded in %.0fs", len(ds.rows), time.time() - t0)
-        return ds
-    return build_cache(root, books, mirror)
+    else:
+        ds = build_cache(root, books, mirror)
+    return ds if censored else drop_censored(ds)

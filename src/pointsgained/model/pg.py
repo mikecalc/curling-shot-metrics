@@ -2,6 +2,11 @@
 
 Both currencies (hammer-adjusted points and win probability) are computed in one pass: V is a
 matrix product of the outcome distributions with a per-row v-vector.
+
+X-ended ends (`x_end`: the trailing team ran out of rocks, the end was not completed and scored nothing)
+have no outcome. Their stones are valued like any other; the last stone thrown has no realised end score,
+so in points its post value is the model's value of the position it left, and in win probability it is
+the game's result: that stone ended the game.
 """
 from __future__ import annotations
 
@@ -65,16 +70,18 @@ def compute_points_gained(ds: Dataset, models: FittedModels, vm: ValueMapping,
     D_pre = models.predict_f(X_f, groups)      # out-of-fold: never valued by a model that saw this book
     D_call = models.predict_g(X_g, groups)
     is_last = rows["is_last_shot"].to_numpy(bool)
-    end_score = rows["end_score_hammer"].to_numpy(int)
+    x_end = rows["censored"].to_numpy(bool) if "censored" in rows else np.zeros(len(rows), dtype=bool)
+    terminal = is_last & ~x_end                # the end's realised score is the post position
+    end_score = rows["end_score_hammer"].to_numpy(float)
     # post position = next shot's pre position (same end); last shot = the realised outcome
     full_to_unm = np.full(len(ds.rows), -1, dtype=int)
     full_to_unm[unm_idx] = np.arange(len(unm_idx))
     post_row = rows["post_row"].to_numpy(int)
     post_u = np.where(post_row >= 0, full_to_unm[np.maximum(post_row, 0)], -1)
     D_post = D_pre.copy()
-    has_next = (post_u >= 0) & ~is_last
+    has_next = (post_u >= 0) & ~terminal
     D_post[has_next] = D_pre[post_u[has_next]]
-    fallback = np.flatnonzero(~has_next & ~is_last)
+    fallback = np.flatnonzero(~has_next & ~terminal & (rows["shot"].to_numpy() < 16))   # no shot 17 to value
     if len(fallback):
         feats, keep = [], []
         has_post = rows["has_post"].to_numpy(bool)
@@ -90,24 +97,31 @@ def compute_points_gained(ds: Dataset, models: FittedModels, vm: ValueMapping,
                 sub = attach_position(sub)
             Xp_f, _ = models.design(sub, np.vstack(feats))
             D_post[keep] = models.predict_f(Xp_f, groups[keep] if groups is not None else None)
-    D_post[is_last] = _point_masses(end_score[is_last])
+    D_post[terminal] = _point_masses(end_score[terminal].astype(int))
     sign = np.where(rows["thrower_has_hammer"].to_numpy(bool), 1.0, -1.0)
     out = rows[["game_key", "end", "shot", "book", "discipline", "date", "team", "player", "shot_type", "turn",
                 "grade_pct", "thrower_has_hammer", "hammer_team", "diff_hammer", "ends_remaining"]].copy()
     currencies = [("", np.broadcast_to(vm.v, D_pre.shape))]
     if wp_table is not None:
         currencies.append(("_wp", wp_vectors(wp_table, rows["diff_hammer"].to_numpy(), rows["ends_remaining"].to_numpy())))
+    # the stone that ended an X-ended game: the score reverts to the last completed end, so the team ahead
+    # before the end (hammer perspective: diff_hammer > 0) has won
+    diff = rows["diff_hammer"].to_numpy()
+    game_over = is_last & x_end & (diff != 0)
     for suffix, Vm in currencies:
         V_pre, V_call, V_post = (D_pre * Vm).sum(1), (D_call * Vm).sum(1), (D_post * Vm).sum(1)
+        if suffix == "_wp":
+            V_post = np.where(game_over, (diff > 0).astype(float), V_post)
         out["V_pre" + suffix] = V_pre; out["V_call" + suffix] = V_call; out["V_post" + suffix] = V_post
         out["pg_canonical" + suffix] = V_post - V_pre
         out["pg" + suffix] = sign * (V_post - V_pre)
         out["pg_call" + suffix] = sign * (V_call - V_pre)
         out["pg_throw" + suffix] = sign * (V_post - V_call)
     out["D_pre"] = list(np.round(D_pre, 4)); out["D_call"] = list(np.round(D_call, 4)); out["D_post"] = list(np.round(D_post, 4))
-    out["end_score_hammer"] = end_score
+    out["end_score_hammer"] = end_score       # NaN on X-ended ends
     out["is_last_shot"] = is_last
-    out["post_missing"] = ~rows["has_post"].to_numpy(bool) & ~is_last
+    out["x_end"] = x_end
+    out["post_missing"] = ~rows["has_post"].to_numpy(bool) & ~terminal
     return out
 
 
@@ -118,13 +132,17 @@ def situation_lookup(tabs: dict) -> dict:
 
 
 def conservation_check(pg: pd.DataFrame, vm: ValueMapping, suffix: str = "") -> pd.DataFrame:
-    """Per end: sum of canonical PG versus actual - V(D(S0)). Exact by construction."""
+    """Per end: sum of canonical PG versus actual - V(D(S0)). Exact by construction. X-ended ends have no
+    actual value (terminal_is_actual is False there; `x_end` marks them)."""
     df = pg.sort_values(["game_key", "end", "shot"])
+    if "x_end" not in df:
+        df = df.assign(x_end=False)
     g = df.groupby(["game_key", "end"], sort=False)
     out = g.agg(sum_pg=("pg_canonical" + suffix, "sum"), first_pre=("V_pre" + suffix, "first"),
-                last_post=("V_post" + suffix, "last"), score=("end_score_hammer", "first")).reset_index()
+                last_post=("V_post" + suffix, "last"), score=("end_score_hammer", "first"),
+                x_end=("x_end", "first")).reset_index()
     out["final_minus_start"] = out["last_post"] - out["first_pre"]
     out["residual"] = out["sum_pg"] - out["final_minus_start"]
-    out["actual_value"] = [vm.value_of_outcome(int(s)) for s in out["score"]]
+    out["actual_value"] = [np.nan if pd.isna(s) else vm.value_of_outcome(int(s)) for s in out["score"]]
     out["terminal_is_actual"] = (out["last_post"] - out["actual_value"]).abs() < 1e-9
     return out.drop(columns=["first_pre", "last_post", "score"])

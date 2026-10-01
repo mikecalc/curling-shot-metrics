@@ -42,8 +42,8 @@ def _book_extras(parquet_root: str, books: list[str]) -> tuple[pd.DataFrame, pd.
 def build_lives(parquet_root: str) -> pd.DataFrame:
     stones = pd.read_parquet(os.path.join(parquet_root, "stones_canonical.parquet"))
     rows = pd.read_parquet(os.path.join(parquet_root, "features.parquet"),
-                           columns=["game_key", "end", "shot", "mirror", "book", "has_post", "is_last_shot"])
-    rows = rows[rows["mirror"] == 0].sort_values(["game_key", "end", "shot"])
+                           columns=["game_key", "end", "shot", "mirror", "book", "has_post", "is_last_shot", "censored"])
+    rows = rows[(rows["mirror"] == 0) & ~rows["censored"]].drop(columns="censored").sort_values(["game_key", "end", "shot"])
     delivered, priors = _book_extras(parquet_root, sorted(rows["book"].unique()))
     dkey = set(zip(delivered["game_key"], delivered["end"], delivered["shot"],
                    delivered["x_in"].round(3), delivered["y_in"].round(3)))
@@ -170,6 +170,8 @@ def _counting_now(lives: pd.DataFrame) -> np.ndarray:
 def calibration_by_stage(pg: pd.DataFrame) -> pd.DataFrame:
     """Calibration slope of the end's realised value on the model's value before each stone, by stage of
     the end (1 is right; under 1 the model's values are flatter than the results)."""
+    if "x_end" in pg:
+        pg = pg[~pg["x_end"]]                   # X-ended ends have no realised value
     last = pg[pg["is_last_shot"]][KEYS + ["V_post"]].rename(columns={"V_post": "real"})
     d = pg.merge(last.drop_duplicates(KEYS), on=KEYS)
     d["rr"] = 17 - d["shot"]
@@ -209,7 +211,7 @@ def write_report(parquet_root: str, reports_dir: str) -> str:
     thrown = lives[lives["status"] == "thrown"]
     marked = round(100 * float(thrown["marked"].mean()), 1) if "marked" in lives and len(thrown) else 0.0
     cal_now = calibration_by_stage(pd.read_parquet(os.path.join(parquet_root, "points_gained.parquet"),
-                                                   columns=KEYS + ["shot", "V_pre", "V_post", "is_last_shot"]))
+                                                   columns=KEYS + ["shot", "V_pre", "V_post", "is_last_shot", "x_end"]))
     old_path = os.path.join(parquet_root, "points_gained_v1_final.parquet")
     cal = cal_now.rename(columns={"slope": "slope (current model)", "model_sd": "sd (current)"})
     if os.path.exists(old_path):

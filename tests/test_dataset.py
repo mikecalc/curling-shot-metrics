@@ -144,3 +144,56 @@ def test_time_split():
     assert len(tr) == 0 and len(te) == 16
     tr, te = split_rows(ds.rows, "time", cutoff_year=2025)
     assert len(tr) == 16 and len(te) == 0
+
+
+def tabs_with_x_end():
+    """The synthetic game plus an end 3 scored X after three stones: BBB, up one with hammer, has won."""
+    t = synthetic_tabs()
+    t["ends"] = pd.concat([t["ends"], pd.DataFrame([
+        {"game_key": GK, "end": 3, "team_a": "AAA", "team_b": "BBB", "hammer": "BBB", "score_before_a": 1, "score_before_b": 2,
+         "score_end_a": np.nan, "score_end_b": np.nan, "conceded": True}])], ignore_index=True)
+    shots, stones = [], []
+    for k in range(1, 4):
+        team = "AAA" if k % 2 == 1 else "BBB"
+        shots.append({"game_key": GK, "end": 3, "shot": k, "team": team, "color": "red" if team == "AAA" else "yellow",
+                      "player": f"P{k}", "shot_type": "Draw", "turn": "cw", "grade_pct": 100.0, "has_diagram": True})
+        for j in range(k):
+            stones.append({"game_key": GK, "end": 3, "shot": k, "kind": "stone", "color": "red" if j % 2 == 0 else "yellow",
+                           "x_in": 10.0 * j - 5.0, "y_in": 3.0 * j, "delivered": j == k - 1})
+    t["shots"] = pd.concat([t["shots"], pd.DataFrame(shots)], ignore_index=True)
+    t["stones"] = pd.concat([t["stones"], pd.DataFrame(stones)], ignore_index=True)
+    return t
+
+
+class StubWinProb:
+    def v_vector(self, d, n):
+        return np.linspace(0.1, 0.9, N_OUT)
+
+
+def test_x_ended_rows_are_censored_and_drop_cleanly():
+    from pointsgained.model.dataset import drop_censored
+    ds = build_dataset(tabs_with_x_end())
+    x = ds.rows[ds.rows["censored"]]
+    assert len(x) == 6 and set(x["end"]) == {3} and x["end_score_hammer"].isna().all()
+    assert (x["diff_hammer"] == 1).all()                         # BBB, with hammer, up one
+    clean = drop_censored(ds)
+    ref = build_dataset(synthetic_tabs())
+    assert len(clean.rows) == len(ref.rows) and (clean.rows["post_row"].to_numpy() == ref.rows["post_row"].to_numpy()).all()
+    assert clean.rows["end_score_hammer"].dtype.kind == "i"
+
+
+def test_x_ended_stones_are_valued_and_the_last_ends_the_game():
+    ds = build_dataset(tabs_with_x_end())
+    vm = HammerAdjustedPoints(0.6)
+    pg = compute_points_gained(ds, stub_models(), vm, wp_table=StubWinProb()).sort_values(["end", "shot"]).reset_index(drop=True)
+    x = pg[pg["x_end"]].reset_index(drop=True)
+    assert len(x) == 3 and x["pg"].notna().all() and x["pg_wp"].notna().all()
+    assert x.loc[2, "is_last_shot"] and x.loc[2, "V_post_wp"] == 1.0          # the hammer team (BBB) has won
+    assert not np.allclose(x.loc[2, "D_post"], point_mass(0))                 # no end score: the model's value of the position
+    assert np.allclose(x.loc[0, "D_post"], x.loc[1, "D_pre"])
+    scored = pg[~pg["x_end"]]
+    ref = compute_points_gained(build_dataset(synthetic_tabs()), stub_models(), vm, wp_table=StubWinProb())
+    assert np.allclose(scored.sort_values(["end", "shot"])["pg"].to_numpy(), ref.sort_values(["end", "shot"])["pg"].to_numpy())
+    cons = conservation_check(pg, vm)
+    assert cons["residual"].abs().max() < 1e-12
+    assert cons.loc[~cons["x_end"], "terminal_is_actual"].all()

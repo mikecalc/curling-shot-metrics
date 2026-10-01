@@ -56,6 +56,8 @@ def _records(df: pd.DataFrame, keys: list[str]) -> dict[tuple, list[int]]:
             continue
         score = {t: 0 for t in ts}
         for h, r in zip(g["hammer_team"], g["end_score_hammer"]):
+            if pd.isna(r):                      # X-ended: the end scores nothing
+                continue
             o = ts[1] if h == ts[0] else ts[0]
             score[h if r > 0 else o] += abs(int(r))
         if score[ts[0]] == score[ts[1]]:
@@ -67,24 +69,66 @@ def _records(df: pd.DataFrame, keys: list[str]) -> dict[tuple, list[int]]:
     return rec
 
 
+TEAM_COLUMNS = ["net", "dsc", "own", "allowed", "other", "control"]
+
+
+def game_ledger(df: pd.DataFrame) -> pd.DataFrame:
+    """One row per (game, team): the game's result and its win-probability path split by where it came from,
+    in percentage points. `net` is the result (win 50, loss -50, tie 0): the game runs from an even start to
+    the end. It is the sum of `dsc`, the start the team had from first-end hammer (the draw shot challenge;
+    seeding in playoffs); `own`, what the team's stones did, each against the event field's stones at the
+    same point of the end (the same stone pair, 1-2 to 15-16, both teams' stones); `allowed`, what the
+    other team's stones did, the same way, from this team's side; and `other`, what no stone accounts for
+    (concessions between ends, ends missing from the shot-by-shot pages). Comparing each stone with the
+    field's stone in the same pair takes out the drift (an elite field's stones gain on a corpus-fitted
+    model) and the volume (more stones per game) without breaking the sum: both teams throw one stone of
+    every pair in every end. `control` is the team's mean chance of winning at the start of each scheduled
+    end (ends after the game was decided count as decided; extra ends are left out): a team that leads
+    early and keeps the game quiet holds it high."""
+    d = df.sort_values(["game_key", "end", "shot"])
+    pair = (d["shot"].to_numpy() + 1) // 2
+    d = d.assign(_rel=d["pg_wp"] - d.groupby([d["book"], d["discipline"], pair])["pg_wp"].transform("mean"))
+    rows = []
+    for gk, g in d.groupby("game_key", sort=False):
+        teams = sorted(set(g["team"]))
+        if len(teams) != 2:
+            continue
+        first = g.iloc[0]
+        starts = g.drop_duplicates("end")
+        scheduled = int(first["ends_remaining"]) + int(first["end"]) - 1
+        score = {t: 0 for t in teams}
+        for h, r in zip(starts["hammer_team"], starts["end_score_hammer"]):
+            if pd.notna(r):                     # an X-ended end scores nothing
+                score[h if r > 0 else (teams[1] if h == teams[0] else teams[0])] += abs(int(r))
+        rel = g.groupby("team")["_rel"].sum()
+        for t in teams:
+            o = teams[1] if t == teams[0] else teams[0]
+            res = 0.5 if score[t] == score[o] else float(score[t] > score[o])
+            wp = {int(e): (v if h == t else 1.0 - v) for e, h, v in zip(starts["end"], starts["hammer_team"], starts["V_pre_wp"])}
+            last = max(wp)
+            path = [wp[e] if e in wp else res for e in range(1, scheduled + 1) if e in wp or e > last]
+            net, dsc = 100 * (res - 0.5), 100 * (wp[min(wp)] - 0.5)
+            own, allowed = 100 * float(rel.get(t, 0.0)), -100 * float(rel.get(o, 0.0))
+            rows.append({"game_key": gk, "book": first["book"], "discipline": first["discipline"], "team": t, "result": res,
+                         "net": net, "dsc": dsc, "own": own, "allowed": allowed, "other": net - dsc - own - allowed,
+                         "control": 100 * float(np.mean(path)) if path else np.nan})
+    return pd.DataFrame(rows)
+
+
 def _team_table(df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
-    """The team-level view in win probability: record from the end scores, and the summed effect of the
-    team's own stones on its chance of winning (PG in win probability, calls and throws together) per
-    game, in percentage points. No execution columns: a team's standing is what it did to its chance of
-    winning, not how its stones compared with the field."""
-    rec = _records(df, keys)
-    agg = df.groupby(keys).agg(games=("game_key", "nunique"), shots=("pg", "size"),
-                               wp_gain=("pg_wp", "sum")).reset_index()
-    ks = list(zip(*[agg[k] for k in keys]))
-    agg["wins"] = [rec.get(k, [0, 0])[0] for k in ks]
-    agg["losses"] = [rec.get(k, [0, 0])[1] for k in ks]
+    """The team-level view in win probability: the record and the game ledger per game (see game_ledger),
+    sorted by net (the record) and then by control. No execution columns: a team's standing is what
+    happened to its chance of winning, not how its stones compared with the field."""
+    led = game_ledger(df)
+    agg = led.groupby(keys).agg(games=("game_key", "nunique"), wins=("result", lambda r: int((r == 1).sum())),
+                                losses=("result", lambda r: int((r == 0).sum())),
+                                **{c: (c, "mean") for c in TEAM_COLUMNS}).reset_index()
     agg["win_rate"] = agg["wins"] / (agg["wins"] + agg["losses"]).replace(0, np.nan)
-    agg["wp_gain"] = 100 * agg["wp_gain"] / agg["games"]
-    return agg.sort_values(keys[:-1] + ["wp_gain"], ascending=[True] * (len(keys) - 1) + [False])
+    return agg.sort_values(keys[:-1] + ["net", "control"], ascending=[True] * (len(keys) - 1) + [False, False])
 
 
 def by_team(pg: pd.DataFrame, min_games: int = 10) -> pd.DataFrame:
-    """Whole-corpus team table: record, win rate and WP gained per game (see _team_table)."""
+    """Whole-corpus team table: record, win rate and the game ledger per game (see game_ledger)."""
     t = _team_table(pg, ["discipline", "team"])
     return t[t["games"] >= min_games]
 

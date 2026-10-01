@@ -23,6 +23,7 @@ import pandas as pd
 from ..core.configurations import LABELS, MEASURES
 from .aggregate import POSITION_NAMES, normalise_player
 from .config_features import load_table, pre_and_post
+from .dataset import scored_rows
 
 BANDS = [(13, 16, "16-13"), (9, 12, "12-9"), (5, 8, "8-5"), (1, 4, "4-1")]
 HIT_CALLS = {"Take-out", "Hit and Roll"}
@@ -40,8 +41,9 @@ def load_frame(parquet_root: str) -> pd.DataFrame:
     (the next shot's pre-shot row), the configuration labels before and after (`pre_*`, `post_*`), the
     realised value of the end in both currencies, and the event-relative execution."""
     pg = pd.read_parquet(os.path.join(parquet_root, "points_gained.parquet"))
-    feats = pd.read_parquet(os.path.join(parquet_root, "features.parquet"))
-    feats = feats.reset_index(drop=True)
+    if "x_end" in pg:
+        pg = pg[~pg["x_end"]].reset_index(drop=True)          # X-ended ends have no outcome
+    feats = scored_rows(pd.read_parquet(os.path.join(parquet_root, "features.parquet")))
     post_feats = feats.loc[feats["post_row"].clip(lower=0), FEATURE_COLS].reset_index(drop=True)
     post_feats.loc[feats["post_row"].to_numpy() < 0] = np.nan
     post_feats.columns = ["post_" + c for c in FEATURE_COLS]

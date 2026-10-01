@@ -138,7 +138,8 @@ def _target_features(rows: pd.DataFrame, X: np.ndarray) -> np.ndarray:
 
 def apply_target_model(intent: pd.DataFrame, rows: pd.DataFrame, X: np.ndarray, seed: int = 0, n_splits: int = 5) -> pd.DataFrame:
     """Fill the design columns: draws from the modal target cell for every draw; hits without rings
-    from the modal struck-stone class. Out of fold by book. `rows`/`X` are the unmirrored cache rows."""
+    from the modal struck-stone class. Out of fold by book. `rows`/`X` are the unmirrored cache rows;
+    X-ended (censored) rows are filled but never train the target model."""
     from sklearn.ensemble import HistGradientBoostingClassifier
     from sklearn.model_selection import GroupKFold
     t0 = time.time()
@@ -148,6 +149,7 @@ def apply_target_model(intent: pd.DataFrame, rows: pd.DataFrame, X: np.ndarray, 
     it = intent.set_index(key).reindex(pd.MultiIndex.from_frame(r[key])).reset_index()
     F = _target_features(r, Xu)
     groups = r["book"].to_numpy()
+    scored = ~r["censored"].to_numpy(bool) if "censored" in r else np.ones(len(r), dtype=bool)
     out = it.copy()
 
     def oof_predict(train_mask, apply_mask, labels):
@@ -181,7 +183,7 @@ def apply_target_model(intent: pd.DataFrame, rows: pd.DataFrame, X: np.ndarray, 
     is_draw = (it["family"] == "draw").to_numpy()
     known = it["target_known"].to_numpy(dtype=float) == 1.0
     cells = draw_cell(it["realised_x"].to_numpy(dtype=float), it["realised_y"].to_numpy(dtype=float))
-    pred = oof_predict(is_draw & known, is_draw, cells)
+    pred = oof_predict(is_draw & known & scored, is_draw, cells)
     ok = is_draw & (pred >= 0)
     lat, depth = pred[ok] // len(DRAW_DEPTH_CENTRES), pred[ok] % len(DRAW_DEPTH_CENTRES)
     out.loc[ok, "target_x"] = np.asarray(DRAW_LATERAL_CENTRES)[lat]
@@ -193,10 +195,10 @@ def apply_target_model(intent: pd.DataFrame, rows: pd.DataFrame, X: np.ndarray, 
     # hits without rings: modal struck-stone class, trained on hits with rings
     is_hit = (it["family"] == "hit").to_numpy()
     hc = hit_class(it["target_owner"].to_numpy(dtype=float), it["target_ring"].to_numpy(dtype=float), it["target_is_guard"].to_numpy(dtype=float))
-    pred = oof_predict(is_hit & known, is_hit & ~known, hc)
+    pred = oof_predict(is_hit & known & scored, is_hit & ~known, hc)
     ok = is_hit & ~known & (pred >= 0)
     if ok.any():
-        cls_mean = it[is_hit & known].assign(_c=hc[is_hit & known]).groupby("_c")[["target_x", "target_y", "target_is_shot_rock"]].mean()
+        cls_mean = it[is_hit & known & scored].assign(_c=hc[is_hit & known & scored]).groupby("_c")[["target_x", "target_y", "target_is_shot_rock"]].mean()
         c = pred[ok]
         out.loc[ok, "target_owner"] = np.where((c // 2) // 5 == 1, 1.0, -1.0)
         out.loc[ok, "target_ring"] = ((c // 2) % 5).astype(float)

@@ -21,7 +21,9 @@ def game_file_name(game_key: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", game_key) + ".md"
 
 
-def _outcome_label(hammer: str, other: str, score: int) -> str:
+def _outcome_label(hammer: str, other: str, score: float) -> str:
+    if pd.isna(score):
+        return "X (not completed: out of rocks, game over)"
     if score > 0:
         return f"{hammer} {score}"
     if score < 0:
@@ -78,8 +80,10 @@ def game_report(pg_game: pd.DataFrame, title: str, subtitle: str = "", team_orde
     for end, g in df.groupby("end", sort=True):
         h = str(g["hammer_team"].iloc[0])
         o = b if h == a else a
-        res = int(g["end_score_hammer"].iloc[0])
-        score[h if res > 0 else o] += abs(res)
+        res = g["end_score_hammer"].iloc[0]
+        if pd.notna(res):                       # an X-ended end scores nothing
+            res = int(res)
+            score[h if res > 0 else o] += abs(res)
         wp0 = float(g["WP before"].iloc[0])
         wp1 = float(g["WP after"].iloc[-1])
         if str(g["team"].iloc[0]) != a:
@@ -152,7 +156,7 @@ def game_report(pg_game: pd.DataFrame, title: str, subtitle: str = "", team_orde
     for end, g in df.groupby("end", sort=True):
         h = str(g["hammer_team"].iloc[0])
         o = b if h == a else a
-        res = int(g["end_score_hammer"].iloc[0])
+        res = g["end_score_hammer"].iloc[0]
         d = int(g["diff_hammer"].iloc[0])
         lead = "tied" if d == 0 else (f"up {d}" if d > 0 else f"down {-d}")
         n_left = int(g["ends_remaining"].iloc[0])

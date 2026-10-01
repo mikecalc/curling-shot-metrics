@@ -63,7 +63,8 @@ def build_positions(shots: pd.DataFrame, stones: pd.DataFrame, ends: pd.DataFram
     Returns a DataFrame keyed by (game_key, end, shot) with columns:
       hammer_team, thrower_has_hammer, rocks_remaining, fgz_rocks,
       post (Position), pre (Position), end_score_hammer (final score of the end, hammer perspective),
-      pre_source_shot (the shot whose post position is this shot's pre position; 0 = empty sheet).
+      pre_source_shot (the shot whose post position is this shot's pre position; 0 = empty sheet),
+      conceded (the end was scored X: not completed, no score; end_score_hammer is None).
     """
     st = stones[stones["kind"] == "stone"]
     colour_of = {}
@@ -124,7 +125,7 @@ def build_positions(shots: pd.DataFrame, stones: pd.DataFrame, ends: pd.DataFram
                 "thrower_has_hammer": team == hammer,
                 "rocks_remaining_before": 16 - (k - 1), "rocks_remaining_after": 16 - k,
                 "fgz_rocks": fgz, "pre": prev, "post": post, "end_score_hammer": end_score,
-                "is_last_shot": k == last_shot_no, "pre_source_shot": prev_shot,
+                "is_last_shot": k == last_shot_no, "pre_source_shot": prev_shot, "conceded": conceded,
             })
             if post is not None:
                 prev = post

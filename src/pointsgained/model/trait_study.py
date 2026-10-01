@@ -35,10 +35,11 @@ def load_rows(parquet_root: str, inventory_csv: str | None = None, tier1: bool =
     """One row per unmirrored shot 1-15 with a diagram: the trait counts of the position after it, the
     end's result and the situation strata, with each outcome's residual against its stratum."""
     cols = ["game_key", "end", "shot", "mirror", "book", "discipline", "has_post", "end_score_hammer",
-            "diff_hammer", "ends_remaining"]
+            "diff_hammer", "ends_remaining", "censored"]
     rows = pd.read_parquet(os.path.join(parquet_root, "features.parquet"), columns=cols)
-    rows = rows[(rows["mirror"] == 0) & rows["has_post"].fillna(False).astype(bool) & (rows["shot"] <= 15)]
-    rows = rows.drop(columns=["mirror", "has_post"]).reset_index(drop=True)
+    rows = rows[(rows["mirror"] == 0) & rows["has_post"].fillna(False).astype(bool) & (rows["shot"] <= 15) & ~rows["censored"]]
+    rows = rows.drop(columns=["mirror", "has_post", "censored"]).reset_index(drop=True)
+    rows["end_score_hammer"] = rows["end_score_hammer"].astype(int)
     if inventory_csv:
         from .experiment import attach_tier
         rows = attach_tier(rows, inventory_csv)
@@ -306,7 +307,9 @@ def attach_grades(train_rows: pd.DataFrame, parquet_root: str, n_groups: int = 5
             m = tg == g
             if m.any():
                 fill(m, fit_weights(study[sg != g], targets=("pts",)))
-    return train_rows.assign(**{c: out[c].to_numpy() for c in cols})
+    # rounded: the matrix product's last bit depends on how many rows it is computed over (BLAS blocking),
+    # and a one-ulp change moves the model's bin edges
+    return train_rows.assign(**{c: out[c].to_numpy().round(9) for c in cols})
 
 
 # ---- the report ------------------------------------------------------------------------------------

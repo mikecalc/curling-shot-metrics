@@ -5,6 +5,10 @@ One row per (shot, mirror). Rows carry the strata (book, discipline, date, team,
 the label (clipped end outcome, hammer perspective) and the 28 baseline position features of the
 pre-shot position. `post_row` is the index of the row holding the post-shot position (the next
 shot's pre-position, same mirror), -1 when there is none.
+
+Ends scored X (the trailing team ran out of rocks; not completed, no score) are kept as `censored` rows:
+their stones are valued for Points Gained but they have no outcome, so they never train or evaluate a
+model (label is a placeholder, end_score_hammer is NaN). `drop_censored` gives the table without them.
 """
 from __future__ import annotations
 
@@ -27,7 +31,7 @@ TYPE_INDEX = {t: i for i, t in enumerate(SHOT_TYPES)}
 SITUATION_COLS = ["diff_hammer", "ends_remaining", "ends_total", "is_extra_end"]
 META_COLS = ["game_key", "end", "shot", "mirror", "book", "discipline", "date", "hammer_team",
              "thrower_has_hammer", "team", "player", "shot_type", "shot_type_code", "turn", "grade_pct",
-             "label", "end_score_hammer", "is_last_shot", "has_post", "pre_source_shot", "post_row"]
+             "label", "end_score_hammer", "is_last_shot", "has_post", "pre_source_shot", "post_row", "censored"]
 
 
 def load_books(parquet_root: str, books: list[str] | None = None) -> dict[str, pd.DataFrame]:
@@ -67,7 +71,10 @@ def situation_table(tabs: dict) -> pd.DataFrame:
     """One row per (game_key, end): diff_hammer (hammer team minus other, before the end),
     ends_remaining (including this one), ends_total, is_extra_end. From the ends table and line scores."""
     ends, ls = tabs["ends"], tabs.get("line_scores")
-    e = ends.drop_duplicates(["game_key", "end"])
+    e = ends.drop_duplicates(["game_key", "end"]).sort_values(["game_key", "end"])
+    for t in ("a", "b") if "score_after_a" in e else ():   # an X end's header can lose a score: use the last end's after
+        prev_after = e.groupby("game_key")[f"score_after_{t}"].shift(1)
+        e = e.assign(**{f"score_before_{t}": e[f"score_before_{t}"].fillna(prev_after)})
     ok = e["hammer"].notna() & e["score_before_a"].notna() & e["score_before_b"].notna()
     e = e[ok]
     hammer_is_a = e["hammer"].to_numpy() == e["team_a"].to_numpy()
@@ -106,6 +113,34 @@ class Dataset:
         return Position(x, s["y"].to_numpy(float), s["owner"].to_numpy(int), 16 - shot, fgz)
 
 
+def link_post_rows(rows: pd.DataFrame) -> np.ndarray:
+    """post_row for each row: the index of the next shot's row in the same end and mirror, -1 if none."""
+    key = pd.MultiIndex.from_arrays([rows["game_key"], rows["end"], rows["shot"], rows["mirror"]])
+    lookup = pd.Series(np.arange(len(rows)), index=key)
+    nxt = pd.MultiIndex.from_arrays([rows["game_key"], rows["end"], rows["shot"] + 1, rows["mirror"]])
+    return lookup.reindex(nxt).fillna(-1).to_numpy().astype(int)
+
+
+def scored_rows(rows: pd.DataFrame) -> pd.DataFrame:
+    """A row table read from the cache without its X-ended rows (post_row relinked when present)."""
+    if "censored" not in rows or not rows["censored"].any():
+        return rows
+    rows = rows[~rows["censored"].to_numpy(bool)].reset_index(drop=True)
+    if "post_row" in rows:
+        rows["post_row"] = link_post_rows(rows)
+    return rows
+
+
+def drop_censored(ds: "Dataset") -> "Dataset":
+    """The dataset without the X-ended rows, row order kept and post_row relinked: the training table."""
+    if "censored" not in ds.rows or not ds.rows["censored"].any():
+        return ds
+    rows = ds.rows[~ds.rows["censored"].to_numpy(bool)].reset_index(drop=True)
+    rows["end_score_hammer"] = rows["end_score_hammer"].astype(int)
+    rows["post_row"] = link_post_rows(rows)
+    return Dataset.from_frame(rows, ds.stones)
+
+
 def canonical_stones(pos: pd.DataFrame) -> pd.DataFrame:
     """Explode the post positions to one row per stone in the canonical (hammer) frame."""
     gk, en, sh, xs, ys, ow = [], [], [], [], [], []
@@ -126,11 +161,13 @@ def build_dataset(tabs: dict[str, pd.DataFrame], mirror: bool = True) -> Dataset
     pos = build_positions(shots, stones, ends, games)
     if not len(pos):
         return Dataset.from_frame(pd.DataFrame(columns=META_COLS + SITUATION_COLS + FEATURE_NAMES), canonical_stones(pos))
-    pos = pos[pos["end_score_hammer"].notna() & pos["pre"].notna()].reset_index(drop=True)
+    censored = pos["conceded"].fillna(False).astype(bool)
+    pos = pos[(pos["end_score_hammer"].notna() | censored) & pos["pre"].notna()].reset_index(drop=True)
     base = pos[["game_key", "end", "shot", "hammer_team", "thrower_has_hammer", "end_score_hammer",
-                "is_last_shot", "pre_source_shot"]].copy()
+                "is_last_shot", "pre_source_shot", "conceded"]].rename(columns={"conceded": "censored"})
     base["has_post"] = pos["post"].notna().to_numpy()
-    base["end_score_hammer"] = base["end_score_hammer"].astype(int)
+    base["censored"] = base["censored"].fillna(False).astype(bool)
+    base["end_score_hammer"] = base["end_score_hammer"].astype(float)       # NaN on censored rows
     shot_meta = shots.drop_duplicates(["game_key", "end", "shot"])[["game_key", "end", "shot", "shot_type", "turn", "grade_pct", "team", "player"]]
     game_meta = games.drop_duplicates("game_key")[["game_key", "book", "discipline", "date"]]
     base["_order"] = np.arange(len(base))
@@ -142,7 +179,7 @@ def build_dataset(tabs: dict[str, pd.DataFrame], mirror: bool = True) -> Dataset
     pre = pos["pre"].to_numpy(dtype=object)[keep]
     base = base.drop(columns="_order").reset_index(drop=True)
     base["shot_type_code"] = base["shot_type"].map(shot_type_code).astype(int)
-    base["label"] = base["end_score_hammer"].map(clip_outcome).astype(int)
+    base["label"] = base["end_score_hammer"].fillna(0).astype(int).map(clip_outcome).astype(int)   # placeholder 0 when censored
     base["diff_hammer"] = base["diff_hammer"].fillna(0).astype(int)
     base["ends_remaining"] = base["ends_remaining"].fillna(10).astype(int)
     base["ends_total"] = base["ends_total"].fillna(10).astype(int)
@@ -161,10 +198,7 @@ def build_dataset(tabs: dict[str, pd.DataFrame], mirror: bool = True) -> Dataset
         rows["mirror"] = 0
         X = X_unm
     # post_row: the row of the next shot in the same end and mirror; its pre-position is this shot's post
-    key = pd.MultiIndex.from_arrays([rows["game_key"], rows["end"], rows["shot"], rows["mirror"]])
-    lookup = pd.Series(np.arange(len(rows)), index=key)
-    nxt = pd.MultiIndex.from_arrays([rows["game_key"], rows["end"], rows["shot"] + 1, rows["mirror"]])
-    rows["post_row"] = lookup.reindex(nxt).fillna(-1).to_numpy().astype(int)
+    rows["post_row"] = link_post_rows(rows)
     for i, name in enumerate(FEATURE_NAMES):
         rows[name] = X[:, i]
     rows = rows[META_COLS + SITUATION_COLS + FEATURE_NAMES]
