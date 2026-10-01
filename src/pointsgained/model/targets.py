@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupKFold
 
-from .train import _full_proba, make_model
+from .train import _full_proba, fit_f
 from .value import N_OUT
 
 LOCAL_MIN_ROCKS = 9          # rows with this many rocks remaining or more take the local target
@@ -32,7 +32,7 @@ def local_targets(rows: pd.DataFrame, X_f: np.ndarray, y: np.ndarray, tr: np.nda
     P1 = np.zeros_like(T)
     groups = rows["book"].to_numpy()[tr]
     for a, b in GroupKFold(n_splits=5).split(tr, groups=groups):
-        m = make_model(seed).fit(X_f[tr[a]], y[tr[a]])
+        m = fit_f(X_f, rows, tr[a], y[tr[a]], seed=seed)
         P1[tr[b]] = _full_proba(m, X_f[tr[b]])
     post = rows["post_row"].to_numpy()
     last = rows["is_last_shot"].to_numpy(dtype=bool)

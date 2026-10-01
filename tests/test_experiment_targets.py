@@ -32,7 +32,7 @@ def test_local_targets_chain(monkeypatch):
     def fake_proba(model, X):
         return np.full((len(X), 7), 1 / 7)
 
-    monkeypatch.setattr(ex, "make_model", lambda seed=0, cat=None: Marker())
+    monkeypatch.setattr(ex, "fit_f", lambda *a, **k: Marker())
     monkeypatch.setattr(ex, "_full_proba", fake_proba)
     T = ex.local_targets(rows, X_f, y, np.arange(len(rows)), k=2)
     rr = rows["rocks_remaining"].to_numpy()
@@ -64,7 +64,7 @@ def test_local_targets_per_row_steps(monkeypatch):
         P[np.arange(len(X)), (X[:, 0].astype(int) % 7)] = 1.0      # class = shot number mod 7
         return P
 
-    monkeypatch.setattr(ex, "make_model", lambda seed=0, cat=None: M())
+    monkeypatch.setattr(ex, "fit_f", lambda *a, **k: M())
     monkeypatch.setattr(ex, "_full_proba", marker)
     X_f = rows[["shot"]].to_numpy(float)
     shot = rows["shot"].to_numpy()

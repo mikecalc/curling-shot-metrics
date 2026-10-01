@@ -27,7 +27,7 @@ from sklearn.model_selection import GroupKFold
 from .aggregate import _records, normalise_player
 from .dataset import Dataset
 from .frontend import next_stone, opponent_same_game, split_half, _spearman
-from .train import design_matrices, make_model, _cat_index, column, evaluate, _full_proba, TRIVIAL_FEATURES, FEATURE_SETS
+from .train import design_matrices, make_model, fit_f, _cat_index, column, evaluate, _full_proba, TRIVIAL_FEATURES, FEATURE_SETS
 from .targets import training_rows
 from .value import HammerAdjustedPoints, ValueSet
 
@@ -172,6 +172,8 @@ def run_experiment(ds: Dataset, name: str, sets: tuple[str, ...], split: str = "
         t1 = time.time()
         if mname == "trivial":
             m = make_model(seed, cat).fit(Xm[tr], y[tr])       # the reference stays on final labels
+        elif mname == "f":
+            m = fit_f(Xm, rows, fit_idx, fit_y, fit_w, seed)
         else:
             m = make_model(seed, cat).fit(Xm[fit_idx], fit_y, sample_weight=fit_w)
         P[mname] = _full_proba(m, Xm[te])

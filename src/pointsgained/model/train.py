@@ -127,14 +127,25 @@ def _brier(P, y):
     return float(np.mean(np.sum((P - Y) ** 2, axis=1)))
 
 
-def make_model(seed: int = 0, categorical=None):
+def make_model(seed: int = 0, categorical=None, rows_per_shot: int = 2):
     # Regularised. On four books anything richer than 8 leaves / 80 rounds overfit; on the full
     # archive (1.2M rows) 15 leaves / 200 rounds is the plateau: 31 leaves / 300 rounds scores the
     # same at 25x the cost and 63 leaves is worse (15 held-out books, 2026-09-09).
+    # Tuned on two rows per shot (a shot and its mirror). A model fitted on one row per shot keeps the
+    # same regularisation with half of both: duplicated rows double every leaf's gradient and hessian
+    # sums, so l2 = 10 on two rows per shot is l2 = 5 on one, and 300 rows a leaf is 150 shots.
     return HistGradientBoostingClassifier(max_iter=200, learning_rate=0.05, max_leaf_nodes=15,
-                                          min_samples_leaf=300, l2_regularization=10.0,
+                                          min_samples_leaf=150 * rows_per_shot, l2_regularization=5.0 * rows_per_shot,
                                           early_stopping=False,
                                           categorical_features=categorical, random_state=seed)
+
+
+def fit_f(X_f: np.ndarray, rows: pd.DataFrame, idx: np.ndarray, yy: np.ndarray, w: np.ndarray | None = None,
+          seed: int = 0) -> HistGradientBoostingClassifier:
+    """f on the unmirrored training rows only: every f input is the same for a shot and its mirror, so
+    the mirrored rows are duplicates (half the fitting time, the same model up to binning)."""
+    keep = rows["mirror"].to_numpy()[idx] == 0 if "mirror" in rows else np.ones(len(idx), dtype=bool)
+    return make_model(seed, rows_per_shot=1).fit(X_f[idx[keep]], yy[keep], sample_weight=None if w is None else w[keep])
 
 
 def _cat_index(cols: list[str]):
@@ -248,7 +259,7 @@ def fit_models(rows: pd.DataFrame, X: np.ndarray, y: np.ndarray, seed: int = 0,
     for k, (tr, te) in enumerate(folds.split(X_f, y, groups)):
         t1 = time.time()
         idx, yy, w = training_rows(target, rows, X_f, y, tr, seed)
-        mf = make_model(seed).fit(X_f[idx], yy, sample_weight=w); P_f[te] = _full_proba(mf, X_f[te])
+        mf = fit_f(X_f, rows, idx, yy, w, seed); P_f[te] = _full_proba(mf, X_f[te])
         mg = make_model(seed, cat_g).fit(X_g[idx], yy, sample_weight=w); P_g[te] = _full_proba(mg, X_g[te])
         mt = make_model(seed).fit(X_t[tr], y[tr]); P_t[te] = _full_proba(mt, X_t[te])
         fold_models.append((set(groups[te]), mf, mg))
@@ -256,7 +267,7 @@ def fit_models(rows: pd.DataFrame, X: np.ndarray, y: np.ndarray, seed: int = 0,
     report.update(evaluate({"trivial": P_t[unm], "f": P_f[unm], "g": P_g[unm]}, y[unm], rows[unm], X[unm]))
     t1 = time.time()
     idx, yy, w = training_rows(target, rows, X_f, y, np.arange(len(y)), seed)
-    f = make_model(seed).fit(X_f[idx], yy, sample_weight=w)
+    f = fit_f(X_f, rows, idx, yy, w, seed)
     g = make_model(seed, cat_g).fit(X_g[idx], yy, sample_weight=w)
     t = make_model(seed).fit(X_t, y)
     log.info("full-data models fitted in %.0fs (total %.0fs)", time.time() - t1, time.time() - t0)
