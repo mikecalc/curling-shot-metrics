@@ -1,0 +1,23 @@
+# Extraction notes: reading the World Curling results books
+
+Details of the results-book format and how `src/pointsgained/ingest/` handles each one, for anyone building another reader of the books or extending this one. The design document (`shot_value_design.md`, Section 2) describes the pipeline at a higher level.
+
+## The diagrams
+
+The per-shot diagrams are not drawn on the page; they are embedded raster images, 300×600 pixels (occasionally 301×601), 4-bit indexed colour with an exact 16-entry palette, losslessly compressed, in every book examined from 2014 to 2026. A few recent small books (2026 juniors) use lossy 8-bit images. The extractor never renders a page: it reads the image stream and palette from the PDF, classifies pixels by nearest reference colour, and reads the panel's text by coordinates.
+
+Geometry is fixed: centre line at column 149, tee line at row 439, 12-foot outer radius 118.5 px, hog line at row 20, back line at row 560; 1.646 px per inch, or 0.61 in per pixel, in both axes. Coordinates are in inches with the pin at (0, 0) and y positive towards the hog line.
+
+## Template differences and pitfalls
+
+Each of these cost a bug before it was known:
+
+- **Alternate ends are drawn with the house at the top.** Play changes direction each end and the sheet is drawn from a fixed vantage point. The extractor detects the orientation from the ring position and rotates the image 180° into the thrower's frame; the stones-remaining and stones-removed counters swap strips accordingly. Before this was handled, half the ends reconstructed the wrong score.
+- **Palettes vary by template.** Yellow is (255,200,50) in the WCF template, (255,230,0) in the Olympic template, (255,255,0) in older books; the 12-foot is blue in most books and green in the 2024–2026 World Championship books; the four-foot is pale yellow, green or pink. Orientation and calibration use any ring colour rather than a specific one, and unseen colours far from every reference are treated as house paint.
+- **Yellow glyphs carry crosses.** Plain in the WCF template, a blue cross in the Olympic template, a black X in 2014-era books, anti-aliased into arbitrary tones in lossy books. Stones are therefore detected by a disk template: the fraction of stone colour inside a stone-sized disk, with local maxima above half coverage taken as stones. A filled disk scores near one whether or not a line crosses it, a hollow ring scores about a quarter, and two touching stones give two peaks eighteen pixels apart.
+- **Delivered-stone marker.** A small black mark at the stone's centre in the WCF and Olympic templates; a two-pixel outline in the 2014 and Cortina templates. Both are read, the dot rule excluding pixels that a cross would place at the centre. The marker is absent when the delivered stone left play, which is most clearing and take-out shots, so about 11% of shots have no marked stone. The delivered stone's colour agrees with the thrower's team in 99.8% of marked shots, which is also the cross-check for team colours.
+- **Prior positions.** Hollow rings mark where moved stones were before the shot. They are stored as separate rows.
+- **Counters.** Small glyphs at the top of the diagram count stones not yet thrown per colour; full-size glyphs at the bottom count stones removed. The census, thrown plus on the sheet plus removed equals eight per colour, holds in 99.9% of panels and is the main extraction gate.
+- **Text variants.** Percentages with arrow glyphs for the turn from 2015; 0–4 grades written "Out4" or "In 0" in 2014 and as a bare digit in 2017; type names without hyphens; glued header tokens ("End1", "CAN-Canada", "0+0(this", "11+") in the 2017 template and whenever a running score reaches double digits; an `X` in place of the end score for an end that was not completed; a note line ("Free guard zone violation") that pushes the panel rows below it down the page. One tokeniser and a row grid derived from the image positions handle all of them.
+- **Duplicated reports.** The 2014 Olympic book carries one game's shot-by-shot report twice; the first copy is kept.
+- **Resolution limit.** The count function (design document, Section 4.2) applied to the final position agrees with the recorded end score in 96 to 98% of ends in recent books and about 89% in 2014–2017 books. The disagreements are stones within an inch of each other or of the twelve-foot edge, which a 0.61 in/px diagram cannot resolve and which were measured on the ice; sweeping the biting radius does not improve agreement. The recorded score is therefore the label and the reconstruction is the gate.

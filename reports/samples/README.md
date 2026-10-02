@@ -55,7 +55,7 @@ leaderboard number looks surprising, because it shows which stones produced it.
 reported relative to that event's field for the same shot type and hammer state, so that a fourth who throws doubles all
 week is compared with the other fourths' doubles rather than with a lead's guards. Players are grouped by throwing position,
 from the throwing order, and sorted by `net`, their mean execution over every shot against the field's expectation, then by
-reliability, the share of their shots at or above it. The execution block reads the player's distribution as well as its average (`shot_value_design.md`,
+reliability, the share of their shots at or above it. The execution columns show the spread of the player's shots as well as their average (`shot_value_design.md`,
 Section 11.2): reliability, the average make and the average miss, and `net`, which folds the three together; then the big shots: the counts of big makes and big misses and the sum of the
 five costliest shots. The effect on win
 probability follows for reference: shots that gained or cost five or more points, and the five best and five worst stones
@@ -71,7 +71,7 @@ and keeps the game quiet.
 Its first half is about the models (accuracy held out by book, by rocks remaining and by score difference; conservation;
 calibration; the win-probability table). Its second half is the whole-corpus performance view under the same rule as the
 other reports: a team table in win probability (record, win rate and the same per-game columns as the event reports,
-`net`, `dsc`, `own`, `allowed`, `other` and `control`, across every book the team appears in), a player table per position with the execution block
+`net`, `dsc`, `own`, `allowed`, `other` and `control`, across every book the team appears in), a player table per position with the execution columns
 (reliability, average make, average miss, big makes and misses per 100 shots, net, with the win-probability version of
 the net as reference), and execution by shot type. The stratified tables by discipline, tier, hammer, game state and shot
 type close it as model checks.
@@ -134,7 +134,7 @@ position features to rocks read by their traits (September 2026). The fourths' e
 correlation 0.96 with the old values; their event rankings by net 0.98); the front end moved most (leads 0.70), which
 is where the old model knew least. Because the leaderboards then sorted on reliability, where players sit within a point or two
 of each other, the order within a position group changed often, mostly among leads and seconds; among the fourths the top
-of a table changed only between players who were already level. The design document's Section 19 has the details.
+of a table changed only between players who were already level.
 
 ## Things to keep in view
 

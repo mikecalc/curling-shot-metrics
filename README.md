@@ -10,14 +10,14 @@ An open system for shot-by-shot curling analysis, with three major parts:
 - **Points Gained**, an expectation model for curling positions and a value for every shot as the change it made to the
   end's expected result, split into the call and the execution, in points and in win probability. It reads a position
   rock by rock: every rock carries objective yes/no traits (in the four-foot, behind cover, frozen, on the wing, ...),
-  re-read after every stone, and the corpus says what rocks like that have been worth; a few relations between rocks
-  (the draw to beat, doubles and runbacks) and the rocks that matter most, kept whole, complete it. It rates execution,
-  and it is the general tool the studies use to evaluate a position, a shot or a phase of the end.
+  re-read after every stone, and the corpus says what rocks like that have been worth. The key rocks (shot rock, second
+  and third shot, etc.) are also described individually, along with a few specific positions that have been shown
+  empirically to have a different expectation than the rocks themselves would suggest (e.g., a draw late in the end
+  against multiple stones, doubles and runbacks). It rates execution, and it is the general tool the studies use to
+  evaluate a position, a shot or a phase of the end.
 
-On top of these sit sample studies: how often a double comes off by the separation and stagger of the two stones, how
-often a runback works by the distance of the stone in front, what the first five rocks of an end decide, which skips
-are best at runbacks, and per-event leaderboards for every Olympics and World Championship since 2018
-(`reports/samples/`). The design document, `shot_value_design.md`, describes the pipeline and corpus (Part I), how a
+On top of these sit sample studies, the most complete of which are the per-event leaderboards for every Olympics and
+World Championship since 2018 (`reports/samples/`). The design document, `shot_value_design.md`, describes the pipeline and corpus (Part I), how a
 position is read rock by rock (Part II), Points Gained (Part III), the studies (Part IV), and how to contribute
 (Part V); retired approaches are in its Appendix A and in the repository at the tag `handcrafted-features-final`.
 
@@ -31,8 +31,8 @@ position is read rock by rock (Part II), Points Gained (Part III), the studies (
   a list of known weaknesses and the positions the model misprices (`pointsgained misprice`; design document, Part V).
 - **Studies.** Every study reads the same tables: one row per stone with its values, the traits of every rock, the
   configuration of every position, and the extraction tables. `src/pointsgained/model/trait_study.py` and
-  `src/pointsgained/model/frontend.py` are worked examples, and the strategic situations in Part IV of the design
-  document are open.
+  `src/pointsgained/model/frontend.py` are worked examples, and the open problems in Part V of the design document
+  are places to start.
 
 For a wider view, `open_problems.md` sets out ten open problems in curling analytics in plain curling terms.
 
@@ -114,9 +114,10 @@ pointsgained batch
 ## Layout
 
 - `src/pointsgained/ingest/` PDF page classification, diagram decoding and stone detection, panel text parsing, book assembly, validation gates
-- `src/pointsgained/core/` sheet geometry, the count function, canonical-frame position assembly, stone tracking, rock traits, the draw to beat, doubles and runbacks, configurations (the study vocabulary)
+- `src/pointsgained/core/` sheet geometry, the count function, canonical-frame position assembly, stone tracking, rock traits, the draw against multiple stones, doubles and runbacks, configurations (the study vocabulary)
 - `src/pointsgained/model/` value mappings (hammer-adjusted points, win probability), the feature cache and position descriptors, trait counts, slots and relation caches, rock grades and the rock ledger, training targets, f and g models, Points Gained, experiments and the mispricing report, leaderboards, the trait, front-end and stone studies
 - `src/pointsgained/corpus/` archive inventory, event family and tier table, downloader, batch processing
+- `docs/extraction_notes.md` the results-book format in detail: diagram geometry, template differences and how the extractor handles each
 - `tests/` unit tests
 - `data/raw/` PDFs (not committed), `data/parquet/` extracted tables (not committed), `reports/` validation and model reports (not committed)
 - `reports/samples/` finished reports kept in the repository: the model report, the pinned test set, per-event leaderboards for Olympics and Worlds back to 2018, the two 2026 Olympic finals shot by shot, and a sample early-end study, with a README on how each is built and what it says
